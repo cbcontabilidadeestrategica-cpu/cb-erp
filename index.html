@@ -39,6 +39,23 @@
 }
 .sidebar-logout-btn:hover{background:rgba(255,255,255,.14);color:#fff}
 
+/* ── Toast ── */
+#toastContainer{position:fixed;bottom:24px;right:24px;z-index:9000;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{background:var(--navy);color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;font-weight:500;opacity:0;transform:translateY(8px);transition:opacity .25s,transform .25s;box-shadow:0 4px 20px rgba(0,0,0,.28);display:flex;align-items:center;gap:8px;min-width:200px;max-width:300px;pointer-events:auto;border-left:3px solid var(--gold)}
+.toast.show{opacity:1;transform:none}
+.toast.ok{border-left-color:var(--green)}
+.toast.err{border-left-color:var(--red)}
+/* ── Header tab indicator ── */
+#headerTabIndicator{font-size:11px;color:rgba(255,255,255,.5);font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin-left:10px;padding:2px 8px;background:rgba(255,255,255,.08);border-radius:4px;display:none}
+/* ── Sidebar search ── */
+.sidebar-search{padding:0 10px 6px;flex-shrink:0}
+.sidebar-search-input{width:100%;box-sizing:border-box;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:6px;padding:7px 10px;color:#fff;font-family:'Outfit',sans-serif;font-size:12px;outline:none;transition:.14s}
+.sidebar-search-input::placeholder{color:rgba(255,255,255,.3)}
+.sidebar-search-input:focus{border-color:rgba(255,255,255,.3);background:rgba(255,255,255,.12)}
+.sidebar-search-results{list-style:none;margin:4px 10px 0;padding:0;max-height:180px;overflow-y:auto;display:none}
+.sidebar-search-results.open{display:block}
+.sidebar-search-item{padding:6px 10px;color:rgba(255,255,255,.75);font-size:12px;cursor:pointer;border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sidebar-search-item:hover{background:rgba(255,255,255,.1);color:#fff}
 /* ── Sidebar recolhível ── */
 .sidebar{transition:width .22s ease}
 .sidebar.collapsed{width:58px;overflow:hidden}
@@ -49,6 +66,7 @@
 .sidebar.collapsed .sidebar-footer{display:none}
 .sidebar.collapsed .sidebar-nav-btn{justify-content:center;padding:12px 0;gap:0}
 .sidebar.collapsed .sidebar-logo{padding:14px 0;justify-content:center}
+.sidebar.collapsed .sidebar-search{display:none}
 .sidebar-toggle{display:flex;justify-content:flex-end;padding:4px 10px 0;flex-shrink:0}
 .sidebar-toggle-btn{background:rgba(255,255,255,.1);border:none;border-radius:6px;width:26px;height:26px;cursor:pointer;color:rgba(255,255,255,.55);display:flex;align-items:center;justify-content:center;font-size:12px;transition:.14s;line-height:1}
 .sidebar-toggle-btn:hover{background:rgba(255,255,255,.2);color:#fff}
@@ -1132,6 +1150,10 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
     <div class="sidebar-toggle">
       <button class="sidebar-toggle-btn" id="sidebarToggleBtn" onclick="toggleSidebar()" title="Recolher menu">◀</button>
     </div>
+    <div class="sidebar-search" id="sidebarSearchBox">
+      <input type="search" class="sidebar-search-input" id="sidebarSearch" placeholder="🔍 Buscar cliente..." oninput="filterSidebarSearch(this.value)" autocomplete="off">
+      <ul class="sidebar-search-results" id="sidebarSearchResults"></ul>
+    </div>
     <nav class="sidebar-nav">
       <button class="sidebar-nav-btn active" onclick="switchTab('radar',this)" data-tab="radar"><span class="nav-icon">📡</span><span class="nav-label"> Radar</span></button>
       <button class="sidebar-nav-btn" onclick="switchTab('fechamento',this)" data-tab="fechamento"><span class="nav-icon">✅</span><span class="nav-label"> Fechamento</span></button>
@@ -1159,6 +1181,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
           <span class="brand-name">CB</span>
           <span class="brand-sub">Contabilidade Estratégica</span>
         </div>
+        <span id="headerTabIndicator">Radar</span>
       </div>
       <div class="header-right">
         <span class="header-date" id="headerDate"></span>
@@ -1168,10 +1191,10 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 
     <!-- META BANNER -->
     <div class="meta-banner">
-      <span class="meta-text">🎯 Meta Dezembro: <strong>20 clientes ativos</strong></span>
+      <span class="meta-text" id="metaBannerText">🎯 Carregando...</span>
       <div class="meta-progress">
-        <div class="meta-bar"><div class="meta-bar-fill" style="width:25%"></div></div>
-        <span class="meta-count">5/20</span>
+        <div class="meta-bar"><div class="meta-bar-fill" id="metaBarFill" style="width:0%"></div></div>
+        <span class="meta-count" id="metaBarCount">-</span>
       </div>
     </div>
 
@@ -1506,9 +1529,9 @@ async function showApp(user) {
   const uel = document.getElementById('sidebarUser');
   if (uel) uel.textContent = user.email;
   document.getElementById('loginOverlay').style.display = 'none';
-  document.getElementById('appShell').style.display = '';
+  document.getElementById('appShell').style.display = 'flex';
   await loadFromSupabase();
-  initState(); initTheme(); initSidebar(); renderRadar(); renderRadarDemandas();
+  initState(); initTheme(); initSidebar(); renderMetaBanner(); renderRadar(); renderRadarDemandas();
   renderFechamento(); renderIgCal(); renderFunil(); renderFinanceiro();
   renderClientes(); renderClientDefaults(); renderDemandas();
 }
@@ -1836,6 +1859,9 @@ function switchTab(name, btn) {
   document.querySelectorAll('.sidebar-nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   document.querySelectorAll('[data-tab="'+name+'"]').forEach(b => b.classList.add('active'));
+  const tabLabels = {radar:'Radar',fechamento:'Fechamento',instagram:'Instagram',funil:'Funil',clientes:'Clientes',demandas:'Demandas',financeiro:'Financeiro'};
+  const ind = document.getElementById('headerTabIndicator');
+  if(ind){ ind.textContent = tabLabels[name]||name; }
   window.scrollTo(0,0);
 }
 
@@ -1845,15 +1871,24 @@ function toggleSidebar() {
   sidebar.classList.toggle('collapsed');
   const isCollapsed = sidebar.classList.contains('collapsed');
   if (btn) btn.textContent = isCollapsed ? '▶' : '◀';
+  const ind = document.getElementById('headerTabIndicator');
+  if (ind) ind.style.display = isCollapsed ? 'inline' : 'none';
+  const searchBox = document.getElementById('sidebarSearchBox');
+  if (searchBox) searchBox.style.display = isCollapsed ? 'none' : '';
   try { localStorage.setItem('cb3_sidebar_collapsed', isCollapsed ? '1' : '0') } catch(e) {}
 }
 
 function initSidebar() {
   try {
-    if (localStorage.getItem('cb3_sidebar_collapsed') === '1') {
+    const isCollapsed = localStorage.getItem('cb3_sidebar_collapsed') === '1';
+    if (isCollapsed) {
       document.querySelector('.sidebar').classList.add('collapsed');
       const btn = document.getElementById('sidebarToggleBtn');
       if (btn) btn.textContent = '▶';
+      const ind = document.getElementById('headerTabIndicator');
+      if (ind) ind.style.display = 'inline';
+      const searchBox = document.getElementById('sidebarSearchBox');
+      if (searchBox) searchBox.style.display = 'none';
     }
   } catch(e) {}
 }
@@ -3027,15 +3062,21 @@ function saveClientModal(){
     const newId=Date.now();
     clients.push({id:newId,name,initials,regime,nivel,mensalidade,whatsapp,hasEmployees,services,notes,driveKey:'drive_'+newId});
   }
+  const isNew = !editingClientId;
   save('cb3_clients',clients);
   closeClientModal();
   renderClientes();
   renderFechamento();
   renderFinanceiro();
   renderDemandas();
+  renderMetaBanner();
+  showToast(isNew ? 'Cliente adicionado com sucesso!' : 'Cliente atualizado com sucesso!', 'ok');
 }
 function removeClientFromModal(){
   if(!editingClientId) return;
+  const c = clients.find(x=>x.id===editingClientId);
+  const nome = c ? c.name : 'este cliente';
+  if(!confirm('Tem certeza que deseja excluir "'+nome+'"? Esta ação não pode ser desfeita.')) return;
   clients=clients.filter(c=>c.id!==editingClientId);
   save('cb3_clients',clients);
   closeClientModal();
@@ -3043,6 +3084,8 @@ function removeClientFromModal(){
   renderFechamento();
   renderFinanceiro();
   renderDemandas();
+  renderMetaBanner();
+  showToast('Cliente excluído com sucesso.', 'ok');
 }
 function closeClientModal(){
   editingClientId=null;
@@ -3230,11 +3273,17 @@ function changeDemStatus(id,status){
   if(idx>-1){demandas[idx].status=status;save('cb3_demandas',demandas);renderDemandas();renderRadarDemandas();}
 }
 
-function removeDemandaById(id){
+function removeDemandaById(id, skipConfirm){
+  if(!skipConfirm){
+    const d = demandas.find(x=>x.id===id);
+    const desc = d ? (d.tipo||d.desc||'esta demanda') : 'esta demanda';
+    if(!confirm('Excluir "'+desc+'"? Esta ação não pode ser desfeita.')) return;
+  }
   demandas=demandas.filter(d=>d.id!==id);
   save('cb3_demandas',demandas);
   renderDemandas();
   renderRadarDemandas();
+  showToast('Demanda excluída.', 'ok');
 }
 
 function setDemFilter(f){demFilter=f;renderDemandas()}
@@ -3269,6 +3318,7 @@ function addDemanda(){
   document.getElementById('demValor').value='';
   document.getElementById('demPrazo').value='';
   renderDemandas();
+  showToast('Demanda adicionada com sucesso!', 'ok');
 }
 
 function removeDemanda(i){
@@ -3307,6 +3357,79 @@ function renderRadarDemandas(){
 }
 
 /* ═══════════════════════════════════════════════
+   TOAST NOTIFICATIONS
+═══════════════════════════════════════════════ */
+function showToast(msg, type='ok') {
+  const container = document.getElementById('toastContainer');
+  if (!container) return;
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  container.appendChild(el);
+  requestAnimationFrame(() => { el.classList.add('show'); });
+  setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(() => el.remove(), 300);
+  }, 2800);
+}
+
+/* ═══════════════════════════════════════════════
+   META BANNER DINÂMICO
+═══════════════════════════════════════════════ */
+function renderMetaBanner() {
+  const goal = (typeof clientDefaults !== 'undefined' && clientDefaults.metaClientes) ? clientDefaults.metaClientes : 20;
+  const active = (typeof clients !== 'undefined' ? clients : []).filter(c => c.ativo !== false).length;
+  const pct = Math.min(100, Math.round((active / goal) * 100));
+  const mes = new Date().toLocaleString('pt-BR', {month:'long'});
+  const textEl = document.getElementById('metaBannerText');
+  const fillEl = document.getElementById('metaBarFill');
+  const countEl = document.getElementById('metaBarCount');
+  if (textEl) textEl.innerHTML = '🎯 Meta ' + mes.charAt(0).toUpperCase()+mes.slice(1) + ': <strong>' + goal + ' clientes ativos</strong>';
+  if (fillEl) fillEl.style.width = pct + '%';
+  if (countEl) countEl.textContent = active + '/' + goal;
+}
+
+/* ═══════════════════════════════════════════════
+   BUSCA RÁPIDA NA SIDEBAR
+═══════════════════════════════════════════════ */
+function filterSidebarSearch(q) {
+  const list = document.getElementById('sidebarSearchResults');
+  if (!list) return;
+  const query = q.trim().toLowerCase();
+  if (!query) { list.classList.remove('open'); list.innerHTML = ''; return; }
+  const cl = (typeof clients !== 'undefined' ? clients : []);
+  const matches = cl.filter(c => (c.name||'').toLowerCase().includes(query)).slice(0,8);
+  if (!matches.length) { list.innerHTML = '<li class="sidebar-search-item" style="opacity:.5">Nenhum resultado</li>'; list.classList.add('open'); return; }
+  list.innerHTML = matches.map(c =>
+    '<li class="sidebar-search-item" onclick="sidebarOpenClient(\''+c.id+'\')">'+escHtml(c.nome)+'</li>'
+  ).join('');
+  list.classList.add('open');
+}
+function sidebarOpenClient(id) {
+  document.getElementById('sidebarSearch').value = '';
+  const list = document.getElementById('sidebarSearchResults');
+  if (list) { list.classList.remove('open'); list.innerHTML = ''; }
+  switchTab('clientes', null);
+  setTimeout(() => { openEditClientModal(id); }, 100);
+}
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* ═══════════════════════════════════════════════
+   ATALHOS DE TECLADO (1-7 trocam abas)
+═══════════════════════════════════════════════ */
+(function(){
+  const tabKeys = {
+    '1':'radar','2':'fechamento','3':'instagram','4':'funil','5':'clientes','6':'demandas','7':'financeiro'
+  };
+  document.addEventListener('keydown', function(e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    const name = tabKeys[e.key];
+    if (name) { e.preventDefault(); switchTab(name, null); }
+  });
+})();
+
+/* ═══════════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════════ */
 initAuth();
@@ -3314,4 +3437,5 @@ initAuth();
 
   </div><!-- /.app-content -->
 </div><!-- /#appShell -->
+<div id="toastContainer"></div>
 </body></html>
