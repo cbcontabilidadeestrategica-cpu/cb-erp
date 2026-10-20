@@ -1155,12 +1155,13 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
       <ul class="sidebar-search-results" id="sidebarSearchResults"></ul>
     </div>
     <nav class="sidebar-nav">
-      <button class="sidebar-nav-btn active" onclick="switchTab('radar',this)" data-tab="radar"><span class="nav-icon">📡</span><span class="nav-label"> Radar</span></button>
-      <button class="sidebar-nav-btn" onclick="switchTab('fechamento',this)" data-tab="fechamento"><span class="nav-icon">✅</span><span class="nav-label"> Fechamento</span></button>
-      <button class="sidebar-nav-btn" onclick="switchTab('instagram',this)" data-tab="instagram"><span class="nav-icon">📸</span><span class="nav-label"> Instagram</span></button>
-      <button class="sidebar-nav-btn" onclick="switchTab('funil',this)" data-tab="funil"><span class="nav-icon">🎯</span><span class="nav-label"> Funil</span></button>
+      <button class="sidebar-nav-btn active" onclick="switchTab('radar',this)" data-tab="radar"><span class="nav-icon">📡</span><span class="nav-label"> Início</span></button>
       <button class="sidebar-nav-btn" onclick="switchTab('clientes',this)" data-tab="clientes"><span class="nav-icon">👥</span><span class="nav-label"> Clientes</span></button>
-      <button class="sidebar-nav-btn" onclick="switchTab('demandas',this)" data-tab="demandas"><span class="nav-icon">📋</span><span class="nav-label"> Demandas</span></button>
+      <button class="sidebar-nav-btn" onclick="switchTab('funil',this)" data-tab="funil"><span class="nav-icon">🎯</span><span class="nav-label"> CRM</span></button>
+      <button class="sidebar-nav-btn" onclick="switchTab('fechamento',this)" data-tab="fechamento"><span class="nav-icon">✅</span><span class="nav-label"> Obrigações</span></button>
+      <button class="sidebar-nav-btn" onclick="switchTab('demandas',this)" data-tab="demandas"><span class="nav-icon">📋</span><span class="nav-label"> Demandas Pontuais</span></button>
+      <button class="sidebar-nav-btn" onclick="switchTab('acessos',this)" data-tab="acessos"><span class="nav-icon">🔑</span><span class="nav-label"> Acessos</span></button>
+      <button class="sidebar-nav-btn" onclick="switchTab('instagram',this)" data-tab="instagram"><span class="nav-icon">📸</span><span class="nav-label"> Instagram</span></button>
       <button class="sidebar-nav-btn" onclick="switchTab('financeiro',this)" data-tab="financeiro"><span class="nav-icon">💰</span><span class="nav-label"> Financeiro</span></button>
     </nav>
     <div class="sidebar-user" id="sidebarUser"></div>
@@ -1456,6 +1457,139 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
   </div>
 
   <div class="dem-kanban" id="demKanban"></div>
+</section>
+
+<!-- ═══ ACESSOS ═══ -->
+<section id="tab-acessos" class="tab-panel">
+  <p class="page-title">🔑 Acessos e Credenciais</p>
+  <p class="page-sub">Portais, certificados e logins de cada cliente — <strong style="color:var(--amber)">⚠ Documento Confidencial</strong></p>
+  <style>
+    .pwd-mask { cursor:pointer; filter:blur(5px); transition:filter .2s; user-select:none; display:inline-block; }
+    .pwd-mask:hover, .pwd-mask.show { filter:none; }
+    .pwd-mask::after { content:' 👁'; font-size:10px; }
+    .acessos-table td { font-size:12px; white-space:nowrap; }
+    .acessos-table th { font-size:11px; white-space:nowrap; }
+  </style>
+  <div class="table-wrap" style="overflow-x:auto">
+    <table class="cb-table acessos-table">
+      <thead>
+        <tr>
+          <th>Cliente</th>
+          <th>CNPJ</th>
+          <th>CPF</th>
+          <th>Nasc.</th>
+          <th>Insc. Mun.</th>
+          <th>Insc. Est.</th>
+          <th>Portal Nacional</th>
+          <th>Login UVT PJ</th>
+          <th>Login UVT PF</th>
+          <th>Senha UVT</th>
+          <th>Senha Directa</th>
+          <th>Senha eSocial</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Cozinha Caseira</strong></td>
+          <td>48.851.690/0001-19</td>
+          <td>098.432.284-13</td>
+          <td>—</td>
+          <td>—</td>
+          <td>20.622.757-4</td>
+          <td>olhar comentário</td>
+          <td>—</td>
+          <td>PF09843228413</td>
+          <td><span class="pwd-mask" onclick="this.classList.toggle('show')" title="Clique para revelar">abc321</span></td>
+          <td>—</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td><strong>GM Joias</strong></td>
+          <td>66.263.800/0001-03</td>
+          <td>125.118.524-03</td>
+          <td>—</td>
+          <td>2332238</td>
+          <td>207189994</td>
+          <td>—</td>
+          <td>Precisar criar</td>
+          <td>—</td>
+          <td>—</td>
+          <td>—</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td><strong>Lidera Planejados</strong></td>
+          <td>67.775.614/0001-16</td>
+          <td>700.543.054-97</td>
+          <td>15/03/1996</td>
+          <td>474</td>
+          <td>207258872</td>
+          <td><span class="pwd-mask" onclick="this.classList.toggle('show')" title="Clique para revelar">Lidera@1234</span></td>
+          <td>PJ67775614000116</td>
+          <td>PF70054305497</td>
+          <td><span class="pwd-mask" onclick="this.classList.toggle('show')" title="Clique para revelar">1315wp</span></td>
+          <td>—</td>
+          <td><span class="pwd-mask" onclick="this.classList.toggle('show')" title="Clique para revelar">74534500000</span></td>
+        </tr>
+        <tr>
+          <td><strong>Jurema</strong></td>
+          <td>62.566.355/0001-08</td>
+          <td>046.727.544-05</td>
+          <td>—</td>
+          <td>2317630</td>
+          <td>—</td>
+          <td>—</td>
+          <td>—</td>
+          <td>Precisar criar</td>
+          <td>—</td>
+          <td><span class="pwd-mask" onclick="this.classList.toggle('show')" title="Clique para revelar">Jurema@1234</span></td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td><strong>Kitanda Paraíso</strong></td>
+          <td>13.304.762/0001-23</td>
+          <td>039.188.631-23</td>
+          <td>—</td>
+          <td>—</td>
+          <td>202466000</td>
+          <td>—</td>
+          <td>—</td>
+          <td>Precisar criar</td>
+          <td>—</td>
+          <td>—</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td><strong>Yuri Chavante Antunes</strong></td>
+          <td>64.505.679/0001-53</td>
+          <td>111.686.134-85</td>
+          <td>—</td>
+          <td>—</td>
+          <td>—</td>
+          <td>—</td>
+          <td>—</td>
+          <td>—</td>
+          <td>—</td>
+          <td>—</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td><strong>MEI Rodrigo Araújo</strong></td>
+          <td>69.041.180/0001-56</td>
+          <td>—</td>
+          <td>—</td>
+          <td>—</td>
+          <td>—</td>
+          <td><span class="pwd-mask" onclick="this.classList.toggle('show')" title="Clique para revelar">@Rod2805</span></td>
+          <td>—</td>
+          <td>—</td>
+          <td>—</td>
+          <td>—</td>
+          <td>—</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 </section>
 
 <!-- ═══ FINANCEIRO ═══ -->
@@ -1851,13 +1985,21 @@ function initState() {
       save('cb3_ig_events', igEvents);
     }
 
-    // Seed leads do CRM Comercial
-    if(!leads) {
+    // Seed leads do CRM Comercial — reseed se versão < 8
+    if(!leads || parseInt(seedV||'0') < 8) {
       leads = [
-        { id:'l1', name:'Pai de PV',        stage:'qual', valor:'9.720', origem:'indicação', resp:'Yuri',   dor:'Reunião de diagnóstico marcada', checklist:{contato1:true,reuniao:true}, firstContact:'' },
-        { id:'l2', name:'Dona Rosélia',      stage:'prop', valor:'30.000',origem:'indicação', resp:'Nathan', dor:'Desgosto com antigo contador — quer mais atenção', checklist:{contato1:true,reuniao:true,dor:true,proposta:true}, firstContact:'' },
-        { id:'l3', name:'JM Distribuidora',  stage:'prosp',valor:'8.400', origem:'indicação', resp:'Nathan', dor:'Sem segurança das informações financeiras', checklist:{contato1:true}, firstContact:'' },
-        { id:'l4', name:'Angela Rações',     stage:'prosp',valor:'30.000',origem:'indicação', resp:'Nathan', dor:'Empresa que deveria estar no Lucro Real', checklist:{contato1:true}, firstContact:'' },
+        { id:'l1',  name:'Pai de PV',            stage:'qual',  valor:'9.720',  origem:'indicação',          resp:'Yuri',   dor:'Simples Nacional desenquadrado — Regularização + Assessoria Contábil',            checklist:{contato1:true,reuniao:true}, firstContact:'' },
+        { id:'l2',  name:'Dona Rosélia',          stage:'prop',  valor:'30.000', origem:'indicação',          resp:'Nathan', dor:'Desgosto com antigo contador; falta de segurança e acompanhamento',               checklist:{contato1:true,reuniao:true,dor:true,proposta:true}, firstContact:'' },
+        { id:'l3',  name:'JM Distribuidora',      stage:'qual',  valor:'8.400',  origem:'indicação',          resp:'Nathan', dor:'Sem segurança das informações financeiras — Lucro Real',                          checklist:{contato1:true}, firstContact:'' },
+        { id:'l4',  name:'Angela Rações',         stage:'qual',  valor:'30.000', origem:'indicação',          resp:'Nathan', dor:'Empresa que deveria estar no Lucro Real e segue no Simples por falta de suporte', checklist:{contato1:true}, firstContact:'' },
+        { id:'l5',  name:'Bom Tom',               stage:'prosp', valor:'',       origem:'prospecção ativa',   resp:'Nathan', dor:'Contador que só emite boleto, sem suporte real',                                  checklist:{contato1:true}, firstContact:'' },
+        { id:'l6',  name:'Lenilso Barbeiro',      stage:'prosp', valor:'',       origem:'prospecção ativa',   resp:'Nathan', dor:'Interesse no Desenvolve RN + Regularização — MEI',                               checklist:{contato1:true}, firstContact:'' },
+        { id:'l7',  name:'Breno Barbeiro',        stage:'prosp', valor:'',       origem:'prospecção ativa',   resp:'Nathan', dor:'Interesse no Desenvolve RN — MEI',                                               checklist:{contato1:true}, firstContact:'' },
+        { id:'l8',  name:'Djalma Castro',         stage:'prosp', valor:'',       origem:'prospecção ativa',   resp:'Nathan', dor:'Regularização do CNPJ — MEI',                                                    checklist:{contato1:true}, firstContact:'' },
+        { id:'l9',  name:'Rodrigo',               stage:'prosp', valor:'',       origem:'prospecção ativa',   resp:'Nathan', dor:'Não tem acompanhamento hoje — MEI',                                              checklist:{contato1:true}, firstContact:'' },
+        { id:'l10', name:'Matheus Araujo',        stage:'neg',   valor:'',       origem:'evento / networking',resp:'Nathan', dor:'Permuta de serviços — Simples Nacional',                                         checklist:{contato1:true}, firstContact:'' },
+        { id:'l11', name:'Heloyse Costa',         stage:'prosp', valor:'',       origem:'',                   resp:'Nathan', dor:'',                                                                               checklist:{}, firstContact:'' },
+        { id:'l12', name:'Daniela Rodrigues',     stage:'prosp', valor:'',       origem:'',                   resp:'Nathan', dor:'',                                                                               checklist:{}, firstContact:'' },
       ];
       save('cb3_leads', leads);
     }
@@ -1868,7 +2010,7 @@ function initState() {
       clients.forEach(c => { if(c.mensalidade > 0 && !revenues[c.id]) revenues[c.id] = c.mensalidade; });
       save('cb3_rev', revenues);
     }
-    if(!seedV || parseInt(seedV) < 7) localStorage.setItem('cb3_seed_v','7');
+    if(!seedV || parseInt(seedV) < 8) localStorage.setItem('cb3_seed_v','8');
   } catch(e) {}
 }
 function save(k,v){ try { localStorage.setItem(k, JSON.stringify(v)) } catch(e){} saveSupa(k,v); }
@@ -1882,7 +2024,7 @@ function switchTab(name, btn) {
   document.querySelectorAll('.sidebar-nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   document.querySelectorAll('[data-tab="'+name+'"]').forEach(b => b.classList.add('active'));
-  const tabLabels = {radar:'Radar',fechamento:'Fechamento',instagram:'Instagram',funil:'Funil',clientes:'Clientes',demandas:'Demandas',financeiro:'Financeiro'};
+  const tabLabels = {radar:'Início',fechamento:'Obrigações',instagram:'Instagram',funil:'CRM',clientes:'Clientes',demandas:'Demandas Pontuais',acessos:'Acessos',financeiro:'Financeiro'};
   const ind = document.getElementById('headerTabIndicator');
   if(ind){ ind.textContent = tabLabels[name]||name; }
   window.scrollTo(0,0);
@@ -3450,7 +3592,7 @@ function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
 ═══════════════════════════════════════════════ */
 (function(){
   const tabKeys = {
-    '1':'radar','2':'fechamento','3':'instagram','4':'funil','5':'clientes','6':'demandas','7':'financeiro'
+    '1':'radar','2':'clientes','3':'funil','4':'fechamento','5':'demandas','6':'acessos','7':'instagram','8':'financeiro'
   };
   document.addEventListener('keydown', function(e) {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
