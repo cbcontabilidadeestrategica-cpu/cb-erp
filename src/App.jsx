@@ -623,7 +623,7 @@ export default function App() {
             <div style={styles.logoMark}>CB</div>
             <div>
               <div style={styles.brandName}>CB Contabilidade Estratégica</div>
-              <div style={styles.brandSub}>ERP Financeiro</div>
+              <div style={styles.brandSub}>CB HUB</div>
             </div>
           </div>
 
@@ -663,7 +663,7 @@ export default function App() {
         <div style={styles.contentArea}>
           <header style={styles.header}>
             <h1 style={styles.pageTitle}>
-              {moduloAtivo === "financeiro" ? "ERP FINANCEIRO" : "ESTOQUE"} {clienteAtivo ? `· ${clienteAtivo.nome}` : ""}
+              {moduloAtivo === "financeiro" ? "FINANCEIRO" : "ESTOQUE"} {clienteAtivo ? `· ${clienteAtivo.nome}` : ""}
             </h1>
             <div style={styles.headerRight}>
               {moduloAtivo === "financeiro" && (
@@ -1137,7 +1137,7 @@ export default function App() {
             )}
           </main>
 
-          <footer style={styles.footer}>CB Contabilidade Estratégica · ERP Financeiro · dados salvos automaticamente e compartilhados com a equipe</footer>
+          <footer style={styles.footer}>CB Contabilidade Estratégica · CB HUB · dados salvos automaticamente e compartilhados com a equipe</footer>
         </div>
       </div>
     </div>

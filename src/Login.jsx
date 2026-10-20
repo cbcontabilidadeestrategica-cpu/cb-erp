@@ -35,7 +35,7 @@ export default function Login() {
       <div style={styles.card}>
         <div style={styles.logoMark}>CB</div>
         <h1 style={styles.title}>CB Contabilidade Estratégica</h1>
-        <p style={styles.subtitle}>ERP Financeiro — acesso da equipe</p>
+        <p style={styles.subtitle}>CB HUB — acesso da equipe</p>
 
         <form onSubmit={handleSubmit} style={styles.form}>
           <input
