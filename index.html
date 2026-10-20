@@ -38,6 +38,21 @@
   display:flex;align-items:center;gap:7px;transition:.14s;
 }
 .sidebar-logout-btn:hover{background:rgba(255,255,255,.14);color:#fff}
+
+/* ── Sidebar recolhível ── */
+.sidebar{transition:width .22s ease}
+.sidebar.collapsed{width:58px;overflow:hidden}
+.sidebar.collapsed .sidebar-brand-name,
+.sidebar.collapsed .sidebar-brand-sub,
+.sidebar.collapsed .nav-label,
+.sidebar.collapsed #sidebarUser,
+.sidebar.collapsed .sidebar-footer{display:none}
+.sidebar.collapsed .sidebar-nav-btn{justify-content:center;padding:12px 0;gap:0}
+.sidebar.collapsed .sidebar-logo{padding:14px 0;justify-content:center}
+.sidebar-toggle{display:flex;justify-content:flex-end;padding:4px 10px 0;flex-shrink:0}
+.sidebar-toggle-btn{background:rgba(255,255,255,.1);border:none;border-radius:6px;width:26px;height:26px;cursor:pointer;color:rgba(255,255,255,.55);display:flex;align-items:center;justify-content:center;font-size:12px;transition:.14s;line-height:1}
+.sidebar-toggle-btn:hover{background:rgba(255,255,255,.2);color:#fff}
+
 .app-content{flex:1;display:flex;flex-direction:column;min-width:0;overflow-x:hidden}
 
 /* Sidebar mobile — vira top-bar */
@@ -206,7 +221,7 @@ body{
 /* ─── META BANNER ─── */
 .meta-banner{
   background:linear-gradient(135deg,var(--navy2),var(--navy3));
-  padding:8px 20px;
+  padding:5px 20px;
   display:flex;
   align-items:center;
   justify-content:space-between;
@@ -282,19 +297,19 @@ body{
 }
 
 /* ─── MAIN ─── */
-main{flex:1;padding:20px 20px 32px;max-width:1040px;width:100%;margin:0 auto}
-@media(max-width:480px){main{padding:14px 14px 24px}}
+main{flex:1;padding:14px 20px 28px;max-width:1040px;width:100%;margin:0 auto}
+@media(max-width:480px){main{padding:10px 12px 20px}}
 .tab-panel{display:none}
 .tab-panel.active{display:block;animation:fadeUp .2s ease}
 @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
 /* ─── TYPOGRAPHY ─── */
 .page-title{font-size:22px;font-weight:800;color:var(--fg);margin-bottom:2px;letter-spacing:-.4px}
-.page-sub{color:var(--fg3);font-size:13px;margin-bottom:20px}
+.page-sub{color:var(--fg3);font-size:13px;margin-bottom:12px}
 .section-label{
   font-size:10px;font-weight:700;text-transform:uppercase;
   letter-spacing:.14em;color:var(--fg3);
-  margin-bottom:10px;margin-top:22px;
+  margin-bottom:8px;margin-top:14px;
   display:flex;align-items:center;gap:6px;
 }
 .section-label:first-child{margin-top:0}
@@ -1114,14 +1129,17 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
         <div class="sidebar-brand-sub">Contabilidade</div>
       </div>
     </div>
+    <div class="sidebar-toggle">
+      <button class="sidebar-toggle-btn" id="sidebarToggleBtn" onclick="toggleSidebar()" title="Recolher menu">◀</button>
+    </div>
     <nav class="sidebar-nav">
-      <button class="sidebar-nav-btn active" onclick="switchTab('radar',this)" data-tab="radar"><span class="nav-icon">📡</span> Radar</button>
-      <button class="sidebar-nav-btn" onclick="switchTab('fechamento',this)" data-tab="fechamento"><span class="nav-icon">✅</span> Fechamento</button>
-      <button class="sidebar-nav-btn" onclick="switchTab('instagram',this)" data-tab="instagram"><span class="nav-icon">📸</span> Instagram</button>
-      <button class="sidebar-nav-btn" onclick="switchTab('funil',this)" data-tab="funil"><span class="nav-icon">🎯</span> Funil</button>
-      <button class="sidebar-nav-btn" onclick="switchTab('clientes',this)" data-tab="clientes"><span class="nav-icon">👥</span> Clientes</button>
-      <button class="sidebar-nav-btn" onclick="switchTab('demandas',this)" data-tab="demandas"><span class="nav-icon">📋</span> Demandas</button>
-      <button class="sidebar-nav-btn" onclick="switchTab('financeiro',this)" data-tab="financeiro"><span class="nav-icon">💰</span> Financeiro</button>
+      <button class="sidebar-nav-btn active" onclick="switchTab('radar',this)" data-tab="radar"><span class="nav-icon">📡</span><span class="nav-label"> Radar</span></button>
+      <button class="sidebar-nav-btn" onclick="switchTab('fechamento',this)" data-tab="fechamento"><span class="nav-icon">✅</span><span class="nav-label"> Fechamento</span></button>
+      <button class="sidebar-nav-btn" onclick="switchTab('instagram',this)" data-tab="instagram"><span class="nav-icon">📸</span><span class="nav-label"> Instagram</span></button>
+      <button class="sidebar-nav-btn" onclick="switchTab('funil',this)" data-tab="funil"><span class="nav-icon">🎯</span><span class="nav-label"> Funil</span></button>
+      <button class="sidebar-nav-btn" onclick="switchTab('clientes',this)" data-tab="clientes"><span class="nav-icon">👥</span><span class="nav-label"> Clientes</span></button>
+      <button class="sidebar-nav-btn" onclick="switchTab('demandas',this)" data-tab="demandas"><span class="nav-icon">📋</span><span class="nav-label"> Demandas</span></button>
+      <button class="sidebar-nav-btn" onclick="switchTab('financeiro',this)" data-tab="financeiro"><span class="nav-icon">💰</span><span class="nav-label"> Financeiro</span></button>
     </nav>
     <div class="sidebar-user" id="sidebarUser"></div>
     <div class="sidebar-footer">
@@ -1490,7 +1508,7 @@ async function showApp(user) {
   document.getElementById('loginOverlay').style.display = 'none';
   document.getElementById('appShell').style.display = '';
   await loadFromSupabase();
-  initState(); initTheme(); renderRadar(); renderRadarDemandas();
+  initState(); initTheme(); initSidebar(); renderRadar(); renderRadarDemandas();
   renderFechamento(); renderIgCal(); renderFunil(); renderFinanceiro();
   renderClientes(); renderClientDefaults(); renderDemandas();
 }
@@ -1819,6 +1837,25 @@ function switchTab(name, btn) {
   document.getElementById('tab-'+name).classList.add('active');
   document.querySelectorAll('[data-tab="'+name+'"]').forEach(b => b.classList.add('active'));
   window.scrollTo(0,0);
+}
+
+function toggleSidebar() {
+  const sidebar = document.querySelector('.sidebar');
+  const btn = document.getElementById('sidebarToggleBtn');
+  sidebar.classList.toggle('collapsed');
+  const isCollapsed = sidebar.classList.contains('collapsed');
+  if (btn) btn.textContent = isCollapsed ? '▶' : '◀';
+  try { localStorage.setItem('cb3_sidebar_collapsed', isCollapsed ? '1' : '0') } catch(e) {}
+}
+
+function initSidebar() {
+  try {
+    if (localStorage.getItem('cb3_sidebar_collapsed') === '1') {
+      document.querySelector('.sidebar').classList.add('collapsed');
+      const btn = document.getElementById('sidebarToggleBtn');
+      if (btn) btn.textContent = '▶';
+    }
+  } catch(e) {}
 }
 
 /* ═══════════════════════════════════════════════
