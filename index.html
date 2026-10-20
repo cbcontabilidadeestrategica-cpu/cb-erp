@@ -1599,26 +1599,35 @@ function toggleLoginModo() {
 ═══════════════════════════════════════════════ */
 // Seed inicial — dados reais ficam no localStorage (cb3_clients)
 const CLIENTS_SEED = [
-  { id:1, name:"Lidera Planejados",     initials:"LP", regime:"Simples Nacional", nivel:"Prata",
-    services:["Fiscal","Contábil","DP"], hasEmployees:true,  driveKey:"drive_1", mensalidade:0,      whatsapp:'' },
-  { id:2, name:"Kitanda do Paraíso",    initials:"KP", regime:"Lucro Presumido",  nivel:"Prata",
-    services:["Fiscal","Contábil"],       hasEmployees:false, driveKey:"drive_2", mensalidade:0,      whatsapp:'' },
-  { id:3, name:"Jurema",                initials:"JU", regime:"Terceiro Setor",  nivel:"Prata",
-    services:["Fiscal","Contábil","DP"], hasEmployees:true,  driveKey:"drive_3", mensalidade:0,      whatsapp:'' },
-  { id:4, name:"Cozinha Caseira",       initials:"CC", regime:"Simples Nacional", nivel:"Prata",
-    services:["Fiscal","Contábil"],       hasEmployees:false, driveKey:"drive_4", mensalidade:950,    whatsapp:'84 98624-2760' },
-  { id:5, name:"GM Joias",              initials:"GM", regime:"Simples Nacional", nivel:"Ouro",
-    services:["Fiscal","Contábil"],       hasEmployees:false, driveKey:"drive_5", mensalidade:466.66, whatsapp:'84 99403-4411' },
+  { id:1, name:"Lidera Planejados",  initials:"LP", regime:"Simples Nacional", nivel:"Prata",
+    services:["Fiscal","Contábil","DP","Financeiro"], hasEmployees:true,  driveKey:"drive_1",
+    mensalidade:700,    whatsapp:'84 99611-3974', cnpj:'67.775.614/0001-16', dataInicio:'2026-06-01' },
+  { id:2, name:"Kitanda Paraíso",    initials:"KP", regime:"Lucro Presumido",  nivel:"Prata",
+    services:["Fiscal","Contábil","DP","Financeiro"], hasEmployees:true,  driveKey:"drive_2",
+    mensalidade:750,    whatsapp:'84 99101-8312', cnpj:'13.304.762/0001-23', dataInicio:'2026-05-01' },
+  { id:3, name:"Jurema",             initials:"JU", regime:"Imune / 3º Setor", nivel:"Prata",
+    services:["Fiscal","Contábil","DP","Financeiro"], hasEmployees:true,  driveKey:"drive_3",
+    mensalidade:150,    whatsapp:'14 99759-8074', cnpj:'62.566.355/0001-08', dataInicio:'2026-06-01' },
+  { id:4, name:"Cozinha Caseira",    initials:"CC", regime:"Simples Nacional", nivel:"Prata",
+    services:["Fiscal","Contábil","Financeiro"],       hasEmployees:false, driveKey:"drive_4",
+    mensalidade:950,    whatsapp:'84 98624-2760', cnpj:'48.851.690/0001-19', dataInicio:'2026-04-01' },
+  { id:5, name:"GM Joias",           initials:"GM", regime:"Simples Nacional", nivel:"Ouro",
+    services:["Fiscal","Contábil","Financeiro"],       hasEmployees:false, driveKey:"drive_5",
+    mensalidade:466.66, whatsapp:'84 99403-4411', cnpj:'66.263.800/0001-03', dataInicio:'2026-04-01' },
+  { id:6, name:"MEI Rodrigo Araújo", initials:"MR", regime:"MEI",             nivel:"Prata",
+    services:["Fiscal"],                               hasEmployees:false, driveKey:"drive_6",
+    mensalidade:0,      whatsapp:'',             cnpj:'69.041.180/0001-56', dataInicio:'2026-01-01' },
 ];
 let clients = []; // carregado em initState — use 'clients' em todo o código
 
 // Certificados Digitais — importado da planilha "Certificados Digitais"
 const CERTS = [
-  { cliente:"Cozinha Caseira",    tipo:"A1 PJ", validade:"27/03/2027", dias:170, status:"ok" },
-  { cliente:"GM Joias",           tipo:"A1 PJ", validade:"18/06/2027", dias:253, status:"ok" },
-  { cliente:"Jurema",             tipo:"A1 PF", validade:"05/06/2027", dias:240, status:"ok" },
-  { cliente:"Kitanda do Paraíso", tipo:"A1 PJ", validade:"16/07/2027", dias:281, status:"ok" },
-  { cliente:"Lidera Planejados",  tipo:"A1 PJ", validade:"27/08/2027", dias:323, status:"ok" },
+  { cliente:"Cozinha Caseira",        tipo:"A1 PJ", validade:"27/03/2027", cnpj:"48.851.690/0001-19", status:"ok" },
+  { cliente:"GM Joias",               tipo:"A1 PJ", validade:"18/06/2027", cnpj:"66.263.800/0001-03", status:"ok" },
+  { cliente:"Lidera Planejados",      tipo:"A1 PJ", validade:"27/08/2027", cnpj:"67.775.614/0001-16", status:"ok" },
+  { cliente:"Jurema",                 tipo:"A1 PF", validade:"05/06/2027", cnpj:"62.566.355/0001-08", status:"ok" },
+  { cliente:"Kitanda Paraíso",        tipo:"A1 PJ", validade:"16/07/2027", cnpj:"13.304.762/0001-23", status:"ok" },
+  { cliente:"Yuri Chavante Antunes",  tipo:"A1 PJ", validade:"02/07/2027", cnpj:"64.505.679/0001-53", status:"ok" },
 ];
 
 function getSteps(client) {
@@ -1746,7 +1755,7 @@ function initState() {
     // clients — sempre carrega; seed apenas se vazio
     try { clients = JSON.parse(localStorage.getItem('cb3_clients') || 'null') } catch(e){}
     // clients — reseed se versão mudou (corrige regimes e adiciona novos clientes)
-    if(!clients || !clients.length || parseInt(seedV||'0') < 5) {
+    if(!clients || !clients.length || parseInt(seedV||'0') < 7) {
       const prev = (clients||[]).reduce((m,c) => { m[c.id]=c; return m; }, {});
       clients = CLIENTS_SEED.map(c => prev[c.id]
         ? {...c, ...prev[c.id], regime:c.regime, services:c.services, hasEmployees:c.hasEmployees}
@@ -1763,22 +1772,36 @@ function initState() {
     try { onboarding=JSON.parse(localStorage.getItem('cb3_onboarding')||'{}'); } catch(e){}
     try { csData=JSON.parse(localStorage.getItem('cb3_cs')||'{}'); } catch(e){}
 
-    // Seed demandas da planilha "Demandas Pontuais"
-    if(!demandas.length) {
+    // Seed demandas da planilha "Demandas Pontuais" — reseed se versão < 7
+    if(!demandas.length || parseInt(seedV||'0') < 7) {
       demandas = [
-        { id:'d01', data:'2026-09-24', cliente:'Cozinha Caseira',    setor:'Financeiro',        tipo:'Implantação',         desc:'Implantação do Saipos — cadastrar recorrências, mapear contas a receber e gerar relatórios', resp:'Nathan', prazo:'2026-10-10', valor:'', status:'aguardando' },
-        { id:'d02', data:'2026-09-17', cliente:'Cozinha Caseira',    setor:'Fiscal',            tipo:'Regularização',       desc:'Retirar bloqueio no CNPJ na UVT para compras (bloqueio devido ao MEI antigo)', resp:'Yuri',   prazo:'',           valor:'', status:'em-andamento' },
-        { id:'d03', data:'2026-09-17', cliente:'GM Joias',           setor:'Financeiro',        tipo:'Implantação',         desc:'Cobrar contratação do Bling para implantação de rotina financeira', resp:'Nathan', prazo:'',           valor:'', status:'aguardando' },
-        { id:'d04', data:'2026-09-17', cliente:'GM Joias',           setor:'Sucesso do cliente',tipo:'Aquisição de crédito',desc:'Solicitar para Rodrigo o empréstimo do Desenvolve RN', resp:'Nathan', prazo:'',           valor:'', status:'aguardando' },
-        { id:'d05', data:'2026-09-17', cliente:'GM Joias',           setor:'Fiscal',            tipo:'Acesso portal',       desc:'Criar acesso PF na UVT', resp:'Yuri',   prazo:'',           valor:'', status:'aguardando' },
-        { id:'d06', data:'2026-09-24', cliente:'GM Joias',           setor:'Financeiro',        tipo:'Implantação do Bling',desc:'Cadastrar recorrências, mapear contas a receber e gerar relatórios', resp:'Nathan', prazo:'2026-10-10', valor:'', status:'aguardando' },
-        { id:'d07', data:'2026-09-17', cliente:'GM Joias',           setor:'Societário',        tipo:'Abertura de MEI',     desc:'Abrir MEIs para as esposas', resp:'Yuri',   prazo:'',           valor:'', status:'aguardando' },
-        { id:'d08', data:'2026-09-17', cliente:'Jurema',             setor:'Societário',        tipo:'Cadastro municipal',  desc:'Cadastro no município de Natal — requerimento foi indeferido, lançado novamente', resp:'Yuri',   prazo:'',           valor:'', status:'em-andamento' },
-        { id:'d09', data:'2026-09-17', cliente:'Kitanda do Paraíso', setor:'Depto. Pessoal',    tipo:'Admissão',            desc:'Cobrar documentos para registro e incluir na folha', resp:'Nathan', prazo:'',           valor:'', status:'aguardando' },
-        { id:'d10', data:'2026-09-24', cliente:'Kitanda do Paraíso', setor:'Financeiro',        tipo:'Implantação planilha',desc:'Cadastrar recorrências, mapear contas a receber e gerar relatórios', resp:'Nathan', prazo:'2026-10-10', valor:'', status:'aguardando' },
-        { id:'d11', data:'2026-10-08', cliente:'Kitanda do Paraíso', setor:'Fiscal',            tipo:'Declaração SEFIP',    desc:'Fazer declaração da SEFIP de Janeiro', resp:'Nathan', prazo:'',           valor:'', status:'aguardando' },
-        { id:'d12', data:'2026-09-17', cliente:'Lidera Planejados',  setor:'Depto. Pessoal',    tipo:'Admissão',            desc:'Cobrar documentos para registro e incluir na folha', resp:'Nathan', prazo:'',           valor:'', status:'aguardando' },
-        { id:'d13', data:'2026-09-24', cliente:'Lidera Planejados',  setor:'Financeiro',        tipo:'Implantação planilha',desc:'Cadastrar recorrências, mapear contas a receber e gerar relatórios', resp:'Nathan', prazo:'2026-10-10', valor:'', status:'aguardando' },
+        { id:'d01', data:'2026-09-24', cliente:'Cozinha Caseira',   setor:'Financeiro',          tipo:'Implantação do Saipos',       desc:'Cadastrar recorrências, mapear contas a receber e gerar relatórios',                                 resp:'Nathan', prazo:'2026-10-10', valor:'',     status:'em-andamento' },
+        { id:'d02', data:'2026-09-17', cliente:'Cozinha Caseira',   setor:'Sucesso do Cliente',  tipo:'Verificar empréstimo',        desc:'Verificar com Lauanna se vai fazer o empréstimo com a manicure como fiadora',                        resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
+        { id:'d03', data:'2026-09-24', cliente:'Cozinha Caseira',   setor:'Fiscal',              tipo:'Levantamento de débitos',     desc:'Fazer levantamento de débitos para apurar situação financeira do Bacana',                             resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
+        { id:'d04', data:'2026-10-07', cliente:'Cozinha Caseira',   setor:'Financeiro',          tipo:'Gerar cobranças',             desc:'Criar cobranças no banco CORA para clientes com recorrências',                                       resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
+        { id:'d05', data:'2026-09-17', cliente:'Cozinha Caseira',   setor:'Fiscal',              tipo:'Regularizar bloqueio CNPJ',   desc:'Retirar bloqueio no CNPJ na UVT para compras (MEI antigo)',                                          resp:'Yuri',   prazo:'',           valor:'',     status:'em-andamento' },
+        { id:'d06', data:'2026-09-17', cliente:'GM Joias',          setor:'Financeiro',          tipo:'Implantação Bling',           desc:'Cobrar contratação do Bling para implantação de rotina financeira',                                   resp:'Nathan', prazo:'',           valor:'',     status:'em-andamento' },
+        { id:'d07', data:'2026-09-24', cliente:'GM Joias',          setor:'Financeiro',          tipo:'Implantação da planilha',     desc:'Cadastrar recorrências, mapear contas a receber e gerar relatórios',                                 resp:'Nathan', prazo:'2026-10-10', valor:'',     status:'em-andamento' },
+        { id:'d08', data:'2026-09-17', cliente:'GM Joias',          setor:'Fiscal',              tipo:'Acesso portal UVT',           desc:'Criar acesso PF na UVT',                                                                             resp:'Yuri',   prazo:'',           valor:'',     status:'em-andamento' },
+        { id:'d09', data:'2026-09-17', cliente:'GM Joias',          setor:'Societário',          tipo:'Abertura de MEI',             desc:'Abrir MEIs para as esposas',                                                                         resp:'Yuri',   prazo:'',           valor:'',     status:'em-andamento' },
+        { id:'d10', data:'2026-10-07', cliente:'GM Joias',          setor:'Financeiro',          tipo:'Gerar cobranças',             desc:'Criar cobranças no banco CORA para clientes com recorrências',                                       resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
+        { id:'d11', data:'2026-09-17', cliente:'GM Joias',          setor:'Sucesso do Cliente',  tipo:'Aquisição de Empréstimo',     desc:'Solicitar para Rodrigo o empréstimo do Desenvolve RN',                                               resp:'Nathan', prazo:'',           valor:'',     status:'aguardando'   },
+        { id:'d12', data:'2026-09-17', cliente:'Jurema',            setor:'Depto. Pessoal',      tipo:'Emissão de Guia',             desc:'CND do FGTS',                                                                                        resp:'Nathan', prazo:'',           valor:'',     status:'concluido'    },
+        { id:'d13', data:'2026-09-17', cliente:'Jurema',            setor:'Societário',          tipo:'Regularização',               desc:'Enviar guias para cliente pagar',                                                                     resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
+        { id:'d14', data:'2026-10-07', cliente:'Jurema',            setor:'Financeiro',          tipo:'Gerar cobranças',             desc:'Criar cobranças no banco CORA para clientes com recorrências',                                       resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
+        { id:'d15', data:'2026-09-17', cliente:'Jurema',            setor:'Societário',          tipo:'Cadastro no município',       desc:'Cadastro do município de Natal — requerimento indeferido; relançado',                                 resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
+        { id:'d16', data:'2026-09-17', cliente:'Kitanda Paraíso',   setor:'Depto. Pessoal',      tipo:'Admissão de funcionários',    desc:'Cobrar documentos para registro e incluir na folha',                                                 resp:'Nathan', prazo:'',           valor:'',     status:'aguardando'   },
+        { id:'d17', data:'2026-09-24', cliente:'Kitanda Paraíso',   setor:'Financeiro',          tipo:'Implantação da planilha',     desc:'Cadastrar recorrências, mapear contas a receber e gerar relatórios',                                 resp:'Nathan', prazo:'2026-10-10', valor:'',     status:'em-andamento' },
+        { id:'d18', data:'2026-09-17', cliente:'Kitanda Paraíso',   setor:'Societário',          tipo:'Regularização CNPJ',          desc:'Regularizar o CNPJ do Pai de Wilson',                                                                resp:'Yuri',   prazo:'',           valor:'750',  status:'concluido'    },
+        { id:'d19', data:'2026-10-07', cliente:'Kitanda Paraíso',   setor:'Financeiro',          tipo:'Gerar cobranças',             desc:'Criar cobranças no banco CORA para clientes com recorrências',                                       resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
+        { id:'d20', data:'2026-10-08', cliente:'Kitanda Paraíso',   setor:'Fiscal',              tipo:'Declarar SEFIP',              desc:'Fazer declaração da SEFIP de Janeiro',                                                               resp:'Nathan', prazo:'',           valor:'',     status:'aguardando'   },
+        { id:'d21', data:'2026-09-17', cliente:'Lidera Planejados', setor:'Depto. Pessoal',      tipo:'Admissão de funcionários',    desc:'Cobrar documentos para registro e incluir na folha',                                                 resp:'Nathan', prazo:'',           valor:'',     status:'aguardando'   },
+        { id:'d22', data:'2026-09-24', cliente:'Lidera Planejados', setor:'Financeiro',          tipo:'Implantação da planilha',     desc:'Cadastrar recorrências, mapear contas a receber e gerar relatórios',                                 resp:'Nathan', prazo:'2026-10-10', valor:'',     status:'em-andamento' },
+        { id:'d23', data:'2026-09-17', cliente:'Lidera Planejados', setor:'Societário',          tipo:'Acesso portal nacional',      desc:'Criar usuário no portal nacional',                                                                    resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
+        { id:'d24', data:'2026-09-17', cliente:'Lidera Planejados', setor:'Sucesso do Cliente',  tipo:'Retorno com o banco',         desc:'Enviar documentos para o banco',                                                                     resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
+        { id:'d25', data:'2026-09-17', cliente:'Lidera Planejados', setor:'Societário',          tipo:'Acesso portal UVT',           desc:'Criar usuário PF na UVT',                                                                            resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
+        { id:'d26', data:'2026-10-07', cliente:'Lidera Planejados', setor:'Financeiro',          tipo:'Gerar cobranças',             desc:'Criar cobranças no banco CORA para clientes com recorrências',                                       resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
+        { id:'d27', data:'2026-10-02', cliente:'CB Interna',        setor:'Financeiro',          tipo:'Abrir conta bancária da CB',  desc:'Estudar melhor banco para a CB Contabilidade',                                                       resp:'Yuri',   prazo:'2026-10-07', valor:'',     status:'concluido'    },
       ];
       save('cb3_demandas', demandas);
     }
@@ -1821,7 +1844,7 @@ function initState() {
       ob('entrega',  15, 'entrega',   '⭐ ENTREGA AO CLIENTE — todos os 5 clientes');
       ob('das',      20, 'obrigacao', '🧾 DAS Simples Nacional — Lidera, Jurema, Cozinha Caseira');
       ob('dctf',     20, 'obrigacao', '📑 DCTFWeb INSS folha — Lidera + Jurema');
-      ob('lp',       20, 'obrigacao', '💼 PIS/COFINS + IRPJ/CSLL — Kitanda do Paraíso');
+      ob('lp',       20, 'obrigacao', '💼 PIS/COFINS + IRPJ/CSLL — Kitanda Paraíso');
       ob('plan',     25, 'entrega',   '📅 Planejamento mês seguinte — revisão interna CB');
       ob('nextcol',  dim >= 28 ? 28 : dim, 'entrega', '📢 Início coleta próximo mês — avisar clientes');
 
@@ -1845,7 +1868,7 @@ function initState() {
       clients.forEach(c => { if(c.mensalidade > 0 && !revenues[c.id]) revenues[c.id] = c.mensalidade; });
       save('cb3_rev', revenues);
     }
-    if(!seedV || parseInt(seedV) < 5) localStorage.setItem('cb3_seed_v','5');
+    if(!seedV || parseInt(seedV) < 7) localStorage.setItem('cb3_seed_v','7');
   } catch(e) {}
 }
 function save(k,v){ try { localStorage.setItem(k, JSON.stringify(v)) } catch(e){} saveSupa(k,v); }
@@ -2912,20 +2935,28 @@ function renderClientes(){
   }
 
   // Certificados
+  const today = new Date(); today.setHours(0,0,0,0);
   document.getElementById('certTable').innerHTML =
-    '<thead><tr><th>Cliente</th><th>Tipo</th><th>Validade</th><th>Dias restantes</th><th>Situação</th></tr></thead>'+
+    '<thead><tr><th>Cliente</th><th>CNPJ/CPF</th><th>Tipo</th><th>Validade</th><th>Dias restantes</th><th>Situação</th></tr></thead>'+
     '<tbody>'+CERTS.map(cert => {
+      let dias = null;
+      if(cert.validade) {
+        const p = cert.validade.split('/');
+        if(p.length===3){ const d = new Date(+p[2],+p[1]-1,+p[0]); dias = Math.round((d-today)/86400000); }
+      }
       let chipClass='', chipLabel='';
-      if(cert.status==='ok'&&cert.dias!==null){
-        if(cert.dias>90){chipClass='ok';chipLabel='🟢 Válido'}
-        else if(cert.dias>30){chipClass='warn';chipLabel='🟡 Atenção'}
-        else{chipClass='crit';chipLabel='🔴 Crítico'}
+      if(dias!==null){
+        if(dias>90){chipClass='ok';chipLabel='🟢 Válido'}
+        else if(dias>30){chipClass='warn';chipLabel='🟡 Atenção'}
+        else if(dias>=0){chipClass='crit';chipLabel='🔴 Crítico'}
+        else{chipClass='';chipLabel='🔴 Vencido'}
       } else {chipClass='';chipLabel='— Verificar'}
       return '<tr>'+
         '<td style="font-weight:600">'+escHtml(cert.cliente)+'</td>'+
+        '<td style="font-size:11px;color:var(--fg3)">'+escHtml(cert.cnpj||'')+'</td>'+
         '<td><span class="badge muted">'+escHtml(cert.tipo)+'</span></td>'+
         '<td>'+escHtml(cert.validade)+'</td>'+
-        '<td class="cert-days">'+(cert.dias!==null?cert.dias+' dias':'—')+'</td>'+
+        '<td class="cert-days">'+(dias!==null?dias+' dias':'—')+'</td>'+
         '<td><span class="cert-status-chip '+chipClass+'">'+chipLabel+'</span></td>'+
       '</tr>';
     }).join('')+'</tbody>';
