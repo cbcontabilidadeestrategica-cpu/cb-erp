@@ -910,6 +910,34 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .trend-stat-label{font-size:10px;color:rgba(255,255,255,.38);margin-top:2px}
 /* ── Fase 3: Renewal alert ── */
 .renewal-alert-item{background:var(--amber-lt);border-left:3px solid var(--amber);border-radius:6px;padding:7px 12px;font-size:12px;color:var(--amber);font-weight:600;margin-top:6px}
+/* ── Fase 4: Global Search ── */
+.global-search-card{background:var(--bg2);border-radius:var(--radius);box-shadow:var(--shadow-lg);width:100%;max-width:580px;overflow:hidden;border:1px solid var(--border)}
+.global-search-header{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border)}
+#globalSearchInput{flex:1;border:none;background:transparent;font-size:15px;color:var(--fg);outline:none;font-family:'Outfit',sans-serif}
+.global-search-esc{background:var(--bg3);border:1px solid var(--border);border-radius:5px;font-size:11px;color:var(--fg3);padding:2px 7px;cursor:pointer;font-family:monospace;flex-shrink:0}
+.global-search-results{max-height:380px;overflow-y:auto}
+.global-search-section{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--fg3);padding:10px 16px 4px}
+.global-search-item{display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;border-bottom:1px solid var(--border2);transition:.1s}
+.global-search-item:hover,.global-search-item:focus{background:var(--bg3);outline:none}
+.gs-name{font-weight:600;font-size:13px;color:var(--fg)}
+.gs-sub{font-size:11px;color:var(--fg3);margin-top:1px}
+.gs-badge{font-size:10px;padding:2px 7px;border-radius:8px;background:var(--bg4);color:var(--fg3);margin-left:auto;flex-shrink:0;white-space:nowrap}
+.gs-empty{padding:32px;text-align:center;color:var(--fg3);font-size:13px}
+/* ── Fase 4: Comentários em Demandas ── */
+.dem-comments-wrap{margin-top:6px;border-top:1px solid var(--border);padding-top:6px}
+.dem-comments-toggle{background:none;border:none;cursor:pointer;font-size:11px;color:var(--fg3);padding:0;font-family:'Outfit',sans-serif;display:flex;align-items:center;gap:4px}
+.dem-comments-toggle:hover{color:var(--fg)}
+.dem-comments-list{margin-top:6px;display:flex;flex-direction:column;gap:5px}
+.dem-comment-item{background:var(--bg3);border-radius:6px;padding:6px 9px;font-size:11px}
+.dem-comment-meta{font-size:10px;color:var(--fg3);margin-top:2px}
+.dem-comment-input-row{display:flex;gap:5px;margin-top:5px}
+.dem-comment-input{flex:1;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:12px;font-family:'Outfit',sans-serif;background:var(--bg);color:var(--fg);outline:none}
+.dem-comment-input:focus{border-color:var(--gold)}
+.dem-comment-send{background:var(--navy);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap}
+/* ── Fase 4: Templates ── */
+.template-selector{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.tpl-btn{padding:5px 12px;background:var(--bg3);border:1.5px solid var(--border);border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;color:var(--fg2);transition:.12s;font-family:'Outfit',sans-serif}
+.tpl-btn:hover{border-color:var(--gold);color:var(--navy)}
 
 /* ── Modal form ── */
 .modal-input{width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'Outfit',sans-serif;background:var(--bg3);color:var(--fg);outline:none;transition:border-color .12s;box-sizing:border-box}
@@ -1236,6 +1264,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
       </div>
       <div class="header-right">
         <span class="header-date" id="headerDate"></span>
+        <button class="icon-btn" onclick="openGlobalSearch()" title="Busca global (Ctrl+K)">🔍</button>
         <button class="icon-btn" onclick="toggleTheme()" id="themeBtn" title="Alternar tema">☀️</button>
       </div>
     </header>
@@ -1792,7 +1821,7 @@ const IG_TEMPLATES = {
    STATE
 ═══════════════════════════════════════════════ */
 let leads = [], igEvents = [], closingData = {}, clientDrives = {}, revenues = {}, demandas = [];
-let onboarding = {}, csData = {}, acessosData = [];
+let onboarding = {}, csData = {}, acessosData = [], commentsData = {};
 
 const ACESSOS_COLS = [
   { key:'cliente',        label:'Cliente',         pwd:false },
@@ -1862,6 +1891,7 @@ function initState() {
     try { const sd=JSON.parse(localStorage.getItem('cb3_defaults')||'null'); if(sd) clientDefaults=sd; } catch(e){}
     try { onboarding=JSON.parse(localStorage.getItem('cb3_onboarding')||'{}'); } catch(e){}
     try { csData=JSON.parse(localStorage.getItem('cb3_cs')||'{}'); } catch(e){}
+    try { commentsData=JSON.parse(localStorage.getItem('cb3_comments')||'{}'); } catch(e){}
     try {
       const saved=JSON.parse(localStorage.getItem('cb3_acessos')||'null');
       acessosData = saved && saved.length ? saved : ACESSOS_SEED_ROWS.map(r=>({...r}));
@@ -2652,6 +2682,7 @@ function saveLeadModal(){
   const name = (document.getElementById('ml_name').value||'').trim();
   if(!name){ document.getElementById('ml_name').focus(); return; }
   const stage = document.getElementById('ml_stage').value;
+  const _prevStageForAutomation = editingLeadId ? (leads.find(l=>l.id===editingLeadId)||{}).stage : null;
   const valor = (document.getElementById('ml_valor').value||'').trim();
   const origem = (document.getElementById('ml_origem').value||'').trim();
   const resp = (document.getElementById('ml_resp').value||'').trim();
@@ -2678,8 +2709,14 @@ function saveLeadModal(){
     leads.unshift({ id:'l_'+Date.now(), name, stage, valor, origem, resp, firstContact, dor, nextStep, followUpDate, lostReason, checklist, createdAt:now, stageChangedAt:now });
   }
   save('cb3_leads', leads);
+  // Automação: lead fechado → oferecer criar cliente (item 17)
+  const savedLead = editingLeadId ? leads.find(l=>l.id===editingLeadId) : leads[0];
+  const _justWon = stage==='won' && _prevStageForAutomation!=='won';
   closeLeadModal();
   renderFunil();
+  if(_justWon && savedLead){
+    setTimeout(()=>offerCreateClientFromLead(savedLead),200);
+  }
 }
 
 function removeLeadFromModal(){
@@ -3422,6 +3459,12 @@ function buildClientModal(c){
   const regOpts=regimes.map(r=>'<option value="'+escAttr(r)+'"'+(effRegime===r?' selected':'')+'>'+escHtml(r)+'</option>').join('');
   const nivOpts=nivels.map(n=>'<option value="'+escAttr(n)+'"'+(effNivel===n?' selected':'')+'>'+escHtml(n)+'</option>').join('');
   document.getElementById('modalClientBody').innerHTML=
+    (!c?'<div class="modal-field-group"><label>Usar template</label>'+
+      '<div class="template-selector">'+
+        ['📋 Simples Nacional','📋 Lucro Presumido','📋 MEI / Microempreendedor','📋 Terceiro Setor'].map((t,i)=>
+          '<button class="tpl-btn" onclick="applyClientTemplate('+i+')">'+escHtml(t)+'</button>'
+        ).join('')+
+      '</div></div>':'')+
     '<div class="modal-2col">'+
       '<div class="modal-field-group">'+
         '<label>Nome da empresa</label>'+
@@ -3646,6 +3689,23 @@ function renderDemandas(){
           '<select class="dem-status-select" onchange="changeDemStatus(\''+escAttr(d.id)+'\',this.value)">'+statusSelOpts+'</select>'+
           '<button class="dem-del-btn" onclick="removeDemandaById(\''+escAttr(d.id)+'\')">×</button>'+
         '</div>'+
+        (()=>{
+          const coms=(commentsData[d.id]||[]);
+          return '<div class="dem-comments-wrap">'+
+            '<button class="dem-comments-toggle" onclick="toggleDemComments(\''+escAttr(d.id)+'\')">'+
+              '💬 '+coms.length+' comentário'+(coms.length!==1?'s':'')+
+            '</button>'+
+            '<div id="cmts_'+escAttr(d.id)+'" hidden>'+
+              '<div class="dem-comments-list">'+
+                coms.slice(-3).map(c=>'<div class="dem-comment-item">'+escHtml(c.text)+'<div class="dem-comment-meta">'+escHtml(c.author)+' · '+c.ts.slice(0,10)+'</div></div>').join('')+
+              '</div>'+
+              '<div class="dem-comment-input-row">'+
+                '<input class="dem-comment-input" id="ci_'+escAttr(d.id)+'" placeholder="Adicionar comentário…" onkeydown="if(event.key===\'Enter\')addComment(\''+escAttr(d.id)+'\')">'+
+                '<button class="dem-comment-send" onclick="addComment(\''+escAttr(d.id)+'\')">Enviar</button>'+
+              '</div>'+
+            '</div>'+
+          '</div>';
+        })()+
       '</div>';
     }).join('');
     return '<div class="dem-kan-col">'+
@@ -3862,6 +3922,121 @@ function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
 })();
 
 /* ═══════════════════════════════════════════════
+   FASE 4 — BUSCA GLOBAL (item 20)
+═══════════════════════════════════════════════ */
+function openGlobalSearch(){
+  document.getElementById('globalSearchModal').classList.remove('hidden');
+  const inp=document.getElementById('globalSearchInput');
+  inp.value='';
+  document.getElementById('globalSearchResults').innerHTML='<div class="gs-empty">Digite para buscar em todo o sistema…</div>';
+  setTimeout(()=>inp.focus(),50);
+}
+function closeGlobalSearch(){
+  document.getElementById('globalSearchModal').classList.add('hidden');
+}
+function runGlobalSearch(q){
+  const el=document.getElementById('globalSearchResults');
+  const query=(q||'').trim().toLowerCase();
+  if(query.length<2){el.innerHTML='<div class="gs-empty">Digite ao menos 2 caracteres…</div>';return;}
+  const STAGE_LBL={prosp:'Prospecção',qual:'Qualificado',prop:'Proposta',neg:'Negociação',negotiation:'Negociação',won:'Fechado',lost:'Perdido'};
+  let html='';
+  const mc=clients.filter(c=>(c.name||'').toLowerCase().includes(query));
+  if(mc.length) html+='<div class="global-search-section">Clientes</div>'+mc.slice(0,5).map(c=>
+    '<div class="global-search-item" onclick="closeGlobalSearch();switchTab(\'clientes\',null);setTimeout(()=>openEditClientModal('+c.id+'),120)">'+
+    '<span style="font-size:14px">👤</span><div><div class="gs-name">'+escHtml(c.name)+'</div><div class="gs-sub">'+escHtml(c.regime)+' · '+escHtml(c.nivel)+'</div></div>'+
+    '<span class="gs-badge">Cliente</span></div>').join('');
+  const ml=leads.filter(l=>(l.name||'').toLowerCase().includes(query)||(l.dor||'').toLowerCase().includes(query));
+  if(ml.length) html+='<div class="global-search-section">CRM / Leads</div>'+ml.slice(0,5).map(l=>
+    '<div class="global-search-item" onclick="closeGlobalSearch();switchTab(\'funil\',null);setTimeout(()=>openLeadModal(\''+escAttr(l.id)+'\'),120)">'+
+    '<span style="font-size:14px">📊</span><div><div class="gs-name">'+escHtml(l.name)+'</div><div class="gs-sub">'+(STAGE_LBL[l.stage]||l.stage)+'</div></div>'+
+    '<span class="gs-badge">Lead</span></div>').join('');
+  const md=demandas.filter(d=>(d.cliente||'').toLowerCase().includes(query)||(d.tipo||'').toLowerCase().includes(query)||(d.desc||'').toLowerCase().includes(query));
+  if(md.length) html+='<div class="global-search-section">Demandas</div>'+md.slice(0,5).map(d=>
+    '<div class="global-search-item" onclick="closeGlobalSearch();switchTab(\'demandas\',null)">'+
+    '<span style="font-size:14px">📋</span><div><div class="gs-name">'+escHtml(d.tipo||'Demanda')+'</div><div class="gs-sub">'+escHtml(d.cliente)+' · '+escHtml(d.status)+'</div></div>'+
+    '<span class="gs-badge">Demanda</span></div>').join('');
+  el.innerHTML=html||'<div class="gs-empty">Nenhum resultado para "'+escHtml(q)+'"</div>';
+}
+// Keyboard: Ctrl+K / Cmd+K to open, Escape to close
+document.addEventListener('keydown',function(e){
+  if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();openGlobalSearch();}
+  if(e.key==='Escape'&&!document.getElementById('globalSearchModal').classList.contains('hidden')){closeGlobalSearch();}
+});
+
+/* ═══════════════════════════════════════════════
+   FASE 4 — COMENTÁRIOS EM DEMANDAS (item 16)
+═══════════════════════════════════════════════ */
+function toggleDemComments(demId){
+  const el=document.getElementById('cmts_'+demId);
+  if(el) el.hidden=!el.hidden;
+  if(el&&!el.hidden){
+    const inp=document.getElementById('ci_'+demId);
+    if(inp) inp.focus();
+  }
+}
+function addComment(demId){
+  const inp=document.getElementById('ci_'+demId);
+  if(!inp) return;
+  const text=(inp.value||'').trim();
+  if(!text) return;
+  if(!commentsData[demId]) commentsData[demId]=[];
+  commentsData[demId].push({id:'c_'+Date.now(),text,author:'Nathan',ts:new Date().toISOString()});
+  save('cb3_comments',commentsData);
+  renderDemandas();
+  // Re-open the comment section
+  setTimeout(()=>{
+    const el=document.getElementById('cmts_'+demId);
+    if(el) el.hidden=false;
+  },30);
+}
+
+/* ═══════════════════════════════════════════════
+   FASE 4 — TEMPLATES DE CLIENTE (item 19)
+═══════════════════════════════════════════════ */
+const CLIENT_TEMPLATES=[
+  {regime:'Simples Nacional',nivel:'Prata',services:['Fiscal','Contábil'],employees:false},
+  {regime:'Lucro Presumido',nivel:'Ouro',services:['Fiscal','Contábil','Financeiro'],employees:true},
+  {regime:'MEI',nivel:'Prata',services:['Fiscal'],employees:false},
+  {regime:'Terceiro Setor',nivel:'Prata',services:['Fiscal','Contábil','Societário'],employees:true},
+];
+function applyClientTemplate(idx){
+  const t=CLIENT_TEMPLATES[idx];
+  if(!t) return;
+  const regime=document.getElementById('mc_regime');
+  const nivel=document.getElementById('mc_nivel');
+  const emp=document.getElementById('mc_employees');
+  if(regime) regime.value=t.regime;
+  if(nivel){nivel.value=t.nivel; updateNivelHint();}
+  if(emp) emp.checked=t.employees;
+  document.querySelectorAll('.mc_svc').forEach(cb=>{cb.checked=t.services.includes(cb.value);});
+  showToast('Template aplicado: '+t.regime,'ok');
+}
+
+/* ═══════════════════════════════════════════════
+   FASE 4 — AUTOMAÇÃO: LEAD→CLIENTE (item 17)
+═══════════════════════════════════════════════ */
+function offerCreateClientFromLead(lead){
+  if(!lead||!lead.name) return;
+  const alreadyExists=clients.some(c=>c.name.toLowerCase()===lead.name.toLowerCase());
+  if(alreadyExists){showToast(lead.name+' já é cliente!','ok');return;}
+  if(confirm('🎉 Lead "'+lead.name+'" foi fechado!\n\nDeseja criar este cliente automaticamente?')){
+    const newId=Date.now();
+    const valorNum=parseFloat((lead.valor||'').replace(/[^\d,]/g,'').replace(',','.'))||0;
+    clients.push({
+      id:newId,name:lead.name,initials:lead.name.slice(0,2).toUpperCase(),
+      regime:'Simples Nacional',nivel:'Prata',mensalidade:valorNum,
+      whatsapp:'',hasEmployees:false,services:['Fiscal','Contábil'],
+      notes:'Lead convertido em '+new Date().toLocaleDateString('pt-BR'),
+      contractRenewal:'',driveKey:'drive_'+newId
+    });
+    save('cb3_clients',clients);
+    renderClientes();renderFinanceiro();renderMetaBanner();
+    showToast('Cliente "'+lead.name+'" criado com sucesso! Complete as informações.','ok');
+    setTimeout(()=>{switchTab('clientes',null);setTimeout(()=>openEditClientModal(newId),120);},400);
+  }
+}
+
+/* ═══════════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════════ */
 initAuth();
@@ -3869,5 +4044,17 @@ initAuth();
 
   </div><!-- /.app-content -->
 </div><!-- /#appShell -->
+<!-- GLOBAL SEARCH MODAL -->
+<div class="modal-overlay hidden" id="globalSearchModal" onclick="if(event.target===this)closeGlobalSearch()">
+  <div class="global-search-card">
+    <div class="global-search-header">
+      <span style="font-size:18px">🔍</span>
+      <input type="text" id="globalSearchInput" placeholder="Buscar clientes, leads, demandas..." oninput="runGlobalSearch(this.value)" autocomplete="off">
+      <span class="global-search-esc" onclick="closeGlobalSearch()">Esc</span>
+    </div>
+    <div id="globalSearchResults" class="global-search-results"><div class="gs-empty">Digite para buscar em todo o sistema…</div></div>
+  </div>
+</div>
+
 <div id="toastContainer"></div>
 </body></html>
