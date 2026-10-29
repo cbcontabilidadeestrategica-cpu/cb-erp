@@ -862,6 +862,18 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .kanban-valor{font-size:12px;font-weight:800;color:var(--gold2);margin-bottom:3px}
 .kanban-chk{font-size:10px;color:var(--fg3);margin-bottom:3px}
 .kanban-dor{font-size:11px;color:var(--fg2);margin-top:4px;padding-top:5px;border-top:1px solid var(--border);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.kanban-aging{font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px;background:rgba(0,0,0,.06);color:var(--fg3);margin-left:auto;flex-shrink:0;white-space:nowrap}
+.kanban-aging.warn{background:rgba(251,191,36,.15);color:var(--amber)}
+.kanban-aging.late{background:rgba(220,38,38,.12);color:var(--red)}
+.kanban-follow{font-size:11px;color:var(--fg3);margin-top:4px;padding-top:4px;border-top:1px dashed var(--border)}
+.kanban-follow.overdue{color:var(--red);font-weight:600}
+.cs-inactivity{font-size:11px;padding:4px 8px;border-radius:6px;margin-top:6px;font-weight:600}
+.cs-inactivity.warn{background:rgba(251,191,36,.15);color:var(--amber)}
+.cs-inactivity.late{background:rgba(220,38,38,.12);color:var(--red)}
+.cs-nps-row{display:flex;gap:3px;flex-wrap:wrap;margin-top:4px}
+.cs-nps-btn{width:26px;height:26px;border-radius:5px;border:1px solid var(--border);background:var(--bg);cursor:pointer;font-size:10px;font-weight:700;color:var(--fg3);display:flex;align-items:center;justify-content:center;transition:.12s;padding:0}
+.cs-nps-btn:hover{border-color:var(--gold);color:var(--gold)}
+.cs-nps-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
 
 /* ── Modal form ── */
 .modal-input{width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'Outfit',sans-serif;background:var(--bg3);color:var(--fg);outline:none;transition:border-color .12s;box-sizing:border-box}
@@ -930,6 +942,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .dem-kan-cards{display:flex;flex-direction:column;gap:7px;min-height:60px}
 .dem-kan-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;transition:.12s;cursor:default}
 .dem-kan-card:hover{box-shadow:var(--shadow)}
+.dem-kan-card.overdue{border-left:3px solid var(--red);background:rgba(220,38,38,.04)}
 .dem-kan-tipo{font-size:11px;font-weight:800;color:var(--fg);margin-bottom:2px}
 .dem-kan-client{font-size:11px;color:var(--gold2);font-weight:700;margin-bottom:3px}
 .dem-kan-desc{font-size:11px;color:var(--fg2);margin-bottom:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -943,6 +956,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 
 /* ── Financeiro metas ── */
 .fin-meta-card{background:linear-gradient(135deg,var(--navy),var(--navy3));border-radius:var(--radius);padding:20px 22px;color:#fff;margin-bottom:16px;position:relative;overflow:hidden}
+.revenue-concentration-alert{display:none;background:#fff3cd;border:1px solid #ffc107;border-left:4px solid var(--red);color:#7d4e00;border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:12px}
 .fin-meta-card::before{content:'';position:absolute;top:-20px;right:-20px;width:120px;height:120px;border-radius:50%;background:rgba(200,160,74,.1)}
 .fin-meta-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:rgba(255,255,255,.5);margin-bottom:10px}
 .fin-meta-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:12px}
@@ -1216,6 +1230,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
       </div>
     </div>
     <div class="radar-kpis" id="radarKpis"></div>
+    <div id="radarFecAlert" style="display:none;margin-top:8px;background:rgba(220,38,38,.1);border-left:3px solid var(--red);border-radius:6px;padding:7px 12px;font-size:12px;color:var(--red);font-weight:600"></div>
   </div>
 
   <div class="radar-split">
@@ -1241,6 +1256,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
   </div>
 
   <div class="section-label" style="margin-top:18px">💰 FINANCEIRO &amp; META</div>
+  <div id="revenueConcentrationAlert" class="revenue-concentration-alert"></div>
   <div class="radar-fin-section" id="radarFinanceiro"></div>
 
   <div class="section-label" style="margin-top:18px">🚨 DEMANDAS ATIVAS</div>
@@ -1249,8 +1265,8 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 
 <!-- ═══ FECHAMENTO ═══ -->
 <section id="tab-fechamento" class="tab-panel">
-  <p class="page-title">Fechamento Mensal</p>
-  <p class="page-sub">Checklist por cliente — clique no card para abrir as etapas</p>
+  <p class="page-title">✅ Obrigações Mensais</p>
+  <p class="page-sub">Checklist de fechamento por cliente — clique no card para abrir as etapas</p>
   <div class="month-selector">
     <button class="month-nav-btn" onclick="fecChangeMonth(-1)">‹</button>
     <div class="month-current">
@@ -2094,21 +2110,47 @@ function renderRadar() {
   document.getElementById('headerDate').textContent =
     now.toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'2-digit'});
 
-  const urgent = OBLIGATIONS.filter(o => o.day >= day && o.day <= day+2);
-  document.getElementById('heroUrgCount').textContent = urgent.length;
+  // KPI: obrigações fixas + demandas reais com prazo
+  const msPerDay = 86400000;
+  const urgent48Obs = OBLIGATIONS.filter(o => o.day >= day && o.day <= day+2).length;
+  const urgent48Dem = demandas.filter(d => {
+    if(['concluido','cancelado'].includes(d.status)||!d.prazo) return false;
+    const diff = (new Date(d.prazo) - now) / msPerDay;
+    return diff >= -1 && diff <= 2;
+  }).length;
+  const urgent48 = urgent48Obs + urgent48Dem;
+
+  const week7Obs = OBLIGATIONS.filter(o => o.day >= day && o.day <= day+7).length;
+  const week7Dem = demandas.filter(d => {
+    if(['concluido','cancelado'].includes(d.status)||!d.prazo) return false;
+    const diff = (new Date(d.prazo) - now) / msPerDay;
+    return diff >= -1 && diff <= 7;
+  }).length;
+  const week7 = week7Obs + week7Dem;
+
+  document.getElementById('heroUrgCount').textContent = urgent48;
 
   const key = fecKey();
   const doneObj = closingData[key] || {};
   let totalS = 0, doneS = 0;
   clients.forEach(c => { const s = getSteps(c); totalS+=s.length; doneS+=s.filter(st=>{ const v=doneObj[c.id+'_'+st.id]; return v===true||(v&&v.done); }).length; });
   const closingPct = totalS ? Math.round(doneS/totalS*100) : 0;
-  const week = OBLIGATIONS.filter(o => o.day >= day && o.day <= day+7).length;
 
-  document.getElementById('radarKpis').innerHTML = `
-    <div class="radar-kpi"><div class="radar-kpi-num">${urgent.length}</div><div class="radar-kpi-label">48h</div></div>
-    <div class="radar-kpi"><div class="radar-kpi-num">${week}</div><div class="radar-kpi-label">semana</div></div>
-    <div class="radar-kpi"><div class="radar-kpi-num">${closingPct}%</div><div class="radar-kpi-label">fechamento</div></div>
-  `;
+  // Alerta: fechamento em 0% após dia 5
+  const fecAlertEl = document.getElementById('radarFecAlert');
+  if(fecAlertEl) {
+    if(closingPct === 0 && day >= 5 && clients.length > 0) {
+      fecAlertEl.textContent = '⚠ Fechamento de '+MONTHS_PT[now.getMonth()]+' não iniciado — '+clients.length+' clientes pendentes';
+      fecAlertEl.style.display = 'block';
+    } else {
+      fecAlertEl.style.display = 'none';
+    }
+  }
+
+  document.getElementById('radarKpis').innerHTML =
+    '<div class="radar-kpi"><div class="radar-kpi-num">'+urgent48+'</div><div class="radar-kpi-label">48h</div></div>'+
+    '<div class="radar-kpi"><div class="radar-kpi-num">'+week7+'</div><div class="radar-kpi-label">semana</div></div>'+
+    '<div class="radar-kpi"><div class="radar-kpi-num">'+closingPct+'%</div><div class="radar-kpi-label">fechamento</div></div>';
 
   const todayObs = OBLIGATIONS.filter(o => o.day >= day).sort((a,b)=>a.day-b.day).slice(0,5);
   document.getElementById('obligationList').innerHTML = todayObs.length ? todayObs.map(o => {
@@ -2495,6 +2537,10 @@ function normalizeLead(l, i){
   if(l.dor===undefined) l.dor = l.nota || '';
   if(!l.resp) l.resp = 'Nathan';
   if(!l.origem) l.origem = l.canal || '';
+  if(!l.stageChangedAt) l.stageChangedAt = l.createdAt || new Date().toISOString();
+  if(l.nextStep===undefined) l.nextStep='';
+  if(l.followUpDate===undefined) l.followUpDate='';
+  if(l.lostReason===undefined) l.lostReason='';
   return l;
 }
 
@@ -2514,15 +2560,26 @@ function renderFunil(){
     const cards = cols.map(l=>{
       const dot = STAGE_DOT[stage]||'var(--fg3)';
       const chk = getCheckCount(l);
+      const agingMs = Date.now() - new Date(l.stageChangedAt||l.createdAt||Date.now()).getTime();
+      const agingDays = Math.max(0, Math.floor(agingMs/86400000));
+      const agingClass = agingDays>=21?'late':agingDays>=10?'warn':'';
+      const todayStr = new Date().toISOString().slice(0,10);
+      const fuOverdue = l.followUpDate && l.followUpDate < todayStr;
       return '<div class="kanban-card" onclick="openLeadModal(\''+escAttr(l.id)+'\')">'+
         '<div class="kanban-card-top">'+
           '<span class="kanban-dot" style="background:'+dot+'"></span>'+
           '<span class="kanban-name">'+escHtml(l.name)+'</span>'+
+          (agingDays>0?'<span class="kanban-aging'+(agingClass?' '+agingClass:'')+'">'+agingDays+'d</span>':'')+
         '</div>'+
         (l.resp?'<div class="kanban-resp">👤 '+escHtml(l.resp)+'</div>':'')+
         (l.valor?'<div class="kanban-valor">💰 R$ '+escHtml(l.valor)+'/mês</div>':'')+
         '<div class="kanban-chk">☑ '+chk+' atividades</div>'+
         (l.dor?'<div class="kanban-dor">💬 '+escHtml(l.dor)+'</div>':'')+
+        (l.nextStep||l.followUpDate?
+          '<div class="kanban-follow'+(fuOverdue?' overdue':'')+'">'+
+            (fuOverdue?'⚠️':'📅')+' '+(l.nextStep?escHtml(l.nextStep):'')+
+            (l.followUpDate?' ('+escHtml(l.followUpDate.slice(5).replace('-','/'))+')':'')+
+          '</div>':'')+
       '</div>';
     }).join('');
     return '<div class="kanban-col">'+
@@ -2562,6 +2619,7 @@ function buildLeadModal(l){
   const stageOpts = STAGE_ORDER.map(s=>
     '<option value="'+s+'"'+(l&&l.stage===s?' selected':'')+'>'+STAGE_LABELS[s]+'</option>'
   ).join('');
+  const isLost = l&&l.stage==='lost';
   document.getElementById('modalLeadBody').innerHTML =
     '<div class="modal-field-group">'+
       '<label>Nome do lead</label>'+
@@ -2569,7 +2627,7 @@ function buildLeadModal(l){
     '</div>'+
     '<div class="modal-field-group">'+
       '<label>Etapa no funil</label>'+
-      '<select class="modal-input" id="ml_stage">'+stageOpts+'</select>'+
+      '<select class="modal-input" id="ml_stage" onchange="document.getElementById(\'ml_lost_sec\').hidden=this.value!==\'lost\'">'+stageOpts+'</select>'+
     '</div>'+
     '<div class="modal-2col">'+
       '<div class="modal-field-group">'+
@@ -2595,6 +2653,22 @@ function buildLeadModal(l){
       '<label>Dor / Contexto</label>'+
       '<textarea class="modal-input modal-textarea" id="ml_dor" rows="2" placeholder="Qual o problema principal que este lead quer resolver?">'+escHtml(l?l.dor||'':'')+'</textarea>'+
     '</div>'+
+    '<div class="modal-2col">'+
+      '<div class="modal-field-group">'+
+        '<label>Próximo passo</label>'+
+        '<input class="modal-input" id="ml_ns" placeholder="Ex: Enviar proposta" value="'+escAttr(l?l.nextStep||'':'')+'">'+
+      '</div>'+
+      '<div class="modal-field-group">'+
+        '<label>Follow-up em</label>'+
+        '<input class="modal-input" type="date" id="ml_fu" value="'+escAttr(l?l.followUpDate||'':'')+'">'+
+      '</div>'+
+    '</div>'+
+    '<div id="ml_lost_sec"'+(isLost?'':' hidden')+'>'+
+      '<div class="modal-field-group">'+
+        '<label style="color:var(--red)">Motivo da perda <span style="font-size:10px;font-weight:400">(obrigatório)</span></label>'+
+        '<textarea class="modal-input modal-textarea" id="ml_lr" rows="2" placeholder="Por que este lead não fechou?">'+escHtml(l?l.lostReason||'':'')+'</textarea>'+
+      '</div>'+
+    '</div>'+
     '<div class="modal-field-group">'+
       '<label>Checklist de atividades</label>'+
       '<div class="modal-checklist">'+checks+'</div>'+
@@ -2613,13 +2687,25 @@ function saveLeadModal(){
   const resp = (document.getElementById('ml_resp').value||'').trim();
   const firstContact = document.getElementById('ml_fc').value;
   const dor = (document.getElementById('ml_dor').value||'').trim();
+  const nextStep = (document.getElementById('ml_ns').value||'').trim();
+  const followUpDate = document.getElementById('ml_fu').value;
+  const lrEl = document.getElementById('ml_lr');
+  const lostReason = (lrEl?lrEl.value||'':'').trim();
+  if(stage==='lost'&&!lostReason){ lrEl&&lrEl.focus(); showToast('Informe o motivo da perda','err'); return; }
   const checklist = {};
   LEAD_CHECKS.forEach(c=>{ const el=document.getElementById('mc_'+c.id); if(el&&el.checked) checklist[c.id]=true; });
   if(editingLeadId){
     const idx = leads.findIndex(l=>l.id===editingLeadId);
-    if(idx>-1) leads[idx] = { ...leads[idx], name, stage, valor, origem, resp, firstContact, dor, checklist };
+    if(idx>-1){
+      const prev = leads[idx];
+      const stageChanged = prev.stage !== stage;
+      leads[idx] = { ...prev, name, stage, valor, origem, resp, firstContact, dor, nextStep, followUpDate, lostReason, checklist,
+        stageChangedAt: stageChanged ? new Date().toISOString() : (prev.stageChangedAt||prev.createdAt||new Date().toISOString())
+      };
+    }
   } else {
-    leads.unshift({ id:'l_'+Date.now(), name, stage, valor, origem, resp, firstContact, dor, checklist, createdAt:new Date().toISOString() });
+    const now = new Date().toISOString();
+    leads.unshift({ id:'l_'+Date.now(), name, stage, valor, origem, resp, firstContact, dor, nextStep, followUpDate, lostReason, checklist, createdAt:now, stageChangedAt:now });
   }
   save('cb3_leads', leads);
   closeLeadModal();
@@ -2692,6 +2778,18 @@ function renderFinanceiro(){
         '</div>';
       }).join(''):'<div style="padding:12px 0;color:var(--fg3);font-size:13px">Nenhum cliente cadastrado ainda.</div>')+
     '</div>';
+
+  // Alerta de concentração de receita
+  const concAlert=document.getElementById('revenueConcentrationAlert');
+  if(concAlert){
+    const topPct=total?Math.round(topVal/total*100):0;
+    if(total>0&&topPct>=40){
+      concAlert.innerHTML='⚠️ <strong>Risco de concentração:</strong> '+escHtml(topClient)+' representa '+topPct+'% do MRR (R$ '+topVal.toLocaleString('pt-BR')+') — diversifique a carteira.';
+      concAlert.style.display='block';
+    } else {
+      concAlert.style.display='none';
+    }
+  }
 
   // Update meta banner KPIs
   const fill=document.querySelector('.meta-bar-fill');
@@ -3035,8 +3133,11 @@ function renderClientes(){
       (()=>{
         const cs=csData[c.id]||{};
         const sat=cs.satisfaction||0;
-        const today=new Date().toISOString().slice(0,10);
-        const checkinLate=cs.nextCheckin&&cs.nextCheckin<today;
+        const nps=cs.nps!=null?cs.nps:-1;
+        const todayCs=new Date().toISOString().slice(0,10);
+        const checkinLate=cs.nextCheckin&&cs.nextCheckin<todayCs;
+        const daysSinceContact = cs.lastContact ? Math.floor((new Date()-new Date(cs.lastContact))/86400000) : null;
+        const inactClass = daysSinceContact!==null ? (daysSinceContact>=30?'late':daysSinceContact>=15?'warn':null) : null;
         return '<div class="cs-section">'+
           '<div class="onb-sec-title" style="margin-bottom:10px">🤝 Sucesso do Cliente</div>'+
           '<div class="cs-grid">'+
@@ -3044,6 +3145,12 @@ function renderClientes(){
               '<div class="cs-field-label">Satisfação</div>'+
               '<div class="cs-nps">'+
                 [1,2,3,4,5].map(n=>'<span class="cs-star'+(n<=sat?' active':'')+'" onclick="setCsSat('+c.id+','+n+')" title="'+n+' estrela'+(n>1?'s':'')+'">★</span>').join('')+
+              '</div>'+
+            '</div>'+
+            '<div>'+
+              '<div class="cs-field-label">NPS (0–10)</div>'+
+              '<div class="cs-nps-row">'+
+                [0,1,2,3,4,5,6,7,8,9,10].map(n=>'<button class="cs-nps-btn'+(nps===n?' active':'')+'" onclick="setCsNps('+c.id+','+n+')">'+n+'</button>').join('')+
               '</div>'+
             '</div>'+
             '<div>'+
@@ -3056,6 +3163,7 @@ function renderClientes(){
             '<div>'+
               '<div class="cs-field-label">Último contato</div>'+
               '<input type="date" class="cs-input-sm" value="'+escAttr(cs.lastContact||'')+'" onchange="updateCsField('+c.id+',\'lastContact\',this.value)">'+
+              (inactClass?'<div class="cs-inactivity '+inactClass+'">'+(inactClass==='late'?'🔴':'🟡')+' '+daysSinceContact+'d sem contato</div>':'')+
             '</div>'+
             '<div>'+
               '<div class="cs-field-label">Próximo check-in</div>'+
@@ -3130,6 +3238,14 @@ function updateCsField(clientId,field,val){
   if(!csData[clientId]) csData[clientId]={};
   csData[clientId][field]=val;
   save('cb3_cs',csData);
+}
+function setCsNps(clientId,val){
+  if(!csData[clientId]) csData[clientId]={};
+  csData[clientId].nps = csData[clientId].nps===val?-1:val;
+  save('cb3_cs',csData);
+  renderClientes();
+  const el=document.getElementById('onb_list_'+clientId);
+  if(el&&!el.hidden) el.hidden=false;
 }
 
 /* CLIENT MODAL */
@@ -3370,7 +3486,7 @@ function renderDemandas(){
       const clientNotes = clientObj&&clientObj.notes?clientObj.notes:'';
       const canLeft=colIdx>0;
       const canRight=colIdx<DEM_COLUMNS.length-1;
-      return '<div class="dem-kan-card">'+
+      return '<div class="dem-kan-card'+(isOverdue?' overdue':'')+'">'+
         '<div class="dem-move-btns">'+
           '<button class="dem-move-btn" '+(canLeft?'onclick="moveDemanda(\''+escAttr(d.id)+'\',-1)"':'disabled')+' title="Mover para '+( colIdx>0?DEM_COLUMNS[colIdx-1].label:'')+'">◀</button>'+
           '<button class="dem-move-btn" '+(canRight?'onclick="moveDemanda(\''+escAttr(d.id)+'\',1)"':'disabled')+' title="Mover para '+(colIdx<DEM_COLUMNS.length-1?DEM_COLUMNS[colIdx+1].label:'')+'">▶</button>'+
@@ -3510,11 +3626,15 @@ function renderRadarDemandas(){
     el.innerHTML='<div class="radar-dem-item"><span style="color:var(--green);font-size:13px">✅ Sem demandas ativas no momento</span></div>';
     return;
   }
-  el.innerHTML = active.slice(0,8).map(d=>{
+  const now = new Date();
+  const overdueCount = active.filter(d=>d.prazo&&new Date(d.prazo)<now).length;
+  const summaryBanner = overdueCount
+    ? '<div style="background:rgba(220,38,38,.1);border-left:3px solid var(--red);border-radius:6px;padding:6px 10px;margin-bottom:8px;font-size:12px;color:var(--red);font-weight:700">⚠ '+overdueCount+' demanda'+(overdueCount>1?'s':'')+' com prazo vencido</div>'
+    : '';
+  el.innerHTML = summaryBanner + active.slice(0,8).map(d=>{
     const isEm = d.status==='em-andamento';
     const sClass = isEm ? 'amber' : 'red';
     const sLabel = isEm ? 'em andamento' : 'aguardando';
-    const now = new Date();
     const prazoDate = d.prazo ? new Date(d.prazo) : null;
     const overdue = prazoDate && prazoDate < now && !['concluido','cancelado'].includes(d.status);
     return '<div class="radar-dem-item">'+
