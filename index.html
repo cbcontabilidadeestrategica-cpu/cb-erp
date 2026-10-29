@@ -874,6 +874,20 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .cs-nps-btn{width:26px;height:26px;border-radius:5px;border:1px solid var(--border);background:var(--bg);cursor:pointer;font-size:10px;font-weight:700;color:var(--fg3);display:flex;align-items:center;justify-content:center;transition:.12s;padding:0}
 .cs-nps-btn:hover{border-color:var(--gold);color:var(--gold)}
 .cs-nps-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+/* ── Acessos table ── */
+.acessos-wrap{overflow-x:auto}
+.acessos-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.acessos-tbl th{background:var(--navy);color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:7px 8px;white-space:nowrap;text-align:left}
+.acessos-tbl td{padding:4px 4px;border-bottom:1px solid var(--border);vertical-align:middle}
+.acessos-tbl tr:hover td{background:var(--bg2)}
+.acc-input{width:100%;background:transparent;border:none;font-size:12px;color:var(--fg);font-family:inherit;padding:3px 4px;border-radius:4px;min-width:70px}
+.acc-input:focus{outline:2px solid var(--gold);background:var(--bg)}
+.acc-pwd-wrap{display:flex;align-items:center;gap:4px}
+.acc-pwd{font-family:monospace;letter-spacing:.08em}
+.acc-eye{background:none;border:none;cursor:pointer;font-size:12px;padding:2px;color:var(--fg3);line-height:1;flex-shrink:0}
+.acc-eye:hover{color:var(--fg)}
+.acc-del{background:none;border:none;cursor:pointer;color:var(--red);font-size:14px;padding:2px 6px;opacity:.4;transition:.12s}
+.acc-del:hover{opacity:1}
 
 /* ── Modal form ── */
 .modal-input{width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'Outfit',sans-serif;background:var(--bg3);color:var(--fg);outline:none;transition:border-color .12s;box-sizing:border-box}
@@ -1478,134 +1492,12 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 <!-- ═══ ACESSOS ═══ -->
 <section id="tab-acessos" class="tab-panel">
   <p class="page-title">🔑 Acessos e Credenciais</p>
-  <p class="page-sub">Portais, certificados e logins de cada cliente — <strong style="color:var(--amber)">⚠ Documento Confidencial</strong></p>
-  <style>
-    .pwd-mask { cursor:pointer; filter:blur(5px); transition:filter .2s; user-select:none; display:inline-block; }
-    .pwd-mask:hover, .pwd-mask.show { filter:none; }
-    .pwd-mask::after { content:' 👁'; font-size:10px; }
-    .acessos-table td { font-size:12px; white-space:nowrap; }
-    .acessos-table th { font-size:11px; white-space:nowrap; }
-  </style>
-  <div class="table-wrap" style="overflow-x:auto">
-    <table class="cb-table acessos-table">
-      <thead>
-        <tr>
-          <th>Cliente</th>
-          <th>CNPJ</th>
-          <th>CPF</th>
-          <th>Nasc.</th>
-          <th>Insc. Mun.</th>
-          <th>Insc. Est.</th>
-          <th>Portal Nacional</th>
-          <th>Login UVT PJ</th>
-          <th>Login UVT PF</th>
-          <th>Senha UVT</th>
-          <th>Senha Directa</th>
-          <th>Senha eSocial</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><strong>Cozinha Caseira</strong></td>
-          <td>48.851.690/0001-19</td>
-          <td>098.432.284-13</td>
-          <td>—</td>
-          <td>—</td>
-          <td>20.622.757-4</td>
-          <td>olhar comentário</td>
-          <td>—</td>
-          <td>PF09843228413</td>
-          <td><span class="pwd-mask" onclick="this.classList.toggle('show')" title="Clique para revelar">abc321</span></td>
-          <td>—</td>
-          <td>—</td>
-        </tr>
-        <tr>
-          <td><strong>GM Joias</strong></td>
-          <td>66.263.800/0001-03</td>
-          <td>125.118.524-03</td>
-          <td>—</td>
-          <td>2332238</td>
-          <td>207189994</td>
-          <td>—</td>
-          <td>Precisar criar</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-        </tr>
-        <tr>
-          <td><strong>Lidera Planejados</strong></td>
-          <td>67.775.614/0001-16</td>
-          <td>700.543.054-97</td>
-          <td>15/03/1996</td>
-          <td>474</td>
-          <td>207258872</td>
-          <td><span class="pwd-mask" onclick="this.classList.toggle('show')" title="Clique para revelar">Lidera@1234</span></td>
-          <td>PJ67775614000116</td>
-          <td>PF70054305497</td>
-          <td><span class="pwd-mask" onclick="this.classList.toggle('show')" title="Clique para revelar">1315wp</span></td>
-          <td>—</td>
-          <td><span class="pwd-mask" onclick="this.classList.toggle('show')" title="Clique para revelar">74534500000</span></td>
-        </tr>
-        <tr>
-          <td><strong>Jurema</strong></td>
-          <td>62.566.355/0001-08</td>
-          <td>046.727.544-05</td>
-          <td>—</td>
-          <td>2317630</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>Precisar criar</td>
-          <td>—</td>
-          <td><span class="pwd-mask" onclick="this.classList.toggle('show')" title="Clique para revelar">Jurema@1234</span></td>
-          <td>—</td>
-        </tr>
-        <tr>
-          <td><strong>Kitanda Paraíso</strong></td>
-          <td>13.304.762/0001-23</td>
-          <td>039.188.631-23</td>
-          <td>—</td>
-          <td>—</td>
-          <td>202466000</td>
-          <td>—</td>
-          <td>—</td>
-          <td>Precisar criar</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-        </tr>
-        <tr>
-          <td><strong>Yuri Chavante Antunes</strong></td>
-          <td>64.505.679/0001-53</td>
-          <td>111.686.134-85</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-        </tr>
-        <tr>
-          <td><strong>MEI Rodrigo Araújo</strong></td>
-          <td>69.041.180/0001-56</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td><span class="pwd-mask" onclick="this.classList.toggle('show')" title="Clique para revelar">@Rod2805</span></td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-          <td>—</td>
-        </tr>
-      </tbody>
-    </table>
+  <p class="page-sub">Portais, certificados e logins de cada cliente — <strong style="color:var(--amber)">⚠ Documento Confidencial — dados salvos apenas neste navegador</strong></p>
+  <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+    <button class="btn-primary" onclick="addAcessosRow()" style="padding:8px 16px">+ Novo cliente</button>
+    <span style="font-size:11px;color:var(--fg3);align-self:center">Clique em qualquer campo para editar. Senhas ficam ocultas — clique 👁 para revelar.</span>
   </div>
+  <div id="acessosContent"></div>
 </section>
 
 <!-- ═══ FINANCEIRO ═══ -->
@@ -1683,7 +1575,7 @@ async function showApp(user) {
   await loadFromSupabase();
   initState(); initTheme(); initSidebar(); renderMetaBanner(); renderRadar(); renderRadarDemandas();
   renderFechamento(); renderIgCal(); renderFunil(); renderFinanceiro();
-  renderClientes(); renderClientDefaults(); renderDemandas();
+  renderClientes(); renderClientDefaults(); renderDemandas(); renderAcessos();
 }
 
 async function loadFromSupabase() {
@@ -1876,7 +1768,32 @@ const IG_TEMPLATES = {
    STATE
 ═══════════════════════════════════════════════ */
 let leads = [], igEvents = [], closingData = {}, clientDrives = {}, revenues = {}, demandas = [];
-let onboarding = {}, csData = {};
+let onboarding = {}, csData = {}, acessosData = [];
+
+const ACESSOS_COLS = [
+  { key:'cliente',        label:'Cliente',         pwd:false },
+  { key:'cnpj',           label:'CNPJ',            pwd:false },
+  { key:'cpf',            label:'CPF',             pwd:false },
+  { key:'nasc',           label:'Nasc.',           pwd:false },
+  { key:'inscMun',        label:'Insc. Mun.',      pwd:false },
+  { key:'inscEst',        label:'Insc. Est.',      pwd:false },
+  { key:'portalNacional', label:'Portal Nacional', pwd:true  },
+  { key:'loginUvtPJ',     label:'Login UVT PJ',    pwd:false },
+  { key:'loginUvtPF',     label:'Login UVT PF',    pwd:false },
+  { key:'senhaUvt',       label:'Senha UVT',       pwd:true  },
+  { key:'senhaDirecta',   label:'Senha Directa',   pwd:true  },
+  { key:'senhaEsocial',   label:'Senha eSocial',   pwd:true  },
+];
+
+const ACESSOS_SEED_ROWS = [
+  { cliente:'Cozinha Caseira',       cnpj:'48.851.690/0001-19', cpf:'', nasc:'', inscMun:'',       inscEst:'20.622.757-4', portalNacional:'', loginUvtPJ:'',               loginUvtPF:'',          senhaUvt:'', senhaDirecta:'', senhaEsocial:'' },
+  { cliente:'GM Joias',              cnpj:'66.263.800/0001-03', cpf:'', nasc:'', inscMun:'2332238', inscEst:'207189994',    portalNacional:'', loginUvtPJ:'Precisar criar', loginUvtPF:'',          senhaUvt:'', senhaDirecta:'', senhaEsocial:'' },
+  { cliente:'Lidera Planejados',     cnpj:'67.775.614/0001-16', cpf:'', nasc:'', inscMun:'474',     inscEst:'207258872',    portalNacional:'', loginUvtPJ:'PJ67775614000116',loginUvtPF:'PF70054305497', senhaUvt:'', senhaDirecta:'', senhaEsocial:'' },
+  { cliente:'Jurema',                cnpj:'62.566.355/0001-08', cpf:'', nasc:'', inscMun:'2317630', inscEst:'',             portalNacional:'', loginUvtPJ:'',               loginUvtPF:'Precisar criar', senhaUvt:'', senhaDirecta:'', senhaEsocial:'' },
+  { cliente:'Kitanda Paraíso',       cnpj:'13.304.762/0001-23', cpf:'', nasc:'', inscMun:'',        inscEst:'202466000',    portalNacional:'', loginUvtPJ:'',               loginUvtPF:'Precisar criar', senhaUvt:'', senhaDirecta:'', senhaEsocial:'' },
+  { cliente:'Yuri Chavante Antunes', cnpj:'64.505.679/0001-53', cpf:'', nasc:'', inscMun:'',        inscEst:'',             portalNacional:'', loginUvtPJ:'',               loginUvtPF:'',          senhaUvt:'', senhaDirecta:'', senhaEsocial:'' },
+  { cliente:'MEI Rodrigo Araújo',    cnpj:'69.041.180/0001-56', cpf:'', nasc:'', inscMun:'',        inscEst:'',             portalNacional:'', loginUvtPJ:'',               loginUvtPF:'',          senhaUvt:'', senhaDirecta:'', senhaEsocial:'' },
+];
 let fecYear, fecMonth, igYear, igMonth, igSelectedDate = null, demFilter = 'all', igView = 'cal';
 let finYear, finMonth;
 let editingLeadId = null, editingClientId = null;
@@ -1921,6 +1838,11 @@ function initState() {
     try { const sd=JSON.parse(localStorage.getItem('cb3_defaults')||'null'); if(sd) clientDefaults=sd; } catch(e){}
     try { onboarding=JSON.parse(localStorage.getItem('cb3_onboarding')||'{}'); } catch(e){}
     try { csData=JSON.parse(localStorage.getItem('cb3_cs')||'{}'); } catch(e){}
+    try {
+      const saved=JSON.parse(localStorage.getItem('cb3_acessos')||'null');
+      acessosData = saved && saved.length ? saved : ACESSOS_SEED_ROWS.map(r=>({...r}));
+      if(!saved) localStorage.setItem('cb3_acessos', JSON.stringify(acessosData));
+    } catch(e){ acessosData=ACESSOS_SEED_ROWS.map(r=>({...r})); }
 
     // Seed demandas da planilha "Demandas Pontuais" — reseed se versão < 7
     if(!demandas.length || parseInt(seedV||'0') < 7) {
@@ -3246,6 +3168,61 @@ function setCsNps(clientId,val){
   renderClientes();
   const el=document.getElementById('onb_list_'+clientId);
   if(el&&!el.hidden) el.hidden=false;
+}
+
+/* ═══════════════════════════════════════════════
+   ACESSOS — tabela editável (dados em localStorage)
+═══════════════════════════════════════════════ */
+function renderAcessos(){
+  const el=document.getElementById('acessosContent');
+  if(!el) return;
+  if(!acessosData.length){
+    el.innerHTML='<div style="padding:24px;text-align:center;color:var(--fg3)">Nenhum cliente. Clique em "+ Novo cliente" para adicionar.</div>';
+    return;
+  }
+  const thead='<tr>'+ACESSOS_COLS.map(c=>'<th>'+c.label+'</th>').join('')+'<th></th></tr>';
+  const tbody=acessosData.map((row,ri)=>{
+    const cells=ACESSOS_COLS.map(col=>{
+      const val=row[col.key]||'';
+      if(col.pwd){
+        const id='acc_'+ri+'_'+col.key;
+        return '<td><div class="acc-pwd-wrap">'+
+          '<input class="acc-input acc-pwd" type="password" id="'+id+'" value="'+escAttr(val)+'" placeholder="—" onchange="saveAcessosCell('+ri+',\''+col.key+'\',this.value)">'+
+          '<button class="acc-eye" type="button" onclick="toggleAccPwd(\''+id+'\')" title="Revelar">👁</button>'+
+        '</div></td>';
+      }
+      return '<td><input class="acc-input" type="text" value="'+escAttr(val)+'" placeholder="—" onchange="saveAcessosCell('+ri+',\''+col.key+'\',this.value)"></td>';
+    }).join('');
+    return '<tr>'+cells+'<td><button class="acc-del" onclick="deleteAcessosRow('+ri+')" title="Remover linha">×</button></td></tr>';
+  }).join('');
+  el.innerHTML='<div class="acessos-wrap"><table class="acessos-tbl"><thead>'+thead+'</thead><tbody>'+tbody+'</tbody></table></div>';
+}
+
+function saveAcessosCell(ri, key, val){
+  if(!acessosData[ri]) return;
+  acessosData[ri][key]=val;
+  localStorage.setItem('cb3_acessos', JSON.stringify(acessosData));
+}
+
+function toggleAccPwd(id){
+  const el=document.getElementById(id);
+  if(!el) return;
+  el.type=el.type==='password'?'text':'password';
+}
+
+function addAcessosRow(){
+  const blank={};
+  ACESSOS_COLS.forEach(c=>blank[c.key]='');
+  blank.cliente='Novo Cliente';
+  acessosData.push(blank);
+  localStorage.setItem('cb3_acessos', JSON.stringify(acessosData));
+  renderAcessos();
+}
+
+function deleteAcessosRow(ri){
+  acessosData.splice(ri,1);
+  localStorage.setItem('cb3_acessos', JSON.stringify(acessosData));
+  renderAcessos();
 }
 
 /* CLIENT MODAL */
