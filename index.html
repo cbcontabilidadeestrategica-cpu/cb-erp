@@ -888,6 +888,28 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .acc-eye:hover{color:var(--fg)}
 .acc-del{background:none;border:none;cursor:pointer;color:var(--red);font-size:14px;padding:2px 6px;opacity:.4;transition:.12s}
 .acc-del:hover{opacity:1}
+/* ── Fase 3: Health Score ── */
+.health-badge{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;cursor:default;margin-top:4px}
+.health-badge.green{background:var(--green-lt);color:var(--green)}
+.health-badge.amber{background:var(--amber-lt);color:var(--amber)}
+.health-badge.red{background:var(--red-lt);color:var(--red)}
+/* ── Fase 3: MRR Chart ── */
+.mrr-chart-section{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;margin-bottom:14px}
+.mrr-chart-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--fg3);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+.mrr-bars-wrap{display:flex;align-items:flex-end;gap:5px;height:80px}
+.mrr-bar-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0}
+.mrr-bar-fill{width:100%;border-radius:4px 4px 0 0;min-height:3px}
+.mrr-bar-fill.mrr-past{background:var(--navy3)}
+.mrr-bar-fill.mrr-current{background:var(--gold)}
+.mrr-bar-fill.mrr-proj{background:rgba(200,160,74,.22);border:1px dashed var(--gold);box-sizing:border-box}
+.mrr-bar-lbl{font-size:9px;color:var(--fg3);white-space:nowrap;text-align:center;width:100%;overflow:hidden;text-overflow:ellipsis}
+/* ── Fase 3: Trend stats inside fin-meta-card ── */
+.trend-mini{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.1)}
+.trend-stat{text-align:center;flex:1;min-width:68px}
+.trend-stat-num{font-size:16px;font-weight:800;color:var(--gold3);line-height:1.1}
+.trend-stat-label{font-size:10px;color:rgba(255,255,255,.38);margin-top:2px}
+/* ── Fase 3: Renewal alert ── */
+.renewal-alert-item{background:var(--amber-lt);border-left:3px solid var(--amber);border-radius:6px;padding:7px 12px;font-size:12px;color:var(--amber);font-weight:600;margin-top:6px}
 
 /* ── Modal form ── */
 .modal-input{width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'Outfit',sans-serif;background:var(--bg3);color:var(--fg);outline:none;transition:border-color .12s;box-sizing:border-box}
@@ -1271,6 +1293,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 
   <div class="section-label" style="margin-top:18px">💰 FINANCEIRO &amp; META</div>
   <div id="revenueConcentrationAlert" class="revenue-concentration-alert"></div>
+  <div id="radarRenewalAlerts"></div>
   <div class="radar-fin-section" id="radarFinanceiro"></div>
 
   <div class="section-label" style="margin-top:18px">🚨 DEMANDAS ATIVAS</div>
@@ -1504,6 +1527,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 <section id="tab-financeiro" class="tab-panel">
   <p class="page-title">💰 Financeiro</p>
   <p class="page-sub">Contas a Receber e Contas a Pagar do escritório — atualizado manualmente</p>
+  <div id="mrrChartSection" class="mrr-chart-section"></div>
   <div id="finContent"></div>
 </section>
 
@@ -2081,6 +2105,30 @@ function renderRadar() {
     return '<li class="obligation-item"><span class="ob-dot '+o.urg+'"></span><div class="ob-info"><div class="ob-title">'+o.label+'</div><div class="ob-meta">'+o.clients+' · '+o.dir+'</div></div><span class="ob-day">'+badge+'</span></li>';
   }).join('')
   : '<li class="obligation-item"><div class="ob-info"><div class="ob-title" style="color:var(--green)">✅ Sem obrigações pendentes!</div></div></li>';
+
+  // Alertas de renovação de contrato (item 15) + follow-ups vencidos (item 7)
+  const renewalEl=document.getElementById('radarRenewalAlerts');
+  if(renewalEl){
+    const todayStr=now.toISOString().slice(0,10);
+    const alerts=[];
+    clients.forEach(c=>{
+      if(c.contractRenewal){
+        const daysLeft=Math.ceil((new Date(c.contractRenewal)-now)/86400000);
+        if(daysLeft<=30&&daysLeft>=-7){
+          const msg=daysLeft<0?'🔴 Contrato de <strong>'+escHtml(c.name)+'</strong> <b>venceu</b> há '+Math.abs(daysLeft)+'d!'
+            :daysLeft===0?'🔴 Contrato de <strong>'+escHtml(c.name)+'</strong> vence <b>hoje!</b>'
+            :'🟡 Contrato de <strong>'+escHtml(c.name)+'</strong> vence em <b>'+daysLeft+'d</b> ('+new Date(c.contractRenewal).toLocaleDateString('pt-BR')+')';
+          alerts.push('<div class="renewal-alert-item">'+msg+'</div>');
+        }
+      }
+    });
+    leads.forEach(l=>{
+      if(l.followUpDate&&l.followUpDate<todayStr&&l.stage!=='won'&&l.stage!=='lost'){
+        alerts.push('<div class="renewal-alert-item" style="background:var(--red-lt);border-color:var(--red);color:var(--red)">🔴 Follow-up vencido: <strong>'+escHtml(l.name)+'</strong> (era '+l.followUpDate+')</div>');
+      }
+    });
+    renewalEl.innerHTML=alerts.join('');
+  }
 
   const weekObs = OBLIGATIONS.filter(o => o.day > day+2 && o.day <= day+14).sort((a,b)=>a.day-b.day);
   document.getElementById('weekObligList').innerHTML = weekObs.length ? weekObs.map(o =>
@@ -2665,6 +2713,29 @@ function renderFinanceiro(){
   const metaPct=Math.min(Math.round(n/20*100),100);
   const faltam=Math.max(20-n,0);
 
+  // Salvar histórico MRR (item 12)
+  const mrrMonthKey=new Date().toISOString().slice(0,7);
+  const mrrHist=load('cb3_mrr_history')||{};
+  mrrHist[mrrMonthKey]={mrr:total,nClients:n};
+  save('cb3_mrr_history',mrrHist);
+
+  // Tendência comercial (item 14)
+  const histKeys=Object.keys(mrrHist).sort();
+  let crescStr='—', mesesStr='—', prevStr='—';
+  if(histKeys.length>=2){
+    const slice=histKeys.slice(-Math.min(4,histKeys.length));
+    const nFirst=mrrHist[slice[0]].nClients||0;
+    const nLast=mrrHist[slice[slice.length-1]].nClients||n;
+    const avgGrowth=slice.length>1?(nLast-nFirst)/(slice.length-1):0;
+    if(avgGrowth>0){
+      crescStr=(avgGrowth<1?avgGrowth.toFixed(1):Math.round(avgGrowth))+'';
+      const mesesFalta=faltam>0?Math.ceil(faltam/avgGrowth):0;
+      mesesStr=mesesFalta>0?mesesFalta+'m':'✓ Meta!';
+      if(mesesFalta>0){const dt=new Date();dt.setMonth(dt.getMonth()+mesesFalta);prevStr=dt.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'});}
+      else prevStr='Atingida';
+    } else if(avgGrowth===0){ crescStr='0'; mesesStr=faltam?'∞':'✓'; prevStr=faltam?'—':'Atingida'; }
+  }
+
   const el=document.getElementById('radarFinanceiro');
   if(!el) return;
   el.innerHTML=
@@ -2679,6 +2750,11 @@ function renderFinanceiro(){
       '</div>'+
       '<div class="fin-meta-bar"><div class="fin-meta-fill" style="width:'+metaPct+'%"></div></div>'+
       '<div class="fin-meta-sub">'+metaPct+'% da meta · Proj. MRR 20 clientes: R$ '+projMRR.toLocaleString('pt-BR')+'</div>'+
+      '<div class="trend-mini">'+
+        '<div class="trend-stat"><div class="trend-stat-num">'+crescStr+'</div><div class="trend-stat-label">clientes/mês</div></div>'+
+        '<div class="trend-stat"><div class="trend-stat-num">'+mesesStr+'</div><div class="trend-stat-label">para a meta</div></div>'+
+        '<div class="trend-stat"><div class="trend-stat-num" style="font-size:13px">'+prevStr+'</div><div class="trend-stat-label">previsão</div></div>'+
+      '</div>'+
     '</div>'+
     '<div class="grid-4" style="margin-bottom:10px">'+
       '<div class="stat-tile"><span class="stat-icon">💰</span><span class="stat-num gold">R$ '+(total?total.toLocaleString('pt-BR'):'0')+'</span><span class="stat-label">MRR Atual</span></div>'+
@@ -2718,9 +2794,81 @@ function renderFinanceiro(){
   const cnt=document.querySelector('.meta-count');
   if(fill) fill.style.width=metaPct+'%';
   if(cnt) cnt.textContent=n+'/20';
+
+  renderMrrChart();
 }
 
 function setRevenue(id,val){ revenues[id]=val;save('cb3_rev',revenues);renderFinanceiro(); }
+
+/* ═══ FASE 3: MRR CHART (item 12) ═══════════════════════════ */
+function renderMrrChart(){
+  const el=document.getElementById('mrrChartSection');
+  if(!el) return;
+  const hist=load('cb3_mrr_history')||{};
+  const now=new Date();
+  const months=[];
+  for(let i=-5;i<=3;i++){
+    const d=new Date(now.getFullYear(),now.getMonth()+i,1);
+    const k=d.toISOString().slice(0,7);
+    const lbl=MONTHS_PT[d.getMonth()].slice(0,3);
+    months.push({k,lbl,isProj:i>0,isCurrent:i===0});
+  }
+  const curTotal=getTotal();
+  const curN=clients.length;
+  const curTicket=curN?Math.round(curTotal/curN):0;
+  const leadsProj=leads.filter(l=>l.stage==='negotiation').reduce((s,l)=>s+(l.valor||curTicket),0);
+  const vals=months.map((m,idx)=>{
+    if(m.isCurrent) return {...m,val:curTotal};
+    if(m.isProj){const steps=idx-5;return {...m,val:curTotal+Math.round(leadsProj*steps/3)};}
+    const h=hist[m.k];
+    return {...m,val:h?h.mrr:0};
+  });
+  const maxVal=Math.max(...vals.map(v=>v.val),1);
+  const total=getTotal();
+  el.innerHTML=
+    '<div class="mrr-chart-title">'+
+      '<span>📊 HISTÓRICO E PROJEÇÃO DE MRR</span>'+
+      '<span style="font-size:10px;color:var(--fg3);font-weight:400">barras pontilhadas = projeção</span>'+
+    '</div>'+
+    '<div class="mrr-bars-wrap">'+
+    vals.map(m=>{
+      const h=Math.max(4,Math.round(m.val/maxVal*76));
+      const cls=m.isProj?'mrr-proj':m.isCurrent?'mrr-current':'mrr-past';
+      const tip=(m.isProj?'Projeção ':'')+(m.val?'R$'+m.val.toLocaleString('pt-BR'):'sem dados');
+      return '<div class="mrr-bar-item" title="'+m.lbl+': '+tip+'">'+
+        '<div style="flex:1;display:flex;align-items:flex-end;width:100%">'+
+          '<div class="mrr-bar-fill '+cls+'" style="height:'+h+'px;width:100%"></div>'+
+        '</div>'+
+        '<div class="mrr-bar-lbl" style="'+(m.isCurrent?'color:var(--gold);font-weight:700;':'')+(m.isProj?'opacity:.6':'')+'">'+m.lbl+'</div>'+
+      '</div>';
+    }).join('')+
+    '</div>';
+}
+
+/* ═══ FASE 3: HEALTH SCORE (item 13) ════════════════════════ */
+function calcHealthScore(c){
+  const key=fecKey();
+  const done=closingData[key]||{};
+  const steps=getSteps(c);
+  const doneCount=steps.filter(s=>{const v=done[c.id+'_'+s.id];return v===true||(v&&v.done);}).length;
+  const closingPct=steps.length?Math.round(doneCount/steps.length*100):100;
+  const obDone=ONBOARDING_STEPS.filter(s=>onboarding[c.id]&&onboarding[c.id][s.id]).length;
+  const obPct=Math.round(obDone/ONBOARDING_STEPS.length*100);
+  const cs=csData[c.id]||{};
+  const nps=cs.nps!=null?cs.nps:-1;
+  const daysSince=cs.lastContact?Math.floor((new Date()-new Date(cs.lastContact))/86400000):null;
+  const overdueDem=demandas.filter(d=>d.client===c.name&&d.status!=='concluido'&&d.status!=='cancelado'&&d.prazo&&new Date(d.prazo)<new Date()).length;
+  let score=100;
+  const reasons=[];
+  if(obPct<100){score-=20;reasons.push('Onboarding incompleto (-20)');}
+  if(nps>=0&&nps<7){score-=25;reasons.push('NPS baixo ('+nps+'/10) (-25)');}
+  if(daysSince!==null&&daysSince>15){const pen=daysSince>30?20:10;score-=pen;reasons.push(daysSince+'d sem contato (-'+pen+')');}
+  if(overdueDem>0){const pen=Math.min(overdueDem*15,30);score-=pen;reasons.push(overdueDem+' demanda(s) vencida(s) (-'+pen+')');}
+  if(closingPct<30){score-=10;reasons.push('Fechamento '+closingPct+'% (-10)');}
+  score=Math.max(0,score);
+  const color=score>=70?'green':score>=40?'amber':'red';
+  return {score,color,reasons};
+}
 
 /* ═══════════════════════════════════════════════════════════
    FINANCEIRO TAB — CAR / CAP  (v2 — refatorado)
@@ -2998,6 +3146,7 @@ function renderClientes(){
         '<div class="csc-avatar'+(isGold?' gold':'')+'">'+escHtml(c.initials)+'</div>'+
         '<div class="csc-info">'+
           '<div class="csc-name">'+escHtml(c.name)+'</div>'+
+          (()=>{const hs=calcHealthScore(c);const tip='Health Score: '+hs.score+'/100&#10;'+(hs.reasons.length?hs.reasons.join('&#10;'):'Tudo em ordem!');return '<span class="health-badge '+hs.color+'" title="'+tip+'">'+(hs.color==='green'?'💚':hs.color==='amber'?'🟡':'🔴')+' '+hs.score+' pts</span>';})()+
           '<div class="csc-regime">'+escHtml(c.regime)+'</div>'+
           '<div class="csc-chips" style="margin-top:6px">'+
             c.services.map(s=>'<span class="svc-chip">'+escHtml(s)+'</span>').join('')+
@@ -3027,6 +3176,14 @@ function renderClientes(){
           '<div class="progress-bar-wrap" style="margin-top:4px"><div class="progress-bar '+barColor+'" style="width:'+pct+'%"></div></div>'+
         '</div>'+
       '</div>'+
+      (c.contractRenewal?
+        (()=>{
+          const daysLeft=Math.ceil((new Date(c.contractRenewal)-new Date())/86400000);
+          const cls=daysLeft<=30?(daysLeft<=10?'color:var(--red)':'color:var(--amber)'):'color:var(--green)';
+          const icon=daysLeft<=30?(daysLeft<=10?'🔴':'🟡'):'🟢';
+          return '<div class="csc-body" style="padding-top:0;padding-bottom:10px"><div class="csc-field"><div class="csc-field-label">Contrato válido até</div><div class="csc-field-val" style="'+cls+'">'+icon+' '+new Date(c.contractRenewal).toLocaleDateString('pt-BR')+(daysLeft<=30?' ('+daysLeft+'d)':'')+'</div></div></div>';
+        })()
+      :'')+
       (c.notes?'<div class="csc-notes-label">Anotações</div><div class="csc-notes">'+escHtml(c.notes)+'</div>':'')+
       // ── ONBOARDING ──
       (()=>{
@@ -3305,6 +3462,10 @@ function buildClientModal(c){
       '<div class="modal-checklist">'+svcChecks+'</div>'+
     '</div>'+
     '<div class="modal-field-group">'+
+      '<label>Contrato válido até</label>'+
+      '<input class="modal-input" type="date" id="mc_renewal" value="'+escAttr(c?c.contractRenewal||'':'')+'">'+
+    '</div>'+
+    '<div class="modal-field-group">'+
       '<label>Anotações internas</label>'+
       '<textarea class="modal-input" id="mc_notes" rows="3" placeholder="Observações, particularidades, histórico importante..." style="resize:vertical;min-height:72px">'+escHtml(c?c.notes||'':'')+'</textarea>'+
     '</div>'+
@@ -3321,12 +3482,13 @@ function saveClientModal(){
   const hasEmployees=document.getElementById('mc_employees').checked;
   const services=Array.from(document.querySelectorAll('.mc_svc:checked')).map(el=>el.value);
   const notes=(document.getElementById('mc_notes').value||'').trim();
+  const contractRenewal=(document.getElementById('mc_renewal').value||'');
   if(editingClientId){
     const idx=clients.findIndex(c=>c.id===editingClientId);
-    if(idx>-1) clients[idx]={...clients[idx],name,initials,regime,nivel,mensalidade,whatsapp,hasEmployees,services,notes};
+    if(idx>-1) clients[idx]={...clients[idx],name,initials,regime,nivel,mensalidade,whatsapp,hasEmployees,services,notes,contractRenewal};
   } else {
     const newId=Date.now();
-    clients.push({id:newId,name,initials,regime,nivel,mensalidade,whatsapp,hasEmployees,services,notes,driveKey:'drive_'+newId});
+    clients.push({id:newId,name,initials,regime,nivel,mensalidade,whatsapp,hasEmployees,services,notes,contractRenewal,driveKey:'drive_'+newId});
   }
   const isNew = !editingClientId;
   save('cb3_clients',clients);
