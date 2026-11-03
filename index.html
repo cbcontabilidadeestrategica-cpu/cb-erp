@@ -1876,10 +1876,9 @@ const HOJE_STATUS_COLOR = { pendente:'var(--fg2)', em_andamento:'var(--amber)', 
 const HOJE_STATUS_BG = { pendente:'rgba(100,116,139,.15)', em_andamento:'rgba(234,179,8,.18)', concluido:'rgba(16,185,129,.18)' };
 const HOJE_STATUS_BORDER = { pendente:'rgba(100,116,139,.35)', em_andamento:'rgba(234,179,8,.4)', concluido:'rgba(16,185,129,.4)' };
 
-async function cycleTarefaStatus(id, current) {
-  const idx = HOJE_STATUS_ORDER.indexOf(current);
-  const next = HOJE_STATUS_ORDER[(idx+1) % HOJE_STATUS_ORDER.length] || 'pendente';
+async function setTarefaStatus(id, next) {
   const t = hojeTarefas.find(x=>x.id===id);
+  const current = t ? t.status : null;
   if (t) t.status = next; // feedback imediato, sem esperar o round-trip nem re-buscar do servidor
   paintHoje();
   try {
@@ -1987,7 +1986,11 @@ function paintHoje() {
         ${respOptions.map(r=>`<option value="${escHtml(r)}"${t.responsavel===r?' selected':''}>${escHtml(r)}</option>`).join('')}
       </select>
       <input type="date" value="${t.prazo||''}" onchange="setTarefaPrazo(${t.id},this.value)" title="Prazo" style="background:var(--bg2);color:${atrasada?'var(--red)':'var(--fg)'};border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:11px">
-      <button onclick="cycleTarefaStatus(${t.id},'${stKey}')" title="Clique para avançar o status" style="background:${stBg};color:${stColor};border:1px solid ${stBorder};border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;white-space:nowrap;cursor:pointer">${stLabel}</button>
+      <select onchange="setTarefaStatus(${t.id},this.value)" title="Situação" style="background:${stBg};color:${stColor};border:1px solid ${stBorder};border-radius:999px;padding:4px 8px;font-size:11px;font-weight:700;white-space:nowrap;cursor:pointer">
+        <option value="pendente"${stKey==='pendente'?' selected':''}>Pendente</option>
+        <option value="em_andamento"${stKey==='em_andamento'?' selected':''}>Em andamento</option>
+        <option value="concluido"${stKey==='concluido'?' selected':''}>Concluído</option>
+      </select>
     </div>`;
   }).join('') || '<p style="padding:16px;color:var(--fg2)">Nenhuma tarefa encontrada com esse filtro.</p>';
 
