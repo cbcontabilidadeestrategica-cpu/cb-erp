@@ -978,6 +978,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .ig-panel-section-hd:first-child{border-top:none}
 .ig-panel-count{font-size:11px;color:var(--fg3);font-weight:500;margin-left:8px}
 .ev-obrigacao{background:var(--purple-lt);color:var(--purple)}
+.ev-reuniao{background:var(--red-lt);color:var(--red)}
 .ig-ev-resp{font-size:10px;font-weight:700;padding:2px 7px;background:var(--bg4);border-radius:10px;color:var(--fg2);flex-shrink:0}
 
 /* ── Client Settings Cards ── */
@@ -1413,6 +1414,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
       <span class="ev-legend-chip ev-demanda">📋 Demanda</span>
       <span class="ev-legend-chip ev-entrega">📦 Entrega</span>
       <span class="ev-legend-chip ev-obrigacao">⚖️ Obrigação</span>
+      <span class="ev-legend-chip ev-reuniao">🗣️ Reunião</span>
     </div>
     <div class="ig-cal-wrap">
       <div class="ig-cal-grid" id="igCalGrid"></div>
@@ -1432,8 +1434,11 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
       <button class="ig-panel-close" onclick="closeIgPanel()">×</button>
     </div>
 
-    <div class="ig-panel-section-hd">📋 Obrigações do dia</div>
+    <div class="ig-panel-section-hd">⚖️ Obrigações do dia</div>
     <div class="ig-event-list" id="igObrigList"></div>
+
+    <div class="ig-panel-section-hd">📋 Demandas do dia</div>
+    <div class="ig-event-list" id="igDemandaList"></div>
 
     <div class="ig-panel-section-hd">📅 Eventos da agenda</div>
     <div class="ig-event-list" id="igEventList"></div>
@@ -1447,6 +1452,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
           <option value="edicao">✂️ Edição</option>
           <option value="demanda">📋 Demanda específica</option>
           <option value="entrega">📦 Entrega a cliente</option>
+          <option value="reuniao">🗣️ Reunião</option>
         </select>
       </div>
       <div class="form-group" style="flex:1;min-width:100px">
@@ -2562,6 +2568,7 @@ const EV_TYPES = {
   demanda:  { label:'📋 Demanda',  cls:'ev-demanda' },
   entrega:  { label:'📦 Entrega',  cls:'ev-entrega' },
   obrigacao:{ label:'⚖️ Obrigação',cls:'ev-obrigacao'},
+  reuniao:  { label:'🗣️ Reunião', cls:'ev-reuniao' },
 };
 
 function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
@@ -2609,16 +2616,25 @@ function renderIgCal(){
   for(let d=1;d<=dim;d++){
     const ds = igYear+'-'+String(igMonth+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
     const evs = igEvents.filter(e=>e.date===ds);
+    const obrigs = hojeTarefas.filter(t=>t.tipo==='obrigacao' && t.prazo===ds && t.status!=='concluido');
+    const dems = demandas.filter(dm=>dm.prazo===ds && dm.status!=='concluido' && dm.status!=='cancelado');
+    // Itens combinados — eventos da agenda, obrigações reais e demandas pontuais —
+    // para que o calendário mostre tudo que acontece no dia, não só posts.
+    const items = [
+      ...evs.map(e=>({ type:e.type, desc:e.desc })),
+      ...obrigs.map(t=>({ type:'obrigacao', desc:(t.cliente&&t.cliente.nome)||t.titulo })),
+      ...dems.map(dm=>({ type:'demanda', desc:dm.cliente })),
+    ];
     const isToday = d===todayD;
     const isSel = igSelectedDate===ds;
-    // Show up to 2 labeled event chips in the cell
-    const chips = evs.slice(0,2).map(e=>{
-      const t = EV_TYPES[e.type]||{cls:'',label:e.type};
-      const short = e.desc ? e.desc.slice(0,14)+(e.desc.length>14?'…':'') : t.label.replace(/\p{Emoji}/gu,'').trim();
+    // Show up to 2 labeled chips in the cell
+    const chips = items.slice(0,2).map(it=>{
+      const t = EV_TYPES[it.type]||{cls:'',label:it.type};
+      const short = it.desc ? String(it.desc).slice(0,14)+(String(it.desc).length>14?'…':'') : t.label.replace(/\p{Emoji}/gu,'').trim();
       return '<span class="ig-cell-evlabel '+t.cls+'">'+short+'</span>';
     }).join('');
-    const more = evs.length>2?'<span class="ev-more" style="font-size:7px;color:var(--fg4);margin-top:1px">+'+( evs.length-2)+'</span>':'';
-    html += '<div class="ig-cell ig-cell-event'+(isToday?' is-today':'')+(isSel?' is-selected':'')+(evs.length?' has-post':'')+'" onclick="igSelectDay(\''+ds+'\')">'+
+    const more = items.length>2?'<span class="ev-more" style="font-size:7px;color:var(--fg4);margin-top:1px">+'+( items.length-2)+'</span>':'';
+    html += '<div class="ig-cell ig-cell-event'+(isToday?' is-today':'')+(isSel?' is-selected':'')+(items.length?' has-post':'')+'" onclick="igSelectDay(\''+ds+'\')">'+
       '<span class="ig-cell-num">'+d+'</span>'+
       chips+more+
     '</div>';
@@ -2641,24 +2657,42 @@ function renderIgDayPanel(ds){
   const label = parseInt(parts[2])+' de '+MONTHS_PT[parseInt(parts[1])-1]+' '+parts[0];
   document.getElementById('igPanelDate').textContent = label;
 
-  // Obrigações do dia (demandas com prazo nessa data)
+  // Obrigações do dia — vencimentos fiscais/contábeis reais, materializados
+  // na tabela tarefa (origem obrigacao_auto), a mesma fonte das abas Hoje e Obrigações.
   const obrigList = document.getElementById('igObrigList');
-  const obrigsDodia = demandas.filter(d => d.prazo === ds && d.status !== 'concluido' && d.status !== 'cancelado');
+  const obrigsDodia = hojeTarefas.filter(t => t.tipo === 'obrigacao' && t.prazo === ds && t.status !== 'concluido');
   if(obrigsDodia.length){
-    obrigList.innerHTML = obrigsDodia.map(d =>
+    obrigList.innerHTML = obrigsDodia.map(t =>
       '<div class="ig-ev-item">'+
         '<span class="ig-ev-chip ev-obrigacao">⚖️ Obrigação</span>'+
-        '<span class="ig-ev-desc"><strong>'+escHtml(d.cliente)+'</strong> — '+escHtml(d.tipo)+'</span>'+
-        '<span class="ig-ev-resp">'+escHtml(d.resp||'')+'</span>'+
+        '<span class="ig-ev-desc"><strong>'+escHtml((t.cliente&&t.cliente.nome)||'')+'</strong> — '+escHtml(t.titulo||'')+'</span>'+
+        '<span class="ig-ev-resp">'+escHtml(t.responsavel||'')+'</span>'+
       '</div>'
     ).join('');
   } else {
     obrigList.innerHTML = '<p class="ig-empty-day">Sem obrigações neste dia.</p>';
   }
 
+  // Demandas do dia — demandas pontuais (kanban) com prazo nessa data.
+  const demandaList = document.getElementById('igDemandaList');
+  const demandasDodia = demandas.filter(d => d.prazo === ds && d.status !== 'concluido' && d.status !== 'cancelado');
+  if(demandaList){
+    if(demandasDodia.length){
+      demandaList.innerHTML = demandasDodia.map(d =>
+        '<div class="ig-ev-item">'+
+          '<span class="ig-ev-chip ev-demanda">📋 Demanda</span>'+
+          '<span class="ig-ev-desc"><strong>'+escHtml(d.cliente)+'</strong> — '+escHtml(d.tipo)+'</span>'+
+          '<span class="ig-ev-resp">'+escHtml(d.resp||'')+'</span>'+
+        '</div>'
+      ).join('');
+    } else {
+      demandaList.innerHTML = '<p class="ig-empty-day">Sem demandas neste dia.</p>';
+    }
+  }
+
   // Eventos agendados
   const evs = igEvents.filter(e=>e.date===ds);
-  const count = evs.length + obrigsDodia.length;
+  const count = evs.length + obrigsDodia.length + demandasDodia.length;
   document.getElementById('igPanelCount').textContent = count ? '· '+count+' item'+(count>1?'s':'') : '';
 
   document.getElementById('igEventList').innerHTML = evs.length
