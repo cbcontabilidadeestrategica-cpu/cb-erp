@@ -888,6 +888,11 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .acc-eye:hover{color:var(--fg)}
 .acc-del{background:none;border:none;cursor:pointer;color:var(--red);font-size:14px;padding:2px 6px;opacity:.4;transition:.12s}
 .acc-del:hover{opacity:1}
+.acc-grid{margin-top:10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.acc-field label{display:block;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--fg3);margin-bottom:3px}
+.acc-field .acc-input,.acc-field .acc-pwd-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:6px}
+.acc-field .acc-pwd-wrap{padding:0 4px}
+.acc-field .acc-input:focus{outline:2px solid var(--gold);background:var(--bg)}
 /* ── Fase 3: Health Score ── */
 .health-badge{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;cursor:default;margin-top:4px}
 .health-badge.green{background:var(--green-lt);color:var(--green)}
@@ -1245,7 +1250,6 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
       <button class="sidebar-nav-btn" onclick="switchTab('funil',this)" data-tab="funil"><span class="nav-icon">🎯</span><span class="nav-label"> CRM</span></button>
       <button class="sidebar-nav-btn" onclick="switchTab('fechamento',this)" data-tab="fechamento"><span class="nav-icon">✅</span><span class="nav-label"> Obrigações</span></button>
       <button class="sidebar-nav-btn" onclick="switchTab('demandas',this)" data-tab="demandas"><span class="nav-icon">📋</span><span class="nav-label"> Demandas Pontuais</span></button>
-      <button class="sidebar-nav-btn" onclick="switchTab('acessos',this)" data-tab="acessos"><span class="nav-icon">🔑</span><span class="nav-label"> Acessos</span></button>
       <button class="sidebar-nav-btn" onclick="switchTab('instagram',this)" data-tab="instagram"><span class="nav-icon">📸</span><span class="nav-label"> Instagram</span></button>
       <button class="sidebar-nav-btn" onclick="switchTab('financeiro',this)" data-tab="financeiro"><span class="nav-icon">💰</span><span class="nav-label"> Financeiro</span></button>
     </nav>
@@ -1573,17 +1577,6 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
   <div class="dem-kanban" id="demKanban"></div>
 </section>
 
-<!-- ═══ ACESSOS ═══ -->
-<section id="tab-acessos" class="tab-panel">
-  <p class="page-title">🔑 Acessos e Credenciais</p>
-  <p class="page-sub">Portais, certificados e logins de cada cliente — <strong style="color:var(--amber)">⚠ Documento Confidencial — dados salvos apenas neste navegador</strong></p>
-  <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-    <button class="btn-primary" onclick="addAcessosRow()" style="padding:8px 16px">+ Novo cliente</button>
-    <span style="font-size:11px;color:var(--fg3);align-self:center">Clique em qualquer campo para editar. Senhas ficam ocultas — clique 👁 para revelar.</span>
-  </div>
-  <div id="acessosContent"></div>
-</section>
-
 <!-- ═══ FINANCEIRO ═══ -->
 <section id="tab-financeiro" class="tab-panel">
   <p class="page-title">💰 Financeiro</p>
@@ -1662,7 +1655,7 @@ async function showApp(user) {
     ['initState',initState],['initTheme',initTheme],['initSidebar',initSidebar],
     ['renderMetaBanner',renderMetaBanner],['renderRadar',renderRadar],['renderRadarDemandas',renderRadarDemandas],
     ['renderFechamento',renderFechamento],['renderIgCal',renderIgCal],['renderFunil',renderFunil],['renderFinanceiro',renderFinanceiro],
-    ['renderClientes',renderClientes],['renderClientDefaults',renderClientDefaults],['renderDemandas',renderDemandas],['renderAcessos',renderAcessos],
+    ['renderClientes',renderClientes],['renderClientDefaults',renderClientDefaults],['renderDemandas',renderDemandas],
   ];
   renders.forEach(([name,fn])=>{ try{ fn(); } catch(e){ console.error('Falha ao renderizar '+name+':', e); } });
   materializeObligations().then(renderHoje).catch(e=>console.error('Falha ao materializar obrigações:', e));
@@ -2156,7 +2149,9 @@ function initState() {
     try {
       const saved=JSON.parse(localStorage.getItem('cb3_acessos')||'null');
       acessosData = saved && saved.length ? saved : ACESSOS_SEED_ROWS.map(r=>({...r}));
-      if(!saved) localStorage.setItem('cb3_acessos', JSON.stringify(acessosData));
+      // antes só gravava local (localStorage.setItem); agora usa save() pra
+      // sincronizar com a equipe assim que carrega pela 1ª vez em qualquer navegador
+      if(!saved) save('cb3_acessos', acessosData);
     } catch(e){ acessosData=ACESSOS_SEED_ROWS.map(r=>({...r})); }
 
     // Seed demandas da planilha "Demandas Pontuais" — reseed se versão < 7
@@ -2278,7 +2273,7 @@ function switchTab(name, btn) {
   document.querySelectorAll('.sidebar-nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   document.querySelectorAll('[data-tab="'+name+'"]').forEach(b => b.classList.add('active'));
-  const tabLabels = {radar:'Início',hoje:'Hoje',fechamento:'Obrigações',instagram:'Instagram',funil:'CRM',clientes:'Clientes',demandas:'Demandas Pontuais',acessos:'Acessos',financeiro:'Financeiro'};
+  const tabLabels = {radar:'Início',hoje:'Hoje',fechamento:'Obrigações',instagram:'Instagram',funil:'CRM',clientes:'Clientes',demandas:'Demandas Pontuais',financeiro:'Financeiro'};
   const ind = document.getElementById('headerTabIndicator');
   if(ind){ ind.textContent = tabLabels[name]||name; }
   if (name === 'hoje') renderHoje();
@@ -3685,6 +3680,28 @@ function renderClientes(){
           '</div>'+
         '</div>';
       })()+
+      // ── ACESSOS E CREDENCIAIS ──
+      (()=>{
+        const row=findAcessoRow(c.name);
+        const fieldsHtml=ACESSOS_COLS.filter(col=>col.key!=='cliente').map(col=>{
+          const val=row[col.key]||'';
+          const fid='acc_'+c.id+'_'+col.key;
+          if(col.pwd){
+            return '<div class="acc-field"><label>'+col.label+'</label><div class="acc-pwd-wrap">'+
+              '<input class="acc-input acc-pwd" type="password" id="'+fid+'" value="'+escAttr(val)+'" placeholder="—" onchange="setAcessoField('+c.id+',\''+col.key+'\',this.value)">'+
+              '<button class="acc-eye" type="button" onclick="toggleAccPwd(\''+fid+'\')" title="Revelar">👁</button>'+
+            '</div></div>';
+          }
+          return '<div class="acc-field"><label>'+col.label+'</label><input class="acc-input" type="text" value="'+escAttr(val)+'" placeholder="—" onchange="setAcessoField('+c.id+',\''+col.key+'\',this.value)"></div>';
+        }).join('');
+        return '<div class="onb-section">'+
+          '<div class="onb-header" onclick="toggleAcessosList('+c.id+')">'+
+            '<span class="onb-sec-title">🔑 Acessos e Credenciais</span>'+
+            '<span class="onb-badge" style="color:var(--amber)" title="Dados sensíveis — compartilhados só com a equipe logada">⚠ Confidencial ▾</span>'+
+          '</div>'+
+          '<div id="acc_list_'+c.id+'" hidden class="acc-grid">'+fieldsHtml+'</div>'+
+        '</div>';
+      })()+
     '</div>';
   }).join('');
 
@@ -3761,58 +3778,36 @@ function setCsNps(clientId,val){
 }
 
 /* ═══════════════════════════════════════════════
-   ACESSOS — tabela editável (dados em localStorage)
+   ACESSOS — agora embutido no card de cada cliente
+   (aba "Clientes"). Dados seguem em acessosData, uma
+   linha por cliente casada pelo nome, mas agora via
+   save() para sincronizar com a equipe (antes era só
+   localStorage — não compartilhava entre Nathan/Yuri).
 ═══════════════════════════════════════════════ */
-function renderAcessos(){
-  const el=document.getElementById('acessosContent');
-  if(!el) return;
-  if(!acessosData.length){
-    el.innerHTML='<div style="padding:24px;text-align:center;color:var(--fg3)">Nenhum cliente. Clique em "+ Novo cliente" para adicionar.</div>';
-    return;
-  }
-  const thead='<tr>'+ACESSOS_COLS.map(c=>'<th>'+c.label+'</th>').join('')+'<th></th></tr>';
-  const tbody=acessosData.map((row,ri)=>{
-    const cells=ACESSOS_COLS.map(col=>{
-      const val=row[col.key]||'';
-      if(col.pwd){
-        const id='acc_'+ri+'_'+col.key;
-        return '<td><div class="acc-pwd-wrap">'+
-          '<input class="acc-input acc-pwd" type="password" id="'+id+'" value="'+escAttr(val)+'" placeholder="—" onchange="saveAcessosCell('+ri+',\''+col.key+'\',this.value)">'+
-          '<button class="acc-eye" type="button" onclick="toggleAccPwd(\''+id+'\')" title="Revelar">👁</button>'+
-        '</div></td>';
-      }
-      return '<td><input class="acc-input" type="text" value="'+escAttr(val)+'" placeholder="—" onchange="saveAcessosCell('+ri+',\''+col.key+'\',this.value)"></td>';
-    }).join('');
-    return '<tr>'+cells+'<td><button class="acc-del" onclick="deleteAcessosRow('+ri+')" title="Remover linha">×</button></td></tr>';
-  }).join('');
-  el.innerHTML='<div class="acessos-wrap"><table class="acessos-tbl"><thead>'+thead+'</thead><tbody>'+tbody+'</tbody></table></div>';
+function findAcessoRow(clientName){
+  const n=(clientName||'').trim().toLowerCase();
+  return acessosData.find(r=>(r.cliente||'').trim().toLowerCase()===n) || {};
 }
 
-function saveAcessosCell(ri, key, val){
-  if(!acessosData[ri]) return;
-  acessosData[ri][key]=val;
-  localStorage.setItem('cb3_acessos', JSON.stringify(acessosData));
+function setAcessoField(clientId, key, val){
+  const c=clients.find(x=>x.id===clientId);
+  if(!c) return;
+  const n=c.name.trim().toLowerCase();
+  let row=acessosData.find(r=>(r.cliente||'').trim().toLowerCase()===n);
+  if(!row){ row={cliente:c.name}; acessosData.push(row); }
+  row[key]=val;
+  save('cb3_acessos', acessosData);
+}
+
+function toggleAcessosList(clientId){
+  const el=document.getElementById('acc_list_'+clientId);
+  if(el) el.hidden=!el.hidden;
 }
 
 function toggleAccPwd(id){
   const el=document.getElementById(id);
   if(!el) return;
   el.type=el.type==='password'?'text':'password';
-}
-
-function addAcessosRow(){
-  const blank={};
-  ACESSOS_COLS.forEach(c=>blank[c.key]='');
-  blank.cliente='Novo Cliente';
-  acessosData.push(blank);
-  localStorage.setItem('cb3_acessos', JSON.stringify(acessosData));
-  renderAcessos();
-}
-
-function deleteAcessosRow(ri){
-  acessosData.splice(ri,1);
-  localStorage.setItem('cb3_acessos', JSON.stringify(acessosData));
-  renderAcessos();
 }
 
 /* CLIENT MODAL */
