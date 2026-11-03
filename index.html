@@ -1647,6 +1647,48 @@ async function saveSupa(k, v) {
   try {
     await sb.from('kv_store').upsert({ key: k, value: v }, { onConflict: 'key' });
   } catch(e) { console.warn('Supabase save error:', e); }
+  // Espelha em tabelas relacionais (fase de transição — kv_store continua
+  // sendo a fonte usada pela UI; isso só mantém o banco novo sincronizado
+  // em tempo real, sem mexer em nenhuma tela existente).
+  try { await mirrorToRelational(k, v); } catch(e) { console.warn('Mirror relacional falhou:', e); }
+}
+
+async function mirrorToRelational(k, v) {
+  if (k === 'cb3_clients' && Array.isArray(v)) {
+    const rows = v.map(c => ({
+      id: c.id, nome: c.name, iniciais: c.initials || null, regime: c.regime || null,
+      nivel: c.nivel || null, servicos: c.services || [], tem_funcionarios: !!c.hasEmployees,
+      mensalidade: c.mensalidade || 0, whatsapp: c.whatsapp || '', cnpj: c.cnpj || '',
+      data_inicio: c.dataInicio || null, drive_key: c.driveKey || null,
+      updated_at: new Date().toISOString(),
+    }));
+    if (rows.length) await sb.from('cliente').upsert(rows, { onConflict: 'id' });
+  }
+  if (k === 'cb3_leads' && Array.isArray(v)) {
+    const rows = v.map(l => ({
+      id: l.id, nome: l.name, estagio: l.stage || null,
+      valor: l.valor ? parseFloat(String(l.valor).replace(/\./g,'').replace(',','.')) || null : null,
+      origem: l.origem || null, responsavel: l.resp || null,
+      primeiro_contato: l.firstContact || null, dor: l.dor || null,
+      proximo_passo: l.nextStep || null, data_followup: l.followUpDate || null,
+      motivo_perda: l.lostReason || null, checklist: l.checklist || {},
+    }));
+    if (rows.length) await sb.from('lead').upsert(rows, { onConflict: 'id' });
+  }
+  if (k === 'cb3_demandas' && Array.isArray(v)) {
+    const byName = {};
+    (clients || []).forEach(c => { byName[c.name] = c.id; });
+    const statusMap = { 'em-andamento':'em_andamento', 'concluido':'concluido', 'aguardando':'pendente' };
+    const rows = v.map(d => ({
+      legacy_id: d.id, cliente_id: byName[d.cliente] || null, setor: d.setor || null,
+      tipo: d.tipo || null, titulo: d.tipo || d.desc || 'Demanda', descricao: d.desc || null,
+      responsavel: d.resp || null, prazo: d.prazo || null,
+      status: statusMap[d.status] || d.status || 'pendente',
+      valor: d.valor ? parseFloat(String(d.valor).replace(/\./g,'').replace(',','.')) || null : null,
+      origem: 'app', updated_at: new Date().toISOString(),
+    }));
+    if (rows.length) await sb.from('tarefa').upsert(rows, { onConflict: 'legacy_id' });
+  }
 }
 
 async function logout() {
