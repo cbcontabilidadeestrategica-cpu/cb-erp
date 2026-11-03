@@ -1650,10 +1650,14 @@ async function showApp(user) {
   document.getElementById('loginOverlay').style.display = 'none';
   document.getElementById('appShell').style.display = 'flex';
   await loadFromSupabase();
-  initState(); initTheme(); initSidebar(); renderMetaBanner(); renderRadar(); renderRadarDemandas();
-  renderFechamento(); renderIgCal(); renderFunil(); renderFinanceiro();
-  renderClientes(); renderClientDefaults(); renderDemandas(); renderAcessos();
-  materializeObligations().then(renderHoje);
+  const renders = [
+    ['initState',initState],['initTheme',initTheme],['initSidebar',initSidebar],
+    ['renderMetaBanner',renderMetaBanner],['renderRadar',renderRadar],['renderRadarDemandas',renderRadarDemandas],
+    ['renderFechamento',renderFechamento],['renderIgCal',renderIgCal],['renderFunil',renderFunil],['renderFinanceiro',renderFinanceiro],
+    ['renderClientes',renderClientes],['renderClientDefaults',renderClientDefaults],['renderDemandas',renderDemandas],['renderAcessos',renderAcessos],
+  ];
+  renders.forEach(([name,fn])=>{ try{ fn(); } catch(e){ console.error('Falha ao renderizar '+name+':', e); } });
+  materializeObligations().then(renderHoje).catch(e=>console.error('Falha ao materializar obrigações:', e));
 }
 
 async function loadFromSupabase() {
@@ -2168,6 +2172,7 @@ function initState() {
   } catch(e) {}
 }
 function save(k,v){ try { localStorage.setItem(k, JSON.stringify(v)) } catch(e){} saveSupa(k,v); }
+function load(k){ try { const raw = localStorage.getItem(k); return raw==null ? null : JSON.parse(raw); } catch(e){ return null; } }
 
 /* ═══════════════════════════════════════════════
    TABS
