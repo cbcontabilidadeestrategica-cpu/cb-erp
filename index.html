@@ -1465,6 +1465,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
     </div>
     <button class="btn-primary" onclick="openNewLeadModal()" style="padding:10px 18px;flex-shrink:0">+ Novo Lead</button>
   </div>
+  <div id="funilKpiBar" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px"></div>
   <div class="kanban-board" id="kanbanBoard"></div>
 </section>
 
@@ -2809,8 +2810,51 @@ function getCheckCount(l){
   return done+'/'+LEAD_CHECKS.length;
 }
 
+function parseLeadValor(v){ return parseFloat(String(v||0).replace(/\./g,'').replace(',','.'))||0; }
+
+function renderFunilKpis(){
+  const kpiEl = document.getElementById('funilKpiBar');
+  if(!kpiEl) return;
+  const abertos = leads.filter(l=>l.stage!=='won'&&l.stage!=='lost');
+  const won = leads.filter(l=>l.stage==='won');
+  const lost = leads.filter(l=>l.stage==='lost');
+  const valorAberto = abertos.reduce((s,l)=>s+parseLeadValor(l.valor),0);
+  const fechados = won.length + lost.length;
+  const winRate = fechados ? Math.round(won.length/fechados*100) : null;
+  kpiEl.innerHTML =
+    '<div class="stat-tile"><span class="stat-num gold">'+abertos.length+'</span><span class="stat-label">Negócios em aberto</span></div>'+
+    '<div class="stat-tile"><span class="stat-num gold">R$ '+valorAberto.toLocaleString('pt-BR')+'</span><span class="stat-label">Em pipeline (R$/mês)</span></div>'+
+    '<div class="stat-tile"><span class="stat-num green">'+(winRate===null?'—':winRate+'%')+'</span><span class="stat-label">Taxa de conversão</span></div>'+
+    '<div class="stat-tile"><span class="stat-num navy">'+won.length+'</span><span class="stat-label">Fechados (total)</span></div>';
+}
+
+let draggingLeadId = null;
+function dragLeadStart(ev, id){ draggingLeadId = id; try{ ev.dataTransfer.effectAllowed='move'; }catch(e){} }
+function dropLeadOnStage(ev, stage){
+  ev.preventDefault();
+  const id = draggingLeadId;
+  draggingLeadId = null;
+  if(!id) return;
+  const l = getLeadById(id);
+  if(!l || l.stage===stage) return;
+  if(stage==='lost' && !l.lostReason){
+    const reason = (prompt('Motivo da perda deste lead:')||'').trim();
+    if(!reason) return; // cancela o drop sem motivo
+    l.lostReason = reason;
+  }
+  const prevStage = l.stage;
+  l.stage = stage;
+  l.stageChangedAt = new Date().toISOString();
+  save('cb3_leads', leads);
+  renderFunil();
+  if(stage==='won' && prevStage!=='won'){
+    setTimeout(()=>offerCreateClientFromLead(l),200);
+  }
+}
+
 function renderFunil(){
   leads = leads.map((l,i)=>normalizeLead(l,i));
+  renderFunilKpis();
   const board = document.getElementById('kanbanBoard');
   if(!board) return;
   board.innerHTML = STAGE_ORDER.map(stage=>{
@@ -2823,7 +2867,7 @@ function renderFunil(){
       const agingClass = agingDays>=21?'late':agingDays>=10?'warn':'';
       const todayStr = new Date().toISOString().slice(0,10);
       const fuOverdue = l.followUpDate && l.followUpDate < todayStr;
-      return '<div class="kanban-card" onclick="openLeadModal(\''+escAttr(l.id)+'\')">'+
+      return '<div class="kanban-card" draggable="true" ondragstart="dragLeadStart(event,\''+escAttr(l.id)+'\')" onclick="openLeadModal(\''+escAttr(l.id)+'\')">'+
         '<div class="kanban-card-top">'+
           '<span class="kanban-dot" style="background:'+dot+'"></span>'+
           '<span class="kanban-name">'+escHtml(l.name)+'</span>'+
@@ -2845,7 +2889,7 @@ function renderFunil(){
         '<span class="kanban-col-title">'+STAGE_LABELS[stage]+'</span>'+
         '<span class="kanban-col-count">'+cols.length+'</span>'+
       '</div>'+
-      '<div class="kanban-col-body">'+(cards||'<div class="kanban-empty">Vazio</div>')+'</div>'+
+      '<div class="kanban-col-body" ondragover="event.preventDefault()" ondrop="dropLeadOnStage(event,\''+stage+'\')">'+(cards||'<div class="kanban-empty">Vazio</div>')+'</div>'+
     '</div>';
   }).join('');
 }
