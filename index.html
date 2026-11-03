@@ -1335,19 +1335,19 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
   <div class="section-label">🎯 TODAS AS TAREFAS — TODOS OS SETORES</div>
   <div class="card" style="margin-bottom:14px">
     <div class="card-body" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <select id="hojeFiltroSetor" onchange="renderHoje()" style="background:#0d1f3c;color:#fff;border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:6px 10px;font-size:12px">
+      <select id="hojeFiltroSetor" onchange="renderHoje()" style="background:var(--bg2);color:var(--fg);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px">
         <option value="">Todos os setores</option>
       </select>
-      <select id="hojeFiltroResp" onchange="renderHoje()" style="background:#0d1f3c;color:#fff;border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:6px 10px;font-size:12px">
+      <select id="hojeFiltroResp" onchange="renderHoje()" style="background:var(--bg2);color:var(--fg);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px">
         <option value="">Todos os responsáveis</option>
       </select>
-      <select id="hojeFiltroStatus" onchange="renderHoje()" style="background:#0d1f3c;color:#fff;border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:6px 10px;font-size:12px">
+      <select id="hojeFiltroStatus" onchange="renderHoje()" style="background:var(--bg2);color:var(--fg);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px">
         <option value="">Todos os status</option>
         <option value="pendente">Pendente</option>
         <option value="em_andamento">Em andamento</option>
         <option value="concluido">Concluído</option>
       </select>
-      <span id="hojeContador" style="margin-left:auto;font-size:12px;color:rgba(255,255,255,.5)"></span>
+      <span id="hojeContador" style="margin-left:auto;font-size:12px;color:var(--fg2)"></span>
     </div>
   </div>
   <div class="card"><div style="padding:0 16px" id="hojeLista"></div></div>
@@ -1868,7 +1868,7 @@ async function renderHoje() {
   const lista = document.getElementById('hojeLista');
   const contador = document.getElementById('hojeContador');
   if (!lista) return;
-  if (!sbUser) { lista.innerHTML = '<p style="padding:16px;color:rgba(255,255,255,.5)">Faça login para ver as tarefas.</p>'; return; }
+  if (!sbUser) { lista.innerHTML = '<p style="padding:16px;color:var(--fg2)">Faça login para ver as tarefas.</p>'; return; }
   try {
     const { data, error } = await sb.from('tarefa')
       .select('id,setor,tipo,titulo,descricao,responsavel,prazo,status,cliente:cliente_id(nome,iniciais)')
@@ -1906,15 +1906,15 @@ async function renderHoje() {
     const atrasada = t.prazo && t.prazo < today && t.status !== 'concluido';
     const cor = sectorColor[t.setor] || '#64748b';
     const clienteNome = t.cliente ? t.cliente.nome : '—';
-    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06)">
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border2)">
       <span style="width:8px;height:8px;border-radius:50%;background:${cor};flex-shrink:0"></span>
       <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600;color:#fff">${t.titulo||''}</div>
-        <div style="font-size:11px;color:rgba(255,255,255,.45)">${clienteNome} · ${t.setor||''} ${t.responsavel ? '· '+t.responsavel : ''}</div>
+        <div style="font-size:13px;font-weight:600;color:var(--fg)">${t.titulo||''}</div>
+        <div style="font-size:11px;color:var(--fg2)">${clienteNome} · ${t.setor||''} ${t.responsavel ? '· '+t.responsavel : ''}</div>
       </div>
-      <div style="font-size:11px;font-weight:700;color:${atrasada?'#ef4444':'rgba(255,255,255,.6)'};white-space:nowrap">${t.prazo ? (atrasada?'⚠️ ':'')+t.prazo.split('-').reverse().slice(0,2).join('/') : ''}</div>
+      <div style="font-size:11px;font-weight:700;color:${atrasada?'var(--red)':'var(--fg2)'};white-space:nowrap">${t.prazo ? (atrasada?'⚠️ ':'')+t.prazo.split('-').reverse().slice(0,2).join('/') : ''}</div>
     </div>`;
-  }).join('') || '<p style="padding:16px;color:rgba(255,255,255,.4)">Nenhuma tarefa encontrada com esse filtro.</p>';
+  }).join('') || '<p style="padding:16px;color:var(--fg2)">Nenhuma tarefa encontrada com esse filtro.</p>';
 
   if (contador) contador.textContent = filtradas.length + ' tarefa' + (filtradas.length===1?'':'s');
 }
