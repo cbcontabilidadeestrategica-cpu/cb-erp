@@ -3776,7 +3776,7 @@ function renderClientes(){
               '<div class="cs-field-label">Upsell potencial</div>'+
               '<select class="cs-input-sm" onchange="updateCsField('+c.id+',\'upsell\',this.value)">'+
                 '<option value="">— Nenhum</option>'+
-                ['Plano Ouro','Depto Pessoal','Societário','Financeiro','Sucesso do Cliente'].map(u=>'<option value="'+u+'"'+(cs.upsell===u?' selected':'')+'>'+u+'</option>').join('')+
+                ['Assessoria Estratégica Completa','Depto Pessoal','Societário','Financeiro','Sucesso do Cliente'].map(u=>'<option value="'+u+'"'+(cs.upsell===u?' selected':'')+'>'+u+'</option>').join('')+
               '</select>'+
             '</div>'+
             '<div>'+
