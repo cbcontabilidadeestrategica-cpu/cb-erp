@@ -1870,20 +1870,77 @@ async function materializeObligations() {
 }
 
 let hojeTarefas = [];
+const HOJE_STATUS_ORDER = ['pendente','em_andamento','concluido'];
+const HOJE_STATUS_LABEL = { pendente:'Pendente', em_andamento:'Em andamento', concluido:'✓ Concluído' };
+const HOJE_STATUS_COLOR = { pendente:'var(--fg2)', em_andamento:'var(--amber)', concluido:'var(--green)' };
+const HOJE_STATUS_BG = { pendente:'rgba(100,116,139,.15)', em_andamento:'rgba(234,179,8,.18)', concluido:'rgba(16,185,129,.18)' };
+const HOJE_STATUS_BORDER = { pendente:'rgba(100,116,139,.35)', em_andamento:'rgba(234,179,8,.4)', concluido:'rgba(16,185,129,.4)' };
+
+async function cycleTarefaStatus(id, current) {
+  const idx = HOJE_STATUS_ORDER.indexOf(current);
+  const next = HOJE_STATUS_ORDER[(idx+1) % HOJE_STATUS_ORDER.length] || 'pendente';
+  const t = hojeTarefas.find(x=>x.id===id);
+  if (t) t.status = next; // feedback imediato, sem esperar o round-trip nem re-buscar do servidor
+  paintHoje();
+  try {
+    const { error } = await sb.from('tarefa').update({ status: next }).eq('id', id);
+    if (error) throw error;
+  } catch(e) {
+    console.warn('Erro ao atualizar status da tarefa:', e);
+    if (t) t.status = current;
+    paintHoje();
+  }
+}
+
+async function setTarefaResp(id, resp) {
+  const t = hojeTarefas.find(x=>x.id===id);
+  const prev = t ? t.responsavel : null;
+  if (t) t.responsavel = resp || null;
+  try {
+    const { error } = await sb.from('tarefa').update({ responsavel: resp || null }).eq('id', id);
+    if (error) throw error;
+  } catch(e) {
+    console.warn('Erro ao atualizar responsável:', e);
+    if (t) t.responsavel = prev;
+    paintHoje();
+  }
+}
+
+async function setTarefaPrazo(id, prazo) {
+  const t = hojeTarefas.find(x=>x.id===id);
+  const prev = t ? t.prazo : null;
+  if (t) t.prazo = prazo || null;
+  try {
+    const { error } = await sb.from('tarefa').update({ prazo: prazo || null }).eq('id', id);
+    if (error) throw error;
+  } catch(e) {
+    console.warn('Erro ao atualizar prazo:', e);
+    if (t) t.prazo = prev;
+    paintHoje();
+  }
+}
+
 async function renderHoje() {
   const lista = document.getElementById('hojeLista');
-  const contador = document.getElementById('hojeContador');
   if (!lista) return;
   if (!sbUser) { lista.innerHTML = '<p style="padding:16px;color:var(--fg2)">Faça login para ver as tarefas.</p>'; return; }
   try {
     const { data, error } = await sb.from('tarefa')
       .select('id,setor,tipo,titulo,descricao,responsavel,prazo,status,cliente:cliente_id(nome,iniciais)')
-      .neq('status', 'concluido')
       .order('prazo', { ascending: true, nullsFirst: false })
-      .limit(300);
+      .limit(500);
     if (error) throw error;
     hojeTarefas = data || [];
   } catch(e) { console.warn('renderHoje erro:', e); lista.innerHTML = '<p style="padding:16px;color:var(--red)">Não foi possível carregar as tarefas.</p>'; return; }
+  paintHoje();
+}
+
+// Repinta a lista a partir do cache local (hojeTarefas), sem ida ao servidor —
+// usada pelas ações (status/responsável/prazo) para resposta instantânea.
+function paintHoje() {
+  const lista = document.getElementById('hojeLista');
+  const contador = document.getElementById('hojeContador');
+  if (!lista || !sbUser) return;
 
   // popula filtros uma vez
   const selSetor = document.getElementById('hojeFiltroSetor');
@@ -1903,22 +1960,34 @@ async function renderHoje() {
   const fResp = selResp ? selResp.value : '';
   const fStatus = document.getElementById('hojeFiltroStatus') ? document.getElementById('hojeFiltroStatus').value : '';
   const filtradas = hojeTarefas.filter(t =>
-    (!fSetor || t.setor === fSetor) && (!fResp || t.responsavel === fResp) && (!fStatus || t.status === fStatus)
+    (!fSetor || t.setor === fSetor) && (!fResp || t.responsavel === fResp) &&
+    (fStatus ? t.status === fStatus : t.status !== 'concluido')
   );
 
   const sectorColor = { 'Fiscal':'#ef4444','Depto. Pessoal':'#eab308','Contábil':'#10b981','Societário':'#6366f1','Financeiro':'#22c55e','Sucesso do Cliente':'#ec4899' };
+  const respOptions = [...new Set(hojeTarefas.map(t=>t.responsavel).filter(Boolean))].sort();
   const today = new Date().toISOString().slice(0,10);
   lista.innerHTML = filtradas.map(t => {
     const atrasada = t.prazo && t.prazo < today && t.status !== 'concluido';
     const cor = sectorColor[t.setor] || '#64748b';
     const clienteNome = t.cliente ? t.cliente.nome : '—';
+    const stKey = t.status || 'pendente';
+    const stLabel = HOJE_STATUS_LABEL[stKey] || 'Pendente';
+    const stColor = HOJE_STATUS_COLOR[stKey] || 'var(--fg2)';
+    const stBg = HOJE_STATUS_BG[stKey] || HOJE_STATUS_BG.pendente;
+    const stBorder = HOJE_STATUS_BORDER[stKey] || HOJE_STATUS_BORDER.pendente;
     return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border2)">
       <span style="width:8px;height:8px;border-radius:50%;background:${cor};flex-shrink:0"></span>
       <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600;color:var(--fg)">${t.titulo||''}</div>
-        <div style="font-size:11px;color:var(--fg2)">${clienteNome} · ${t.setor||''} ${t.responsavel ? '· '+t.responsavel : ''}</div>
+        <div style="font-size:13px;font-weight:600;color:var(--fg)${t.status==='concluido'?';text-decoration:line-through;opacity:.6':''}">${t.titulo||''}</div>
+        <div style="font-size:11px;color:var(--fg2)">${clienteNome} · ${t.setor||''}${t.descricao ? ' · '+t.descricao : ''}</div>
       </div>
-      <div style="font-size:11px;font-weight:700;color:${atrasada?'var(--red)':'var(--fg2)'};white-space:nowrap">${t.prazo ? (atrasada?'⚠️ ':'')+t.prazo.split('-').reverse().slice(0,2).join('/') : ''}</div>
+      <select onchange="setTarefaResp(${t.id},this.value)" title="Responsável" style="background:var(--bg2);color:var(--fg);border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:11px;max-width:100px">
+        <option value="">Sem resp.</option>
+        ${respOptions.map(r=>`<option value="${escHtml(r)}"${t.responsavel===r?' selected':''}>${escHtml(r)}</option>`).join('')}
+      </select>
+      <input type="date" value="${t.prazo||''}" onchange="setTarefaPrazo(${t.id},this.value)" title="Prazo" style="background:var(--bg2);color:${atrasada?'var(--red)':'var(--fg)'};border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:11px">
+      <button onclick="cycleTarefaStatus(${t.id},'${stKey}')" title="Clique para avançar o status" style="background:${stBg};color:${stColor};border:1px solid ${stBorder};border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;white-space:nowrap;cursor:pointer">${stLabel}</button>
     </div>`;
   }).join('') || '<p style="padding:16px;color:var(--fg2)">Nenhuma tarefa encontrada com esse filtro.</p>';
 
