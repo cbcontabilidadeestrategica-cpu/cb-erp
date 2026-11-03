@@ -1694,7 +1694,16 @@ async function showApp(user) {
     ['renderClientes',renderClientes],['renderClientDefaults',renderClientDefaults],['renderDemandas',renderDemandas],
   ];
   renders.forEach(([name,fn])=>{ try{ fn(); } catch(e){ console.error('Falha ao renderizar '+name+':', e); } });
-  materializeObligations().then(renderHoje).catch(e=>console.error('Falha ao materializar obrigações:', e));
+  // Início/Obrigações/Clientes leem o status real das obrigações da mesma
+  // tabela que Hoje usa (hojeTarefas) — como essa busca é assíncrona, a
+  // primeira pintura acima roda antes dela chegar. Repinta os três assim
+  // que os dados reais estiverem disponíveis.
+  materializeObligations().then(renderHoje).then(()=>{
+    const now = new Date(); materializedMonths.add(now.getFullYear()+'-'+now.getMonth());
+    try{ renderRadar(); }catch(e){ console.error('Falha ao repintar Início:', e); }
+    try{ renderFechamento(); }catch(e){ console.error('Falha ao repintar Obrigações:', e); }
+    try{ renderClientes(); }catch(e){ console.error('Falha ao repintar Clientes:', e); }
+  }).catch(e=>console.error('Falha ao materializar obrigações:', e));
 }
 
 async function loadFromSupabase() {
@@ -1875,12 +1884,14 @@ const SECTOR_BY_STEP = {
 // (getSteps) em linhas reais na tabela `tarefa`, uma vez por competência.
 // Idempotente: ignoreDuplicates garante que rodar de novo não sobrescreve
 // status que a equipe já mudou manualmente.
-async function materializeObligations() {
+async function materializeObligations(targetYear, targetMonth) {
   if (!sbUser || !clients || !clients.length) return;
   try {
     const now = new Date();
-    const ym = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
-    const compLabel = competenciaLabel(now.getFullYear(), now.getMonth());
+    const y = targetYear != null ? targetYear : now.getFullYear();
+    const m = targetMonth != null ? targetMonth : now.getMonth();
+    const ym = y + '-' + String(m+1).padStart(2,'0');
+    const compLabel = competenciaLabel(y, m);
     const rows = [];
     clients.forEach(c => {
       getSteps(c).forEach(s => {
@@ -1969,7 +1980,7 @@ async function renderHoje() {
   if (!sbUser) { lista.innerHTML = '<p style="padding:16px;color:var(--fg2)">Faça login para ver as tarefas.</p>'; return; }
   try {
     const { data, error } = await sb.from('tarefa')
-      .select('id,setor,tipo,titulo,descricao,responsavel,prazo,status,cliente:cliente_id(nome,iniciais)')
+      .select('id,cliente_id,legacy_id,setor,tipo,titulo,descricao,responsavel,prazo,status,sop,cliente:cliente_id(nome,iniciais)')
       .order('prazo', { ascending: true, nullsFirst: false })
       .limit(500);
     if (error) throw error;
@@ -2364,6 +2375,12 @@ function switchTab(name, btn) {
   const ind = document.getElementById('headerTabIndicator');
   if(ind){ ind.textContent = tabLabels[name]||name; }
   if (name === 'hoje') renderHoje();
+  // Obrigações/Início/Clientes agora leem o status real da tarefa (mesma
+  // fonte do Hoje), então reabrir a aba repinta com o que houver de mais
+  // recente em vez de ficar com o snapshot do carregamento inicial.
+  if (name === 'fechamento') renderFechamento();
+  if (name === 'radar') renderRadar();
+  if (name === 'clientes') renderClientes();
   window.scrollTo(0,0);
 }
 
@@ -2451,10 +2468,8 @@ function renderRadar() {
 
   document.getElementById('heroUrgCount').textContent = urgent48;
 
-  const key = fecKey();
-  const doneObj = closingData[key] || {};
   let totalS = 0, doneS = 0;
-  clients.forEach(c => { const s = getSteps(c); totalS+=s.length; doneS+=s.filter(st=>{ const v=doneObj[c.id+'_'+st.id]; return v===true||(v&&v.done); }).length; });
+  clients.forEach(c => { const s = getSteps(c); totalS+=s.length; doneS+=s.filter(st=>getStepState(c.id, st.id, fecYear, fecMonth).done).length; });
   const closingPct = totalS ? Math.round(doneS/totalS*100) : 0;
 
   // Alerta: fechamento em 0% após dia 5
@@ -2524,17 +2539,59 @@ function renderRadar() {
 ═══════════════════════════════════════════════ */
 function fecKey() { return fecYear+'-'+String(fecMonth+1).padStart(2,'0') }
 
-function renderFechamento() {
+/* ── Unificação Obrigações ↔ Hoje/Agenda ──────────────────────────────
+   Antes, Obrigações tinha seu próprio checklist local (closingData),
+   separado da tabela `tarefa` que já alimenta Hoje e a Agenda — marcar
+   uma etapa concluída aqui não refletia lá, e vice-versa. Agora, para o
+   mês atual (ou futuro), Obrigações lê e escreve direto na mesma linha
+   da `tarefa` que Hoje usa, casando por legacy_id ('obr_<cliente>_<etapa>_<ano-mes>').
+   Meses passados continuam no closingData antigo, como histórico —
+   não tenta migrar retroativamente o que já foi fechado antes disso. */
+function isPastMonth(year, month) {
+  const now = new Date();
+  return (year < now.getFullYear()) || (year === now.getFullYear() && month < now.getMonth());
+}
+function obligLegacyId(clientId, stepId, year, month) {
+  return 'obr_'+clientId+'_'+stepId+'_'+year+'-'+String(month+1).padStart(2,'0');
+}
+const materializedMonths = new Set();
+async function ensureMonthMaterialized(year, month) {
+  const k = year+'-'+month;
+  if (materializedMonths.has(k)) return;
+  materializedMonths.add(k);
+  await materializeObligations(year, month);
+  await renderHoje();
+}
+// Estado de uma etapa (concluída?, data, obs), vindo da tarefa (mês atual/futuro)
+// ou do checklist legado (mês passado).
+function getStepState(clientId, stepId, year, month) {
+  if (!isPastMonth(year, month)) {
+    const lid = obligLegacyId(clientId, stepId, year, month);
+    const t = hojeTarefas.find(x => x.legacy_id === lid);
+    if (t) return { done: t.status==='concluido', date: (t.sop&&t.sop.data_conclusao)||'', obs: (t.sop&&t.sop.obs)||'', tarefaId: t.id };
+    return { done:false, date:'', obs:'', tarefaId:null };
+  }
+  const key = year+'-'+String(month+1).padStart(2,'0');
+  const doneObj = closingData[key] || {};
+  const raw = doneObj[clientId+'_'+stepId];
+  const isDone = raw===true || (raw&&raw.done);
+  const entry = (raw&&typeof raw==='object') ? raw : {};
+  return { done:isDone, date:entry.date||'', obs:entry.obs||'', tarefaId:null };
+}
+
+async function renderFechamento() {
   document.getElementById('fecMonthName').textContent = MONTHS_PT[fecMonth];
   document.getElementById('fecMonthYear').textContent = fecYear;
   const noteEl = document.getElementById('fecCompetenciaNote');
   if (noteEl) noteEl.textContent = '📎 Vencimento em ' + MONTHS_PT[fecMonth] + ' — competência (dados de referência): ' + competenciaLabel(fecYear, fecMonth);
-  const key = fecKey();
-  const done = closingData[key] || {};
+  if (!isPastMonth(fecYear, fecMonth)) {
+    try { await ensureMonthMaterialized(fecYear, fecMonth); } catch(e) { console.warn('ensureMonthMaterialized falhou:', e); }
+  }
   let totalSteps = 0, doneSteps = 0;
   const cards = clients.map(c => {
     const steps = getSteps(c);
-    const clientDone = steps.filter(s => { const v=done[c.id+'_'+s.id]; return v===true||(v&&v.done); }).length;
+    const states = steps.map(s => getStepState(c.id, s.id, fecYear, fecMonth));
+    const clientDone = states.filter(st => st.done).length;
     totalSteps += steps.length; doneSteps += clientDone;
     const pct = steps.length ? Math.round(clientDone/steps.length*100) : 0;
     const barColor = pct === 100 ? 'green' : pct > 50 ? 'amber' : 'gold';
@@ -2552,10 +2609,9 @@ function renderFechamento() {
         '<span class="closing-chevron">▾</span>'+
       '</div>'+
       '<div class="closing-steps">'+
-        steps.map(s => {
-          const raw=done[c.id+'_'+s.id];
-          const isDone = raw===true||(raw&&raw.done);
-          const entry = (raw&&typeof raw==='object') ? raw : {};
+        steps.map((s,i) => {
+          const st = states[i];
+          const isDone = st.done;
           const dayNow = new Date().getDate();
           const daysLeft = s.prazoDia - dayNow;
           const prazoClass = daysLeft < 0 ? 'red' : daysLeft <= 2 ? 'red' : daysLeft <= 5 ? 'amber' : 'navy';
@@ -2566,8 +2622,8 @@ function renderFechamento() {
             '<div class="step-info"><div class="step-name'+(isDone?' done-text':'')+'">'+s.label+'</div>'+
             (s.desc?'<div class="step-desc">'+s.desc+'</div>':'')+
             (isDone?'<div class="step-extras">'+
-              '<input type="date" class="step-date-input" title="Data de conclusão" value="'+(entry.date||'')+'" onchange="setStepDate('+c.id+',\''+s.id+'\',this.value)">'+
-              '<input type="text" class="step-obs-input" placeholder="Observação..." value="'+escHtml(entry.obs||'')+'" onchange="setStepObs('+c.id+',\''+s.id+'\',this.value)">'+
+              '<input type="date" class="step-date-input" title="Data de conclusão" value="'+(st.date||'')+'" onchange="setStepDate('+c.id+',\''+s.id+'\',this.value)">'+
+              '<input type="text" class="step-obs-input" placeholder="Observação..." value="'+escHtml(st.obs||'')+'" onchange="setStepObs('+c.id+',\''+s.id+'\',this.value)">'+
             '</div>':'')+
             '</div>'+
             '<div class="step-prazo '+(isDone?'navy':prazoClass)+'">'+(isDone?'✓':prazoLabel)+'</div>'+
@@ -2583,53 +2639,83 @@ function renderFechamento() {
 
 function toggleClosing(id) { document.getElementById('cc-'+id).classList.toggle('open') }
 
-/* helper: get or create step entry as object */
-function stepEntry(key, k) {
-  if(!closingData[key]) closingData[key]={};
-  const v=closingData[key][k];
-  if(!v) return null;
-  if(v===true) return {done:true,date:'',obs:''};
-  return v;
-}
-
-function toggleStep(clientId, stepId) {
-  const key = fecKey();
-  if(!closingData[key]) closingData[key] = {};
-  const k = clientId+'_'+stepId;
-  const cur=closingData[key][k];
-  const isDone=cur===true||(cur&&cur.done);
-  if(isDone){
-    delete closingData[key][k];
-  } else {
-    const today=new Date().toISOString().slice(0,10);
-    closingData[key][k]={done:true,date:today,obs:''};
-  }
-  save('cb3_close', closingData);
-  renderFechamento();
+async function toggleStep(clientId, stepId) {
   const card = document.getElementById('cc-'+clientId);
   if(card) card.classList.add('open');
-  renderRadar();
+  if (isPastMonth(fecYear, fecMonth)) {
+    // Mês passado — mantém o checklist legado como histórico, sem tentar migrar.
+    const key = fecKey();
+    if(!closingData[key]) closingData[key] = {};
+    const k = clientId+'_'+stepId;
+    const cur=closingData[key][k];
+    const isDone=cur===true||(cur&&cur.done);
+    if(isDone){ delete closingData[key][k]; }
+    else { const today=new Date().toISOString().slice(0,10); closingData[key][k]={done:true,date:today,obs:''}; }
+    save('cb3_close', closingData);
+    renderFechamento();
+    return;
+  }
+  const st = getStepState(clientId, stepId, fecYear, fecMonth);
+  await setObligDone(clientId, stepId, !st.done);
 }
 
-function setStepDate(clientId, stepId, date) {
-  const key=fecKey();
-  if(!closingData[key]) closingData[key]={};
-  const k=clientId+'_'+stepId;
-  const cur=closingData[key][k];
-  const entry=(cur&&typeof cur==='object')?{...cur}:{done:true,date:'',obs:''};
-  entry.date=date;
-  closingData[key][k]=entry;
-  save('cb3_close',closingData);
+// Atualiza o status da linha real na tabela `tarefa` (mesma usada por Hoje/Agenda).
+async function setObligDone(clientId, stepId, done) {
+  await ensureMonthMaterialized(fecYear, fecMonth);
+  const lid = obligLegacyId(clientId, stepId, fecYear, fecMonth);
+  const t = hojeTarefas.find(x => x.legacy_id === lid);
+  if (!t) { console.warn('Obrigação não encontrada para', lid); return; }
+  const prevStatus = t.status, prevSop = t.sop;
+  t.status = done ? 'concluido' : 'pendente';
+  if (done) t.sop = { ...(t.sop||{}), data_conclusao: new Date().toISOString().slice(0,10) };
+  renderFechamento(); renderRadar();
+  try {
+    const { error } = await sb.from('tarefa').update({ status: t.status, sop: t.sop }).eq('id', t.id);
+    if (error) throw error;
+  } catch(e) {
+    console.warn('Erro ao atualizar obrigação:', e);
+    t.status = prevStatus; t.sop = prevSop;
+    renderFechamento(); renderRadar();
+  }
 }
-function setStepObs(clientId, stepId, obs) {
-  const key=fecKey();
-  if(!closingData[key]) closingData[key]={};
-  const k=clientId+'_'+stepId;
-  const cur=closingData[key][k];
-  const entry=(cur&&typeof cur==='object')?{...cur}:{done:true,date:'',obs:''};
-  entry.obs=obs;
-  closingData[key][k]=entry;
-  save('cb3_close',closingData);
+
+async function setStepDate(clientId, stepId, date) {
+  if (isPastMonth(fecYear, fecMonth)) {
+    const key=fecKey();
+    if(!closingData[key]) closingData[key]={};
+    const k=clientId+'_'+stepId;
+    const cur=closingData[key][k];
+    const entry=(cur&&typeof cur==='object')?{...cur}:{done:true,date:'',obs:''};
+    entry.date=date;
+    closingData[key][k]=entry;
+    save('cb3_close',closingData);
+    return;
+  }
+  const lid = obligLegacyId(clientId, stepId, fecYear, fecMonth);
+  const t = hojeTarefas.find(x => x.legacy_id === lid);
+  if (!t) return;
+  t.sop = { ...(t.sop||{}), data_conclusao: date };
+  try { await sb.from('tarefa').update({ sop: t.sop }).eq('id', t.id); }
+  catch(e) { console.warn('Erro ao salvar data da obrigação:', e); }
+}
+async function setStepObs(clientId, stepId, obs) {
+  if (isPastMonth(fecYear, fecMonth)) {
+    const key=fecKey();
+    if(!closingData[key]) closingData[key]={};
+    const k=clientId+'_'+stepId;
+    const cur=closingData[key][k];
+    const entry=(cur&&typeof cur==='object')?{...cur}:{done:true,date:'',obs:''};
+    entry.obs=obs;
+    closingData[key][k]=entry;
+    save('cb3_close',closingData);
+    return;
+  }
+  const lid = obligLegacyId(clientId, stepId, fecYear, fecMonth);
+  const t = hojeTarefas.find(x => x.legacy_id === lid);
+  if (!t) return;
+  t.sop = { ...(t.sop||{}), obs: obs };
+  try { await sb.from('tarefa').update({ sop: t.sop }).eq('id', t.id); }
+  catch(e) { console.warn('Erro ao salvar observação da obrigação:', e); }
 }
 
 function fecChangeMonth(d) {
@@ -3301,10 +3387,8 @@ function renderMrrChart(){
 
 /* ═══ FASE 3: HEALTH SCORE (item 13) ════════════════════════ */
 function calcHealthScore(c){
-  const key=fecKey();
-  const done=closingData[key]||{};
   const steps=getSteps(c);
-  const doneCount=steps.filter(s=>{const v=done[c.id+'_'+s.id];return v===true||(v&&v.done);}).length;
+  const doneCount=steps.filter(s=>getStepState(c.id, s.id, fecYear, fecMonth).done).length;
   const closingPct=steps.length?Math.round(doneCount/steps.length*100):100;
   const obDone=ONBOARDING_STEPS.filter(s=>onboarding[c.id]&&onboarding[c.id][s.id]).length;
   const obPct=Math.round(obDone/ONBOARDING_STEPS.length*100);
@@ -3671,13 +3755,11 @@ function finNovoMes(){
    CLIENTES — CONFIGURAÇÕES
 ═══════════════════════════════════════════════ */
 function renderClientes(){
-  const key=fecKey();
-  const done=closingData[key]||{};
   const container=document.getElementById('clientSettingsCards');
   if(!container) return;
   container.innerHTML=clients.map(c=>{
     const steps=getSteps(c);
-    const doneCount=steps.filter(s=>{ const v=done[c.id+'_'+s.id]; return v===true||(v&&v.done); }).length;
+    const doneCount=steps.filter(s=>getStepState(c.id, s.id, fecYear, fecMonth).done).length;
     const pct=steps.length?Math.round(doneCount/steps.length*100):0;
     const driveUrl=clientDrives[c.driveKey]||'';
     const mensalidade=parseFloat(String(revenues[c.id]||c.mensalidade||0).replace(/[^\d,]/g,'').replace(',','.'))||0;
