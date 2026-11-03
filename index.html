@@ -1162,9 +1162,6 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .dem-notes-tooltip{position:absolute;bottom:calc(100% + 5px);left:0;background:var(--navy);color:#fff;font-size:11px;padding:8px 12px;border-radius:8px;min-width:160px;max-width:240px;white-space:pre-wrap;word-break:break-word;z-index:200;display:none;line-height:1.5;box-shadow:var(--shadow-lg)}
 .dem-notes-wrap:hover .dem-notes-tooltip{display:block}
 
-/* ── Nivel plan description ── */
-.nivel-hint{font-size:10px;color:var(--fg3);margin-top:4px;line-height:1.4}
-
 /* ── Currency editable placeholder ── */
 .rev-val-empty{color:var(--fg4)!important}
 
@@ -2194,7 +2191,7 @@ const ACESSOS_SEED_ROWS = [
 let fecYear, fecMonth, igYear, igMonth, igSelectedDate = null, demFilter = 'all', igView = 'cal';
 let finYear, finMonth;
 let editingLeadId = null, editingClientId = null;
-let clientDefaults = { regime:'Simples Nacional', nivel:'Prata', services:['Fiscal','Contábil'] };
+let clientDefaults = { regime:'Simples Nacional', services:['Fiscal','Contábil'] };
 
 const ONBOARDING_STEPS = [
   { id:'contrato',    label:'Contrato assinado e arquivado' },
@@ -2541,10 +2538,9 @@ function renderFechamento() {
     totalSteps += steps.length; doneSteps += clientDone;
     const pct = steps.length ? Math.round(clientDone/steps.length*100) : 0;
     const barColor = pct === 100 ? 'green' : pct > 50 ? 'amber' : 'gold';
-    const isGold = c.nivel === 'Ouro';
     return '<div class="closing-card" id="cc-'+c.id+'">'+
       '<div class="closing-card-header" onclick="toggleClosing('+c.id+')">'+
-        '<div class="closing-client-avatar'+(isGold?' style="background:var(--gold)"':'')+'">'+c.initials+'</div>'+
+        '<div class="closing-client-avatar">'+c.initials+'</div>'+
         '<div class="closing-client-info">'+
           '<div class="closing-client-name">'+c.name+'</div>'+
           '<div class="closing-client-regime">'+c.regime+' · '+c.services.join(', ')+'</div>'+
@@ -3684,19 +3680,17 @@ function renderClientes(){
     const doneCount=steps.filter(s=>{ const v=done[c.id+'_'+s.id]; return v===true||(v&&v.done); }).length;
     const pct=steps.length?Math.round(doneCount/steps.length*100):0;
     const driveUrl=clientDrives[c.driveKey]||'';
-    const isGold=c.nivel==='Ouro';
     const mensalidade=parseFloat(String(revenues[c.id]||c.mensalidade||0).replace(/[^\d,]/g,'').replace(',','.'))||0;
     const barColor=pct===100?'green':pct>50?'amber':'gold';
     return '<div class="client-settings-card">'+
       '<div class="csc-top">'+
-        '<div class="csc-avatar'+(isGold?' gold':'')+'">'+escHtml(c.initials)+'</div>'+
+        '<div class="csc-avatar">'+escHtml(c.initials)+'</div>'+
         '<div class="csc-info">'+
           '<div class="csc-name">'+escHtml(c.name)+'</div>'+
           (()=>{const hs=calcHealthScore(c);const tip='Health Score: '+hs.score+'/100&#10;'+(hs.reasons.length?hs.reasons.join('&#10;'):'Tudo em ordem!');return '<span class="health-badge '+hs.color+'" title="'+tip+'">'+(hs.color==='green'?'💚':hs.color==='amber'?'🟡':'🔴')+' '+hs.score+' pts</span>';})()+
           '<div class="csc-regime">'+escHtml(c.regime)+'</div>'+
           '<div class="csc-chips" style="margin-top:6px">'+
             c.services.map(s=>'<span class="svc-chip">'+escHtml(s)+'</span>').join('')+
-            '<span class="badge '+(isGold?'gold':'muted')+'" style="margin-left:4px">'+escHtml(c.nivel)+'</span>'+
           '</div>'+
         '</div>'+
         '<div class="csc-actions">'+
@@ -3941,7 +3935,6 @@ function openNewClientModal(){
     banner.innerHTML='⚙️ Pré-preenchido com os <strong>Padrões de Cadastro</strong> — ajuste o que precisar';
     body.insertBefore(banner, body.firstChild);
   }
-  updateNivelHint();
   document.getElementById('clientModal').classList.remove('hidden');
 }
 function openEditClientModal(id){
@@ -3950,23 +3943,19 @@ function openEditClientModal(id){
   editingClientId=id;
   document.getElementById('modalClientTitle').textContent=c.name;
   buildClientModal(c);
-  updateNivelHint();
   document.getElementById('clientModal').classList.remove('hidden');
 }
 function buildClientModal(c){
   const svcList=['Fiscal','Contábil','DP','Societário','Financeiro','Sucesso do Cliente'];
   const regimes=['Simples Nacional','Lucro Presumido','Lucro Real','Terceiro Setor','Imune / 3º Setor','MEI'];
-  const nivels=['Prata','Ouro'];
   // Use defaults when creating new client
   const effRegime=c?c.regime:clientDefaults.regime;
-  const effNivel=c?c.nivel:clientDefaults.nivel;
   const effSvcs=c?c.services:clientDefaults.services;
   const svcChecks=svcList.map(s=>{
     const checked=effSvcs&&effSvcs.includes(s);
     return '<label class="modal-check-item"><input type="checkbox" class="mc_svc" value="'+escAttr(s)+'"'+(checked?' checked':'')+'>'+escHtml(s)+'</label>';
   }).join('');
   const regOpts=regimes.map(r=>'<option value="'+escAttr(r)+'"'+(effRegime===r?' selected':'')+'>'+escHtml(r)+'</option>').join('');
-  const nivOpts=nivels.map(n=>'<option value="'+escAttr(n)+'"'+(effNivel===n?' selected':'')+'>'+escHtml(n)+'</option>').join('');
   document.getElementById('modalClientBody').innerHTML=
     (!c?'<div class="modal-field-group"><label>Usar template</label>'+
       '<div class="template-selector">'+
@@ -3984,16 +3973,9 @@ function buildClientModal(c){
         '<input class="modal-input" id="mc_initials" placeholder="Ex: GM" maxlength="3" value="'+escAttr(c?c.initials||'':'')+'">'+
       '</div>'+
     '</div>'+
-    '<div class="modal-2col">'+
-      '<div class="modal-field-group">'+
-        '<label>Regime Tributário</label>'+
-        '<select class="modal-input" id="mc_regime">'+regOpts+'</select>'+
-      '</div>'+
-      '<div class="modal-field-group">'+
-        '<label>Nível do plano</label>'+
-        '<select class="modal-input" id="mc_nivel" onchange="updateNivelHint()">'+nivOpts+'</select>'+
-        '<div class="nivel-hint" id="nivelHint"></div>'+
-      '</div>'+
+    '<div class="modal-field-group">'+
+      '<label>Regime Tributário</label>'+
+      '<select class="modal-input" id="mc_regime">'+regOpts+'</select>'+
     '</div>'+
     '<div class="modal-2col">'+
       '<div class="modal-field-group">'+
@@ -4028,7 +4010,6 @@ function saveClientModal(){
   if(!name){document.getElementById('mc_name').focus();return;}
   const initials=(document.getElementById('mc_initials').value||'').trim().toUpperCase().slice(0,3)||name.slice(0,2).toUpperCase();
   const regime=document.getElementById('mc_regime').value;
-  const nivel=document.getElementById('mc_nivel').value;
   const mensalidade=parseFloat(document.getElementById('mc_mensalidade').value)||0;
   const whatsapp=document.getElementById('mc_whatsapp').value.trim();
   const hasEmployees=document.getElementById('mc_employees').checked;
@@ -4037,10 +4018,10 @@ function saveClientModal(){
   const contractRenewal=(document.getElementById('mc_renewal').value||'');
   if(editingClientId){
     const idx=clients.findIndex(c=>c.id===editingClientId);
-    if(idx>-1) clients[idx]={...clients[idx],name,initials,regime,nivel,mensalidade,whatsapp,hasEmployees,services,notes,contractRenewal};
+    if(idx>-1) clients[idx]={...clients[idx],name,initials,regime,mensalidade,whatsapp,hasEmployees,services,notes,contractRenewal};
   } else {
     const newId=Date.now();
-    clients.push({id:newId,name,initials,regime,nivel,mensalidade,whatsapp,hasEmployees,services,notes,contractRenewal,driveKey:'drive_'+newId});
+    clients.push({id:newId,name,initials,regime,mensalidade,whatsapp,hasEmployees,services,notes,contractRenewal,driveKey:'drive_'+newId});
   }
   const isNew = !editingClientId;
   save('cb3_clients',clients);
@@ -4071,24 +4052,12 @@ function closeClientModal(){
   editingClientId=null;
   document.getElementById('clientModal').classList.add('hidden');
 }
-function updateNivelHint(){
-  const el=document.getElementById('nivelHint');
-  const sel=document.getElementById('mc_nivel');
-  if(!el||!sel) return;
-  const hints={
-    'Prata':'Contabilidade essencial: fiscal, contábil e obrigações básicas.',
-    'Ouro':'Assessoria estratégica completa: inclui DP, societário e sucesso do cliente.'
-  };
-  el.textContent=hints[sel.value]||'';
-}
-
 /* CLIENT DEFAULTS */
 function renderClientDefaults(){
   const el=document.getElementById('clientDefaultsCard');
   if(!el) return;
   const svcList=['Fiscal','Contábil','DP','Societário','Financeiro','Sucesso do Cliente'];
   const regimes=['Simples Nacional','Lucro Presumido','Lucro Real','Terceiro Setor','Imune / 3º Setor','MEI'];
-  const nivels=['Prata','Ouro'];
   el.innerHTML=
     '<p style="font-size:13px;color:var(--fg2);margin-bottom:14px">Defina os parâmetros que serão pré-preenchidos automaticamente ao cadastrar um novo cliente.</p>'+
     '<div class="defaults-grid">'+
@@ -4096,12 +4065,6 @@ function renderClientDefaults(){
         '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--fg3);display:block;margin-bottom:6px">Regime padrão</label>'+
         '<select id="def_regime" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-family:\'Outfit\',sans-serif;font-size:13px;color:var(--fg)">'+
           regimes.map(r=>'<option value="'+r+'"'+(clientDefaults.regime===r?' selected':'')+'>'+r+'</option>').join('')+
-        '</select>'+
-      '</div>'+
-      '<div class="form-group">'+
-        '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--fg3);display:block;margin-bottom:6px">Nível padrão</label>'+
-        '<select id="def_nivel" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-family:\'Outfit\',sans-serif;font-size:13px;color:var(--fg)">'+
-          nivels.map(n=>'<option value="'+n+'"'+(clientDefaults.nivel===n?' selected':'')+'>'+n+'</option>').join('')+
         '</select>'+
       '</div>'+
     '</div>'+
@@ -4118,7 +4081,6 @@ function renderClientDefaults(){
 }
 function saveClientDefaults(){
   clientDefaults.regime=document.getElementById('def_regime').value;
-  clientDefaults.nivel=document.getElementById('def_nivel').value;
   clientDefaults.services=Array.from(document.querySelectorAll('.def_svc:checked')).map(el=>el.value);
   save('cb3_defaults',clientDefaults);
   const msg=document.getElementById('defaultsSavedMsg');
@@ -4452,7 +4414,7 @@ function runGlobalSearch(q){
   const mc=clients.filter(c=>(c.name||'').toLowerCase().includes(query));
   if(mc.length) html+='<div class="global-search-section">Clientes</div>'+mc.slice(0,5).map(c=>
     '<div class="global-search-item" onclick="closeGlobalSearch();switchTab(\'clientes\',null);setTimeout(()=>openEditClientModal('+c.id+'),120)">'+
-    '<span style="font-size:14px">👤</span><div><div class="gs-name">'+escHtml(c.name)+'</div><div class="gs-sub">'+escHtml(c.regime)+' · '+escHtml(c.nivel)+'</div></div>'+
+    '<span style="font-size:14px">👤</span><div><div class="gs-name">'+escHtml(c.name)+'</div><div class="gs-sub">'+escHtml(c.regime)+'</div></div>'+
     '<span class="gs-badge">Cliente</span></div>').join('');
   const ml=leads.filter(l=>(l.name||'').toLowerCase().includes(query)||(l.dor||'').toLowerCase().includes(query));
   if(ml.length) html+='<div class="global-search-section">CRM / Leads</div>'+ml.slice(0,5).map(l=>
@@ -4503,19 +4465,17 @@ function addComment(demId){
    FASE 4 — TEMPLATES DE CLIENTE (item 19)
 ═══════════════════════════════════════════════ */
 const CLIENT_TEMPLATES=[
-  {regime:'Simples Nacional',nivel:'Prata',services:['Fiscal','Contábil'],employees:false},
-  {regime:'Lucro Presumido',nivel:'Ouro',services:['Fiscal','Contábil','Financeiro'],employees:true},
-  {regime:'MEI',nivel:'Prata',services:['Fiscal'],employees:false},
-  {regime:'Terceiro Setor',nivel:'Prata',services:['Fiscal','Contábil','Societário'],employees:true},
+  {regime:'Simples Nacional',services:['Fiscal','Contábil'],employees:false},
+  {regime:'Lucro Presumido',services:['Fiscal','Contábil','Financeiro'],employees:true},
+  {regime:'MEI',services:['Fiscal'],employees:false},
+  {regime:'Terceiro Setor',services:['Fiscal','Contábil','Societário'],employees:true},
 ];
 function applyClientTemplate(idx){
   const t=CLIENT_TEMPLATES[idx];
   if(!t) return;
   const regime=document.getElementById('mc_regime');
-  const nivel=document.getElementById('mc_nivel');
   const emp=document.getElementById('mc_employees');
   if(regime) regime.value=t.regime;
-  if(nivel){nivel.value=t.nivel; updateNivelHint();}
   if(emp) emp.checked=t.employees;
   document.querySelectorAll('.mc_svc').forEach(cb=>{cb.checked=t.services.includes(cb.value);});
   showToast('Template aplicado: '+t.regime,'ok');
@@ -4533,7 +4493,7 @@ function offerCreateClientFromLead(lead){
     const valorNum=parseFloat((lead.valor||'').replace(/[^\d,]/g,'').replace(',','.'))||0;
     clients.push({
       id:newId,name:lead.name,initials:lead.name.slice(0,2).toUpperCase(),
-      regime:'Simples Nacional',nivel:'Prata',mensalidade:valorNum,
+      regime:'Simples Nacional',mensalidade:valorNum,
       whatsapp:'',hasEmployees:false,services:['Fiscal','Contábil'],
       notes:'Lead convertido em '+new Date().toLocaleDateString('pt-BR'),
       contractRenewal:'',driveKey:'drive_'+newId
