@@ -1234,6 +1234,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
     </div>
     <nav class="sidebar-nav">
       <button class="sidebar-nav-btn active" onclick="switchTab('radar',this)" data-tab="radar"><span class="nav-icon">📡</span><span class="nav-label"> Início</span></button>
+      <button class="sidebar-nav-btn" onclick="switchTab('hoje',this)" data-tab="hoje"><span class="nav-icon">🎯</span><span class="nav-label"> Hoje</span></button>
       <button class="sidebar-nav-btn" onclick="switchTab('clientes',this)" data-tab="clientes"><span class="nav-icon">👥</span><span class="nav-label"> Clientes</span></button>
       <button class="sidebar-nav-btn" onclick="switchTab('funil',this)" data-tab="funil"><span class="nav-icon">🎯</span><span class="nav-label"> CRM</span></button>
       <button class="sidebar-nav-btn" onclick="switchTab('fechamento',this)" data-tab="fechamento"><span class="nav-icon">✅</span><span class="nav-label"> Obrigações</span></button>
@@ -1327,6 +1328,29 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 
   <div class="section-label" style="margin-top:18px">🚨 DEMANDAS ATIVAS</div>
   <div class="card"><div style="padding:0 16px" id="radarDemandasList"></div></div>
+</section>
+
+<!-- ═══ HOJE — visão cruzada de todos os setores ═══ -->
+<section id="tab-hoje" class="tab-panel">
+  <div class="section-label">🎯 TODAS AS TAREFAS — TODOS OS SETORES</div>
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-body" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <select id="hojeFiltroSetor" onchange="renderHoje()" style="background:#0d1f3c;color:#fff;border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:6px 10px;font-size:12px">
+        <option value="">Todos os setores</option>
+      </select>
+      <select id="hojeFiltroResp" onchange="renderHoje()" style="background:#0d1f3c;color:#fff;border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:6px 10px;font-size:12px">
+        <option value="">Todos os responsáveis</option>
+      </select>
+      <select id="hojeFiltroStatus" onchange="renderHoje()" style="background:#0d1f3c;color:#fff;border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:6px 10px;font-size:12px">
+        <option value="">Todos os status</option>
+        <option value="pendente">Pendente</option>
+        <option value="em_andamento">Em andamento</option>
+        <option value="concluido">Concluído</option>
+      </select>
+      <span id="hojeContador" style="margin-left:auto;font-size:12px;color:rgba(255,255,255,.5)"></span>
+    </div>
+  </div>
+  <div class="card"><div style="padding:0 16px" id="hojeLista"></div></div>
 </section>
 
 <!-- ═══ FECHAMENTO ═══ -->
@@ -1629,6 +1653,7 @@ async function showApp(user) {
   initState(); initTheme(); initSidebar(); renderMetaBanner(); renderRadar(); renderRadarDemandas();
   renderFechamento(); renderIgCal(); renderFunil(); renderFinanceiro();
   renderClientes(); renderClientDefaults(); renderDemandas(); renderAcessos();
+  materializeObligations().then(renderHoje);
 }
 
 async function loadFromSupabase() {
@@ -1797,6 +1822,101 @@ function getSteps(client) {
   s.push({ id:'relatorio', label:'Relatório gerencial',            desc:'DRE, fluxo de caixa, indicadores do mês',         prazoDia:14, urg:'amber' });
   s.push({ id:'entrega',   label:'Entrega ao cliente',             desc:'⚡ Meta CB: até o dia 15',                        prazoDia:15, urg:'amber' });
   return s;
+}
+
+const SECTOR_BY_STEP = {
+  coleta:'Fiscal', das_mei:'Fiscal', conf_mei:'Fiscal', das:'Fiscal', piscofins:'Fiscal', irpj:'Fiscal', darfs:'Fiscal', acc:'Fiscal',
+  ponto:'Depto. Pessoal', fgts:'Depto. Pessoal', esocial:'Depto. Pessoal', irrf:'Depto. Pessoal', dctf:'Depto. Pessoal',
+  conc:'Contábil', lanc:'Contábil', relatorio:'Contábil', entrega:'Contábil',
+};
+
+// Materializa as obrigações que hoje só existem como cálculo em memória
+// (getSteps) em linhas reais na tabela `tarefa`, uma vez por competência.
+// Idempotente: ignoreDuplicates garante que rodar de novo não sobrescreve
+// status que a equipe já mudou manualmente.
+async function materializeObligations() {
+  if (!sbUser || !clients || !clients.length) return;
+  try {
+    const now = new Date();
+    const ym = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+    const rows = [];
+    clients.forEach(c => {
+      getSteps(c).forEach(s => {
+        rows.push({
+          legacy_id: `obr_${c.id}_${s.id}_${ym}`,
+          cliente_id: c.id,
+          setor: SECTOR_BY_STEP[s.id] || 'Fiscal',
+          tipo: 'obrigacao',
+          titulo: s.label,
+          descricao: s.desc,
+          prazo: `${ym}-${String(s.prazoDia).padStart(2,'0')}`,
+          status: 'pendente',
+          origem: 'obrigacao_auto',
+        });
+      });
+    });
+    for (let i = 0; i < rows.length; i += 200) {
+      const chunk = rows.slice(i, i+200);
+      const { error } = await sb.from('tarefa').upsert(chunk, { onConflict: 'legacy_id', ignoreDuplicates: true });
+      if (error) console.warn('materializeObligations erro:', error);
+    }
+  } catch(e) { console.warn('materializeObligations falhou:', e); }
+}
+
+let hojeTarefas = [];
+async function renderHoje() {
+  const lista = document.getElementById('hojeLista');
+  const contador = document.getElementById('hojeContador');
+  if (!lista) return;
+  if (!sbUser) { lista.innerHTML = '<p style="padding:16px;color:rgba(255,255,255,.5)">Faça login para ver as tarefas.</p>'; return; }
+  try {
+    const { data, error } = await sb.from('tarefa')
+      .select('id,setor,tipo,titulo,descricao,responsavel,prazo,status,cliente:cliente_id(nome,iniciais)')
+      .neq('status', 'concluido')
+      .order('prazo', { ascending: true, nullsFirst: false })
+      .limit(300);
+    if (error) throw error;
+    hojeTarefas = data || [];
+  } catch(e) { console.warn('renderHoje erro:', e); lista.innerHTML = '<p style="padding:16px;color:var(--red)">Não foi possível carregar as tarefas.</p>'; return; }
+
+  // popula filtros uma vez
+  const selSetor = document.getElementById('hojeFiltroSetor');
+  const selResp = document.getElementById('hojeFiltroResp');
+  if (selSetor && selSetor.options.length === 1) {
+    [...new Set(hojeTarefas.map(t=>t.setor).filter(Boolean))].sort().forEach(s => {
+      const o = document.createElement('option'); o.value = s; o.textContent = s; selSetor.appendChild(o);
+    });
+  }
+  if (selResp && selResp.options.length === 1) {
+    [...new Set(hojeTarefas.map(t=>t.responsavel).filter(Boolean))].sort().forEach(r => {
+      const o = document.createElement('option'); o.value = r; o.textContent = r; selResp.appendChild(o);
+    });
+  }
+
+  const fSetor = selSetor ? selSetor.value : '';
+  const fResp = selResp ? selResp.value : '';
+  const fStatus = document.getElementById('hojeFiltroStatus') ? document.getElementById('hojeFiltroStatus').value : '';
+  const filtradas = hojeTarefas.filter(t =>
+    (!fSetor || t.setor === fSetor) && (!fResp || t.responsavel === fResp) && (!fStatus || t.status === fStatus)
+  );
+
+  const sectorColor = { 'Fiscal':'#ef4444','Depto. Pessoal':'#eab308','Contábil':'#10b981','Societário':'#6366f1','Financeiro':'#22c55e','Sucesso do Cliente':'#ec4899' };
+  const today = new Date().toISOString().slice(0,10);
+  lista.innerHTML = filtradas.map(t => {
+    const atrasada = t.prazo && t.prazo < today && t.status !== 'concluido';
+    const cor = sectorColor[t.setor] || '#64748b';
+    const clienteNome = t.cliente ? t.cliente.nome : '—';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06)">
+      <span style="width:8px;height:8px;border-radius:50%;background:${cor};flex-shrink:0"></span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:#fff">${t.titulo||''}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.45)">${clienteNome} · ${t.setor||''} ${t.responsavel ? '· '+t.responsavel : ''}</div>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:${atrasada?'#ef4444':'rgba(255,255,255,.6)'};white-space:nowrap">${t.prazo ? (atrasada?'⚠️ ':'')+t.prazo.split('-').reverse().slice(0,2).join('/') : ''}</div>
+    </div>`;
+  }).join('') || '<p style="padding:16px;color:rgba(255,255,255,.4)">Nenhuma tarefa encontrada com esse filtro.</p>';
+
+  if (contador) contador.textContent = filtradas.length + ' tarefa' + (filtradas.length===1?'':'s');
 }
 
 const OBLIGATIONS = [
@@ -2058,9 +2178,10 @@ function switchTab(name, btn) {
   document.querySelectorAll('.sidebar-nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   document.querySelectorAll('[data-tab="'+name+'"]').forEach(b => b.classList.add('active'));
-  const tabLabels = {radar:'Início',fechamento:'Obrigações',instagram:'Instagram',funil:'CRM',clientes:'Clientes',demandas:'Demandas Pontuais',acessos:'Acessos',financeiro:'Financeiro'};
+  const tabLabels = {radar:'Início',hoje:'Hoje',fechamento:'Obrigações',instagram:'Instagram',funil:'CRM',clientes:'Clientes',demandas:'Demandas Pontuais',acessos:'Acessos',financeiro:'Financeiro'};
   const ind = document.getElementById('headerTabIndicator');
   if(ind){ ind.textContent = tabLabels[name]||name; }
+  if (name === 'hoje') renderHoje();
   window.scrollTo(0,0);
 }
 
