@@ -1369,6 +1369,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
     </div>
     <button class="month-nav-btn" onclick="fecChangeMonth(1)">›</button>
   </div>
+  <div id="fecCompetenciaNote" style="font-size:12px;color:var(--fg2);margin:-4px 0 12px;padding:0 2px"></div>
   <div id="closingCards"></div>
 </section>
 
@@ -1843,6 +1844,7 @@ async function materializeObligations() {
   try {
     const now = new Date();
     const ym = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+    const compLabel = competenciaLabel(now.getFullYear(), now.getMonth());
     const rows = [];
     clients.forEach(c => {
       getSteps(c).forEach(s => {
@@ -1852,7 +1854,7 @@ async function materializeObligations() {
           setor: SECTOR_BY_STEP[s.id] || 'Fiscal',
           tipo: 'obrigacao',
           titulo: s.label,
-          descricao: s.desc,
+          descricao: (s.desc ? s.desc + ' · ' : '') + 'Competência ' + compLabel,
           prazo: `${ym}-${String(s.prazoDia).padStart(2,'0')}`,
           status: 'pendente',
           origem: 'obrigacao_auto',
@@ -1949,6 +1951,20 @@ const WEEK_BLOCKS = {
 };
 const DAY_NAMES_SHORT = ['Seg','Ter','Qua','Qui','Sex'];
 const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+// Toda obrigação mensal (DAS, FGTS, eSocial, lançamentos etc.) vence no mês
+// corrente mas se refere SEMPRE aos dados do mês anterior — regime de
+// competência, não de caixa. Ex.: o DAS pago em novembro é o DAS de
+// competência outubro. Essas duas funções deixam essa referência explícita
+// na tela em vez de implícita (o bug que o Nathan apontou).
+function competenciaOf(year, monthIdx /* 0-based, mês de vencimento */) {
+  const m = monthIdx === 0 ? 11 : monthIdx - 1;
+  const y = monthIdx === 0 ? year - 1 : year;
+  return { year: y, month: m };
+}
+function competenciaLabel(year, monthIdx) {
+  const c = competenciaOf(year, monthIdx);
+  return MONTHS_PT[c.month] + '/' + c.year;
+}
 const IG_SCHEDULE = { 1:'seg', 3:'qua', 5:'sex' };
 const IG_TEMPLATES = {
   seg:{
@@ -2350,6 +2366,8 @@ function fecKey() { return fecYear+'-'+String(fecMonth+1).padStart(2,'0') }
 function renderFechamento() {
   document.getElementById('fecMonthName').textContent = MONTHS_PT[fecMonth];
   document.getElementById('fecMonthYear').textContent = fecYear;
+  const noteEl = document.getElementById('fecCompetenciaNote');
+  if (noteEl) noteEl.textContent = '📎 Vencimento em ' + MONTHS_PT[fecMonth] + ' — competência (dados de referência): ' + competenciaLabel(fecYear, fecMonth);
   const key = fecKey();
   const done = closingData[key] || {};
   let totalSteps = 0, doneSteps = 0;
