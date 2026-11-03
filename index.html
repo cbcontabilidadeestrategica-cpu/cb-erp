@@ -1343,7 +1343,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 
 <!-- ═══ HOJE — visão cruzada de todos os setores ═══ -->
 <section id="tab-hoje" class="tab-panel">
-  <div class="section-label">🎯 TODAS AS TAREFAS — TODOS OS SETORES</div>
+  <div class="section-label">🎯 CURTO PRAZO — VENCENDO EM ATÉ 10 DIAS (TODOS OS SETORES)</div>
   <div class="card" style="margin-bottom:14px">
     <div class="card-body" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <select id="hojeFiltroSetor" onchange="renderHoje()" style="background:var(--bg2);color:var(--fg);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px">
@@ -1964,9 +1964,16 @@ function paintHoje() {
   const fSetor = selSetor ? selSetor.value : '';
   const fResp = selResp ? selResp.value : '';
   const fStatus = document.getElementById('hojeFiltroStatus') ? document.getElementById('hojeFiltroStatus').value : '';
+  // Curto prazo: só entra na lista quem tem prazo definido e vencendo em até
+  // 10 dias (atrasada conta também, já que vencido é ainda mais urgente que
+  // "dentro de 10 dias"). Sem isso a aba Hoje ficava com todas as tarefas do
+  // mês inteiro misturadas, difícil de usar no dia a dia.
+  const limite = new Date(); limite.setDate(limite.getDate()+10);
+  const limiteISO = limite.toISOString().slice(0,10);
   const filtradas = hojeTarefas.filter(t =>
     (!fSetor || t.setor === fSetor) && (!fResp || t.responsavel === fResp) &&
-    (fStatus ? t.status === fStatus : t.status !== 'concluido')
+    (fStatus ? t.status === fStatus : t.status !== 'concluido') &&
+    (!!t.prazo && t.prazo <= limiteISO)
   );
 
   const sectorColor = { 'Fiscal':'#ef4444','Depto. Pessoal':'#eab308','Contábil':'#10b981','Societário':'#6366f1','Financeiro':'#22c55e','Sucesso do Cliente':'#ec4899' };
@@ -2000,7 +2007,11 @@ function paintHoje() {
     </div>`;
   }).join('') || '<p style="padding:16px;color:var(--fg2)">Nenhuma tarefa encontrada com esse filtro.</p>';
 
-  if (contador) contador.textContent = filtradas.length + ' tarefa' + (filtradas.length===1?'':'s');
+  if (contador) {
+    const foraDoPrazo = hojeTarefas.filter(t => t.status !== 'concluido' && (!t.prazo || t.prazo > limiteISO)).length;
+    contador.textContent = filtradas.length + ' tarefa' + (filtradas.length===1?'':'s') + ' em até 10 dias'
+      + (foraDoPrazo ? ' · +'+foraDoPrazo+' mais adiante (ver Obrigações/Demandas)' : '');
+  }
 }
 
 const OBLIGATIONS = [
