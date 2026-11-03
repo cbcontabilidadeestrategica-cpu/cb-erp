@@ -1037,6 +1037,39 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .fin-meta-fill{height:100%;border-radius:5px;background:var(--gold3);transition:width .5s}
 .fin-meta-sub{font-size:11px;color:rgba(255,255,255,.5)}
 
+/* ── Hoje — curto prazo, agrupado por urgência ── */
+.hoje-group{margin-bottom:18px}
+.hoje-group:last-child{margin-bottom:0}
+.hoje-group-hd{display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:0 2px}
+.hoje-group-label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--fg3)}
+.hoje-group-count{font-size:11px;font-weight:700;color:var(--fg4);background:var(--bg3);border-radius:999px;padding:1px 8px}
+.hoje-item{display:flex;align-items:flex-start;gap:10px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:7px;transition:.12s}
+.hoje-item:last-child{margin-bottom:0}
+.hoje-item:hover{box-shadow:var(--shadow)}
+.hoje-item.is-atrasada{border-left:3px solid var(--red);background:rgba(220,38,38,.04)}
+.hoje-item.is-done{opacity:.55}
+.hoje-check{width:20px;height:20px;border-radius:50%;border:2px solid var(--border);flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff;transition:.12s;margin-top:1px}
+.hoje-check:hover{border-color:var(--green)}
+.hoje-check.checked{background:var(--green);border-color:var(--green)}
+.hoje-item-main{flex:1;min-width:0}
+.hoje-item-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.hoje-item-title{font-size:13px;font-weight:700;color:var(--fg)}
+.hoje-item-title.done{text-decoration:line-through;color:var(--fg4);font-weight:500}
+.hoje-item-meta{font-size:11px;color:var(--fg3);margin-top:3px;display:flex;align-items:center;flex-wrap:wrap}
+.hoje-sector-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;display:inline-block;margin-right:5px}
+.hoje-prazo-chip{font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.hoje-prazo-chip.pr-atrasada{background:rgba(220,38,38,.14);color:var(--red)}
+.hoje-prazo-chip.pr-hoje{background:rgba(234,179,8,.18);color:var(--amber)}
+.hoje-prazo-chip.pr-em-breve{background:var(--blue-lt);color:var(--blue)}
+.hoje-prazo-chip.pr-normal{background:var(--bg3);color:var(--fg3)}
+.hoje-item-actions{display:flex;align-items:center;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;margin-left:auto}
+.hoje-mini-select{background:var(--bg3);color:var(--fg2);border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:11px;max-width:96px;font-family:'Outfit',sans-serif}
+.hoje-status-pill{border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;white-space:nowrap;cursor:pointer;border:1px solid;font-family:'Outfit',sans-serif}
+@media(max-width:560px){
+  .hoje-item{flex-wrap:wrap}
+  .hoje-item-actions{margin-left:30px;width:100%}
+}
+
 /* ── Client notes ── */
 .csc-notes{font-size:12px;color:var(--fg2);line-height:1.55;margin-top:10px;padding-top:10px;border-top:1px solid var(--border2);white-space:pre-wrap;word-break:break-word}
 .csc-notes-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--fg4);margin-bottom:3px}
@@ -1897,6 +1930,14 @@ async function setTarefaStatus(id, next) {
   }
 }
 
+// Atalho de 1 clique no círculo da esquerda — concluído ↔ pendente — sem
+// precisar abrir o select de status pra isso.
+function toggleTarefaConcluida(id) {
+  const t = hojeTarefas.find(x=>x.id===id);
+  if (!t) return;
+  setTarefaStatus(id, t.status==='concluido' ? 'pendente' : 'concluido');
+}
+
 async function setTarefaResp(id, resp) {
   const t = hojeTarefas.find(x=>x.id===id);
   const prev = t ? t.responsavel : null;
@@ -1978,34 +2019,66 @@ function paintHoje() {
 
   const sectorColor = { 'Fiscal':'#ef4444','Depto. Pessoal':'#eab308','Contábil':'#10b981','Societário':'#6366f1','Financeiro':'#22c55e','Sucesso do Cliente':'#ec4899' };
   const respOptions = [...new Set(hojeTarefas.map(t=>t.responsavel).filter(Boolean))].sort();
-  const today = new Date().toISOString().slice(0,10);
-  lista.innerHTML = filtradas.map(t => {
-    const atrasada = t.prazo && t.prazo < today && t.status !== 'concluido';
+  const hojeD = new Date(); hojeD.setHours(0,0,0,0);
+  const diffDias = (prazo) => prazo ? Math.round((new Date(prazo+'T00:00:00') - hojeD) / 86400000) : null;
+
+  function renderHojeItem(t){
+    const dd = diffDias(t.prazo);
     const cor = sectorColor[t.setor] || '#64748b';
-    const clienteNome = t.cliente ? t.cliente.nome : '—';
+    const clienteNome = t.cliente ? escHtml(t.cliente.nome) : '—';
+    const isDone = t.status === 'concluido';
+    const prazoBr = t.prazo ? t.prazo.split('-').reverse().join('/') : '';
+    let prazoLabel, prazoCls;
+    if (dd === null) { prazoLabel = 'Sem prazo'; prazoCls = 'pr-normal'; }
+    else if (dd < 0)  { prazoLabel = 'Atrasada '+(-dd)+'d'; prazoCls = 'pr-atrasada'; }
+    else if (dd === 0){ prazoLabel = 'Hoje'; prazoCls = 'pr-hoje'; }
+    else if (dd === 1){ prazoLabel = 'Amanhã'; prazoCls = 'pr-hoje'; }
+    else if (dd <= 3) { prazoLabel = 'Em '+dd+'d'; prazoCls = 'pr-em-breve'; }
+    else              { prazoLabel = prazoBr; prazoCls = 'pr-normal'; }
     const stKey = t.status || 'pendente';
-    const stLabel = HOJE_STATUS_LABEL[stKey] || 'Pendente';
     const stColor = HOJE_STATUS_COLOR[stKey] || 'var(--fg2)';
     const stBg = HOJE_STATUS_BG[stKey] || HOJE_STATUS_BG.pendente;
     const stBorder = HOJE_STATUS_BORDER[stKey] || HOJE_STATUS_BORDER.pendente;
-    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border2)">
-      <span style="width:8px;height:8px;border-radius:50%;background:${cor};flex-shrink:0"></span>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600;color:var(--fg)${t.status==='concluido'?';text-decoration:line-through;opacity:.6':''}">${t.titulo||''}</div>
-        <div style="font-size:11px;color:var(--fg2)">${clienteNome} · ${t.setor||''}${t.descricao ? ' · '+t.descricao : ''}</div>
+    return `<div class="hoje-item${dd!==null&&dd<0&&!isDone?' is-atrasada':''}${isDone?' is-done':''}">
+      <span class="hoje-check${isDone?' checked':''}" onclick="toggleTarefaConcluida(${t.id})" title="${isDone?'Reabrir tarefa':'Marcar como concluída'}">${isDone?'✓':''}</span>
+      <div class="hoje-item-main">
+        <div class="hoje-item-top">
+          <span class="hoje-item-title${isDone?' done':''}">${escHtml(t.titulo||'')}</span>
+          <span class="hoje-prazo-chip ${prazoCls}">${prazoLabel}</span>
+        </div>
+        <div class="hoje-item-meta"><span class="hoje-sector-dot" style="background:${cor}"></span>${clienteNome} · ${escHtml(t.setor||'')}${t.descricao ? ' · '+escHtml(t.descricao) : ''}</div>
       </div>
-      <select onchange="setTarefaResp(${t.id},this.value)" title="Responsável" style="background:var(--bg2);color:var(--fg);border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:11px;max-width:100px">
-        <option value="">Sem resp.</option>
-        ${respOptions.map(r=>`<option value="${escHtml(r)}"${t.responsavel===r?' selected':''}>${escHtml(r)}</option>`).join('')}
-      </select>
-      <input type="date" value="${t.prazo||''}" onchange="setTarefaPrazo(${t.id},this.value)" title="Prazo" style="background:var(--bg2);color:${atrasada?'var(--red)':'var(--fg)'};border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:11px">
-      <select onchange="setTarefaStatus(${t.id},this.value)" title="Situação" style="background:${stBg};color:${stColor};border:1px solid ${stBorder};border-radius:999px;padding:4px 8px;font-size:11px;font-weight:700;white-space:nowrap;cursor:pointer">
-        <option value="pendente"${stKey==='pendente'?' selected':''}>Pendente</option>
-        <option value="em_andamento"${stKey==='em_andamento'?' selected':''}>Em andamento</option>
-        <option value="concluido"${stKey==='concluido'?' selected':''}>Concluído</option>
-      </select>
+      <div class="hoje-item-actions">
+        <select class="hoje-mini-select" onchange="setTarefaResp(${t.id},this.value)" title="Responsável">
+          <option value="">Sem resp.</option>
+          ${respOptions.map(r=>`<option value="${escHtml(r)}"${t.responsavel===r?' selected':''}>${escHtml(r)}</option>`).join('')}
+        </select>
+        <input type="date" class="hoje-mini-select" value="${t.prazo||''}" onchange="setTarefaPrazo(${t.id},this.value)" title="Prazo" style="max-width:118px">
+        <select class="hoje-status-pill" onchange="setTarefaStatus(${t.id},this.value)" title="Situação" style="background:${stBg};color:${stColor};border-color:${stBorder}">
+          <option value="pendente"${stKey==='pendente'?' selected':''}>Pendente</option>
+          <option value="em_andamento"${stKey==='em_andamento'?' selected':''}>Em andamento</option>
+          <option value="concluido"${stKey==='concluido'?' selected':''}>Concluído</option>
+        </select>
+      </div>
     </div>`;
-  }).join('') || '<p style="padding:16px;color:var(--fg2)">Nenhuma tarefa encontrada com esse filtro.</p>';
+  }
+
+  // Agrupa por urgência — muito mais rápido de escanear do que uma lista
+  // plana de 20+ itens misturados.
+  const grupos = [
+    { key:'atrasada', label:'🔴 Atrasadas',        test:dd=>dd!==null&&dd<0 },
+    { key:'hoje',     label:'🟠 Hoje',              test:dd=>dd===0 },
+    { key:'semana',   label:'🟡 Próximos 7 dias',   test:dd=>dd!==null&&dd>=1&&dd<=7 },
+    { key:'adiante',  label:'⚪ Em até 10 dias',     test:dd=>dd===null||dd>=8 },
+  ];
+  const buckets = grupos.map(g => ({ ...g, items: filtradas.filter(t=>g.test(diffDias(t.prazo))) }));
+
+  lista.innerHTML = buckets.filter(b=>b.items.length).map(b =>
+    `<div class="hoje-group">
+      <div class="hoje-group-hd"><span class="hoje-group-label">${b.label}</span><span class="hoje-group-count">${b.items.length}</span></div>
+      ${b.items.map(renderHojeItem).join('')}
+    </div>`
+  ).join('') || '<p style="padding:16px;color:var(--fg2)">Nenhuma tarefa encontrada com esse filtro.</p>';
 
   if (contador) {
     const foraDoPrazo = hojeTarefas.filter(t => t.status !== 'concluido' && (!t.prazo || t.prazo > limiteISO)).length;
