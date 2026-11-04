@@ -2647,6 +2647,16 @@ function renderRadar() {
         alerts.push('<div class="renewal-alert-item" style="background:var(--red-lt);border-color:var(--red);color:var(--red)">🔴 Follow-up vencido: <strong>'+escHtml(l.name)+'</strong> (era '+l.followUpDate+')</div>');
       }
     });
+    // Inadimplência do mês (item novo) — antes só aparecia dentro do Financeiro,
+    // agora também chega no radar diário, igual contrato e follow-up.
+    clients.forEach(c=>{
+      const carStatus=getClientCarStatus(c.id);
+      if(carStatus==='Vencido'){
+        alerts.push('<div class="renewal-alert-item" style="background:var(--red-lt);border-color:var(--red);color:var(--red)">🔴 Mensalidade <strong>vencida</strong>: <strong>'+escHtml(c.name)+'</strong></div>');
+      } else if(carStatus==='Negociando'){
+        alerts.push('<div class="renewal-alert-item">🟡 Mensalidade em negociação: <strong>'+escHtml(c.name)+'</strong></div>');
+      }
+    });
     renewalEl.innerHTML=alerts.join('');
   }
 
@@ -3614,9 +3624,17 @@ function calcHealthScore(c){
   const cs=csData[c.id]||{};
   const nps=cs.nps!=null?cs.nps:-1;
   const daysSince=cs.lastContact?Math.floor((new Date()-new Date(cs.lastContact))/86400000):null;
-  const overdueDem=demandas.filter(d=>d.client===c.name&&d.status!=='concluido'&&d.status!=='cancelado'&&d.prazo&&new Date(d.prazo)<new Date()).length;
+  // Nota: comparava com d.client, campo que não existe em demandas (o campo
+  // real é d.cliente) — essa penalidade nunca disparava. Corrigido.
+  const overdueDem=demandas.filter(d=>d.cliente===c.name&&d.status!=='concluido'&&d.status!=='cancelado'&&d.prazo&&new Date(d.prazo)<new Date()).length;
+  // Situação financeira do mês atual (Contas a Receber) — antes o Health
+  // Score não sabia se o cliente estava inadimplente, então um cliente
+  // vencido há meses podia aparecer 💚 verde.
+  const carStatus=getClientCarStatus(c.id);
   let score=100;
   const reasons=[];
+  if(carStatus==='Vencido'){score-=30;reasons.push('Pagamento vencido (-30)');}
+  else if(carStatus==='Negociando'){score-=15;reasons.push('Pagamento em negociação (-15)');}
   if(obPct<100){score-=20;reasons.push('Onboarding incompleto (-20)');}
   if(nps>=0&&nps<7){score-=25;reasons.push('NPS baixo ('+nps+'/10) (-25)');}
   if(daysSince!==null&&daysSince>15){const pen=daysSince>30?20:10;score-=pen;reasons.push(daysSince+'d sem contato (-'+pen+')');}
@@ -3637,6 +3655,16 @@ const STATUS_CAR_CLASS={'A receber':'a-receber','Recebido':'recebido','Vencido':
 const STATUS_CAP=['A pagar','Pago','Em atraso','Parcelado','Cancelado'];
 
 function finKey() { return finYear+'-'+String(finMonth+1).padStart(2,'0') }
+// Mês civil atual, independente do mês que a aba Financeiro está exibindo
+// (finYear/finMonth mudam quando o usuário navega pra competências
+// passadas) — o Health Score e o alerta do Início precisam sempre do mês
+// real de hoje, não do que está sendo visualizado no Financeiro.
+function currentFinKey(){ const n=new Date(); return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0'); }
+function getClientCarStatus(clientId){
+  const allCarSt = load(CAR_KEY)||{};
+  const carSt = allCarSt[currentFinKey()]||{};
+  return carSt[String(clientId)] || 'A receber';
+}
 function finChangeMonth(d) {
   finMonth += d;
   if(finMonth<0){finMonth=11;finYear--;} if(finMonth>11){finMonth=0;finYear++;}
