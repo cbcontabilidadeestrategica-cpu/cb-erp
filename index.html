@@ -14,6 +14,12 @@
 .sidebar-brand-name{font-weight:800;font-size:15px;color:#fff;letter-spacing:-.02em;line-height:1.1}
 .sidebar-brand-sub{font-size:9px;color:var(--gold3);letter-spacing:.18em;text-transform:uppercase;font-weight:600;opacity:.9}
 .sidebar-nav{flex:1;padding:8px 0;overflow-y:auto}
+.sidebar-nav-group-label{
+  padding:14px 18px 4px;font-size:10px;font-weight:700;letter-spacing:.14em;
+  text-transform:uppercase;color:rgba(255,255,255,.32);white-space:nowrap;
+  user-select:none;
+}
+.sidebar-nav-group-label:first-child{padding-top:6px}
 .sidebar-nav-btn{
   width:100%;display:flex;align-items:center;gap:10px;
   padding:10px 18px;background:none;border:none;
@@ -62,6 +68,7 @@
 .sidebar.collapsed .sidebar-brand-name,
 .sidebar.collapsed .sidebar-brand-sub,
 .sidebar.collapsed .nav-label,
+.sidebar.collapsed .sidebar-nav-group-label,
 .sidebar.collapsed #sidebarUser,
 .sidebar.collapsed .sidebar-footer{display:none}
 .sidebar.collapsed .sidebar-nav-btn{justify-content:center;padding:12px 0;gap:0}
@@ -79,6 +86,7 @@
   .sidebar{width:100%;height:auto;position:sticky;top:0;flex-direction:row;align-items:center;padding:0 8px;overflow-x:auto;overflow-y:visible}
   .sidebar-logo{border-bottom:none;padding:10px 8px;flex-shrink:0}
   .sidebar-brand-sub{display:none}
+  .sidebar-nav-group-label{display:none}
   .sidebar-nav{flex:1;display:flex;flex-direction:row;overflow-x:auto;padding:0;scrollbar-width:none}
   .sidebar-nav::-webkit-scrollbar{display:none}
   .sidebar-nav-btn{flex-direction:column;padding:7px 10px;font-size:9px;gap:2px;border-left:none;border-bottom:3px solid transparent;justify-content:center;align-items:center;min-width:52px}
@@ -1320,19 +1328,29 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
       <ul class="sidebar-search-results" id="sidebarSearchResults"></ul>
     </div>
     <nav class="sidebar-nav">
-      <!-- Ordem reorganizada pra seguir o fluxo real do dia a dia, em vez de
-           ficar aleatória: visão geral → operacional (o que precisa ser
-           feito hoje/no mês/avulso) → base de clientes → comercial/marketing
-           (funil + agenda, que já conversam entre si) → resultado financeiro.
-           Abas que "conversam" entre si (operacional; comercial+marketing)
-           agora ficam vizinhas, em vez de espalhadas. -->
+      <!-- Ordem reorganizada pra seguir o fluxo real do dia a dia: visão
+           geral → clientes (é de onde tudo começa, não um item solto no
+           meio do operacional) → operacional (o que precisa ser feito
+           hoje/no mês/avulso) → comercial/marketing (funil + agenda, de
+           onde vêm clientes novos) → resultado financeiro. Rótulos finos
+           (sem colapsar nada, sem clique extra) só pra reforçar visualmente
+           os blocos que já "conversam" entre si — útil com 8 abas; vira
+           indispensável se a lista crescer mais no futuro. -->
       <button class="sidebar-nav-btn active" onclick="switchTab('radar',this)" data-tab="radar"><span class="nav-icon">📡</span><span class="nav-label"> Início</span></button>
+
+      <div class="sidebar-nav-group-label">Clientes</div>
+      <button class="sidebar-nav-btn" onclick="switchTab('clientes',this)" data-tab="clientes"><span class="nav-icon">👥</span><span class="nav-label"> Clientes</span></button>
+
+      <div class="sidebar-nav-group-label">Operacional</div>
       <button class="sidebar-nav-btn" onclick="switchTab('hoje',this)" data-tab="hoje"><span class="nav-icon">🎯</span><span class="nav-label"> Hoje</span></button>
       <button class="sidebar-nav-btn" onclick="switchTab('fechamento',this)" data-tab="fechamento"><span class="nav-icon">✅</span><span class="nav-label"> Obrigações</span></button>
       <button class="sidebar-nav-btn" onclick="switchTab('demandas',this)" data-tab="demandas"><span class="nav-icon">📋</span><span class="nav-label"> Demandas Pontuais</span></button>
-      <button class="sidebar-nav-btn" onclick="switchTab('clientes',this)" data-tab="clientes"><span class="nav-icon">👥</span><span class="nav-label"> Clientes</span></button>
+
+      <div class="sidebar-nav-group-label">Comercial &amp; Marketing</div>
       <button class="sidebar-nav-btn" onclick="switchTab('funil',this)" data-tab="funil"><span class="nav-icon">🎯</span><span class="nav-label"> CRM</span></button>
       <button class="sidebar-nav-btn" onclick="switchTab('instagram',this)" data-tab="instagram"><span class="nav-icon">📅</span><span class="nav-label"> Agenda</span></button>
+
+      <div class="sidebar-nav-group-label">Financeiro</div>
       <button class="sidebar-nav-btn" onclick="switchTab('financeiro',this)" data-tab="financeiro"><span class="nav-icon">💰</span><span class="nav-label"> Financeiro</span></button>
     </nav>
     <div class="sidebar-user" id="sidebarUser"></div>
