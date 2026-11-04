@@ -1078,6 +1078,16 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .csc-notes-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--fg4);margin-bottom:3px}
 
 /* ── Onboarding ── */
+/* ── Abas internas do card de cliente (Onboarding / Sucesso / Acessos) ──
+   Antes as 3 seções ficavam sempre empilhadas no card (Sucesso do Cliente
+   nem colapsava), deixando o card gigante quando a carteira cresce. Agora
+   só uma seção abre por vez. */
+.csc-tabs{display:flex;gap:4px;border-top:1px solid var(--border2);margin-top:14px;padding-top:12px;flex-wrap:wrap}
+.csc-tab-btn{background:none;border:1px solid transparent;border-radius:7px;padding:6px 10px;font-size:11.5px;font-weight:700;color:var(--fg3);cursor:pointer;font-family:'Outfit',sans-serif;display:flex;align-items:center;gap:5px;transition:.12s}
+.csc-tab-btn:hover{background:var(--bg3);color:var(--fg2)}
+.csc-tab-btn.active{background:var(--blue-lt);color:var(--blue)}
+.csc-tab-badge{font-size:10px;font-weight:800;padding:1px 6px;border-radius:999px;background:var(--bg3)}
+.csc-tab-panel{padding-top:10px}
 .onb-section{border-top:1px solid var(--border2);margin-top:14px;padding-top:12px}
 .onb-header{display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none;padding:0}
 .onb-sec-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--fg3)}
@@ -3946,31 +3956,15 @@ function renderClientes(){
         })()
       :'')+
       (c.notes?'<div class="csc-notes-label">Anotações</div><div class="csc-notes">'+escHtml(c.notes)+'</div>':'')+
-      // ── ONBOARDING ──
+      // ── ABAS INTERNAS: Onboarding / Sucesso do Cliente / Acessos ──
+      // Antes as 3 ficavam sempre empilhadas (Sucesso do Cliente nem
+      // colapsava) — card gigante com 6+ clientes. Agora só uma abre por
+      // vez, igual às abas de navegação principal, só que dentro do card.
       (()=>{
+        const open = clientOpenTab[c.id] || null;
         const obDone=ONBOARDING_STEPS.filter(s=>onboarding[c.id]&&onboarding[c.id][s.id]).length;
         const obPct=Math.round(obDone/ONBOARDING_STEPS.length*100);
-        const obColor=obPct===100?'var(--green)':obDone>0?'var(--amber)':'var(--fg3)';
-        const obBadge=obPct===100?'✅ Completo':obDone+'/'+ONBOARDING_STEPS.length+' etapas';
-        return '<div class="onb-section">'+
-          '<div class="onb-header" onclick="toggleOnbList('+c.id+')">'+
-            '<span class="onb-sec-title">📋 Onboarding</span>'+
-            '<span class="onb-badge" style="color:'+obColor+'">'+obBadge+' ▾</span>'+
-          '</div>'+
-          '<div class="progress-bar-wrap" style="margin:7px 0 0"><div class="progress-bar '+(obPct===100?'green':obDone>0?'amber':'gold')+'" style="width:'+obPct+'%"></div></div>'+
-          '<div id="onb_list_'+c.id+'" hidden class="onb-list">'+
-            ONBOARDING_STEPS.map(s=>{
-              const chk=!!(onboarding[c.id]&&onboarding[c.id][s.id]);
-              return '<div class="onb-item" onclick="toggleOnb('+c.id+',\''+s.id+'\')">'+
-                '<div class="onb-cb'+(chk?' checked':'')+'">'+( chk?'✓':'')+'</div>'+
-                '<span class="onb-lbl'+(chk?' done':'')+'">'+escHtml(s.label)+'</span>'+
-              '</div>';
-            }).join('')+
-          '</div>'+
-        '</div>';
-      })()+
-      // ── SUCESSO DO CLIENTE ──
-      (()=>{
+        const obBadge=obPct===100?'✅':obDone+'/'+ONBOARDING_STEPS.length;
         const cs=csData[c.id]||{};
         const sat=cs.satisfaction||0;
         const nps=cs.nps!=null?cs.nps:-1;
@@ -3978,9 +3972,36 @@ function renderClientes(){
         const checkinLate=cs.nextCheckin&&cs.nextCheckin<todayCs;
         const daysSinceContact = cs.lastContact ? Math.floor((new Date()-new Date(cs.lastContact))/86400000) : null;
         const inactClass = daysSinceContact!==null ? (daysSinceContact>=30?'late':daysSinceContact>=15?'warn':null) : null;
-        return '<div class="cs-section">'+
-          '<div class="onb-sec-title" style="margin-bottom:10px">🤝 Sucesso do Cliente</div>'+
-          '<div class="cs-grid">'+
+        const row=findAcessoRow(c.name);
+        const fieldsHtml=ACESSOS_COLS.filter(col=>col.key!=='cliente').map(col=>{
+          const val=row[col.key]||'';
+          const fid='acc_'+c.id+'_'+col.key;
+          if(col.pwd){
+            return '<div class="acc-field"><label>'+col.label+'</label><div class="acc-pwd-wrap">'+
+              '<input class="acc-input acc-pwd" type="password" id="'+fid+'" value="'+escAttr(val)+'" placeholder="—" onchange="setAcessoField('+c.id+',\''+col.key+'\',this.value)">'+
+              '<button class="acc-eye" type="button" onclick="toggleAccPwd(\''+fid+'\')" title="Revelar">👁</button>'+
+            '</div></div>';
+          }
+          return '<div class="acc-field"><label>'+col.label+'</label><input class="acc-input" type="text" value="'+escAttr(val)+'" placeholder="—" onchange="setAcessoField('+c.id+',\''+col.key+'\',this.value)"></div>';
+        }).join('');
+        return '<div class="csc-tabs">'+
+            '<button class="csc-tab-btn'+(open==='onboarding'?' active':'')+'" onclick="setClientTab('+c.id+',\'onboarding\')">📋 Onboarding <span class="csc-tab-badge">'+obBadge+'</span></button>'+
+            '<button class="csc-tab-btn'+(open==='cs'?' active':'')+'" onclick="setClientTab('+c.id+',\'cs\')">🤝 Sucesso do Cliente</button>'+
+            '<button class="csc-tab-btn'+(open==='acessos'?' active':'')+'" onclick="setClientTab('+c.id+',\'acessos\')">🔑 Acessos</button>'+
+          '</div>'+
+          (open==='onboarding' ? '<div class="csc-tab-panel">'+
+            '<div class="progress-bar-wrap"><div class="progress-bar '+(obPct===100?'green':obDone>0?'amber':'gold')+'" style="width:'+obPct+'%"></div></div>'+
+            '<div class="onb-list" style="margin-top:8px">'+
+              ONBOARDING_STEPS.map(s=>{
+                const chk=!!(onboarding[c.id]&&onboarding[c.id][s.id]);
+                return '<div class="onb-item" onclick="toggleOnb('+c.id+',\''+s.id+'\')">'+
+                  '<div class="onb-cb'+(chk?' checked':'')+'">'+( chk?'✓':'')+'</div>'+
+                  '<span class="onb-lbl'+(chk?' done':'')+'">'+escHtml(s.label)+'</span>'+
+                '</div>';
+              }).join('')+
+            '</div>'+
+          '</div>' : '')+
+          (open==='cs' ? '<div class="csc-tab-panel cs-grid">'+
             '<div>'+
               '<div class="cs-field-label">Satisfação</div>'+
               '<div class="cs-nps">'+
@@ -4010,30 +4031,11 @@ function renderClientes(){
               '<input type="date" class="cs-input-sm" value="'+escAttr(cs.nextCheckin||'')+'" onchange="updateCsField('+c.id+',\'nextCheckin\',this.value)">'+
               (checkinLate?'<div class="cs-checkin-alert">⚠️ Check-in atrasado!</div>':'')+
             '</div>'+
-          '</div>'+
-        '</div>';
-      })()+
-      // ── ACESSOS E CREDENCIAIS ──
-      (()=>{
-        const row=findAcessoRow(c.name);
-        const fieldsHtml=ACESSOS_COLS.filter(col=>col.key!=='cliente').map(col=>{
-          const val=row[col.key]||'';
-          const fid='acc_'+c.id+'_'+col.key;
-          if(col.pwd){
-            return '<div class="acc-field"><label>'+col.label+'</label><div class="acc-pwd-wrap">'+
-              '<input class="acc-input acc-pwd" type="password" id="'+fid+'" value="'+escAttr(val)+'" placeholder="—" onchange="setAcessoField('+c.id+',\''+col.key+'\',this.value)">'+
-              '<button class="acc-eye" type="button" onclick="toggleAccPwd(\''+fid+'\')" title="Revelar">👁</button>'+
-            '</div></div>';
-          }
-          return '<div class="acc-field"><label>'+col.label+'</label><input class="acc-input" type="text" value="'+escAttr(val)+'" placeholder="—" onchange="setAcessoField('+c.id+',\''+col.key+'\',this.value)"></div>';
-        }).join('');
-        return '<div class="onb-section">'+
-          '<div class="onb-header" onclick="toggleAcessosList('+c.id+')">'+
-            '<span class="onb-sec-title">🔑 Acessos e Credenciais</span>'+
-            '<span class="onb-badge" style="color:var(--amber)" title="Dados sensíveis — compartilhados só com a equipe logada">⚠ Confidencial ▾</span>'+
-          '</div>'+
-          '<div id="acc_list_'+c.id+'" hidden class="acc-grid">'+fieldsHtml+'</div>'+
-        '</div>';
+          '</div>' : '')+
+          (open==='acessos' ? '<div class="csc-tab-panel">'+
+            '<div class="onb-badge" style="color:var(--amber);margin-bottom:8px;display:block" title="Dados sensíveis — compartilhados só com a equipe logada">⚠ Confidencial — visível só pra equipe logada</div>'+
+            '<div class="acc-grid">'+fieldsHtml+'</div>'+
+          '</div>' : '');
       })()+
     '</div>';
   }).join('');
@@ -4074,19 +4076,23 @@ function renderClientes(){
     }).join('')+'</tbody>';
 }
 
+/* Abas internas do card de cliente — qual (onboarding/cs/acessos/nenhuma)
+   está aberta por cliente. É só preferência de UI, não precisa persistir;
+   o próprio renderClientes() lê daqui a cada repintura, então qualquer
+   ação dentro de uma aba (marcar onboarding, dar nota CS...) já mantém a
+   aba aberta sozinha, sem precisar de nenhum "reabre o que tava aberto". */
+let clientOpenTab = {};
+function setClientTab(clientId, tab){
+  clientOpenTab[clientId] = clientOpenTab[clientId]===tab ? null : tab;
+  renderClientes();
+}
+
 /* ONBOARDING */
 function toggleOnb(clientId, stepId){
   if(!onboarding[clientId]) onboarding[clientId]={};
   onboarding[clientId][stepId]=!onboarding[clientId][stepId];
   save('cb3_onboarding',onboarding);
   renderClientes();
-  // Re-open the list that was visible
-  const el=document.getElementById('onb_list_'+clientId);
-  if(el) el.hidden=false;
-}
-function toggleOnbList(clientId){
-  const el=document.getElementById('onb_list_'+clientId);
-  if(el) el.hidden=!el.hidden;
 }
 
 /* CS */
@@ -4106,8 +4112,6 @@ function setCsNps(clientId,val){
   csData[clientId].nps = csData[clientId].nps===val?-1:val;
   save('cb3_cs',csData);
   renderClientes();
-  const el=document.getElementById('onb_list_'+clientId);
-  if(el&&!el.hidden) el.hidden=false;
 }
 
 /* ═══════════════════════════════════════════════
@@ -4130,11 +4134,6 @@ function setAcessoField(clientId, key, val){
   if(!row){ row={cliente:c.name}; acessosData.push(row); }
   row[key]=val;
   save('cb3_acessos', acessosData);
-}
-
-function toggleAcessosList(clientId){
-  const el=document.getElementById('acc_list_'+clientId);
-  if(el) el.hidden=!el.hidden;
 }
 
 function toggleAccPwd(id){
