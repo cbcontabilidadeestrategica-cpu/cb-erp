@@ -608,6 +608,8 @@ main{flex:1;padding:14px 20px 28px;max-width:1040px;width:100%;margin:0 auto}
 .ig-week-col.is-today .ig-week-col-hd span{color:var(--gold2)}
 .ig-week-col-body{flex:1;padding:5px;display:flex;flex-direction:column;gap:3px;cursor:pointer}
 .ig-week-item{font-size:9.5px;font-weight:700;padding:3px 5px;border-radius:4px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.ig-week-item[draggable="true"],.ig-cell-evlabel[draggable="true"]{cursor:grab}
+.ig-week-item[draggable="true"]:active,.ig-cell-evlabel[draggable="true"]:active{cursor:grabbing}
 .ig-week-empty{font-size:10px;color:var(--fg4);text-align:center;padding:8px 0}
 @media (max-width:700px){.ig-week-grid{grid-template-columns:repeat(7,minmax(70px,1fr));overflow-x:auto}}
 /* ── Agenda: editar evento inline ── */
@@ -1019,6 +1021,8 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .csc-field{display:flex;flex-direction:column;gap:2px}
 .csc-field-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--fg4)}
 .csc-field-val{font-size:12px;color:var(--fg);font-weight:600}
+.wa-link{color:#25D366;text-decoration:none;font-weight:600}
+.wa-link:hover{text-decoration:underline}
 .csc-progress-wrap{display:flex;align-items:center;gap:8px;margin-top:10px}
 .btn-sm{font-size:11px;font-weight:700;padding:5px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg3);color:var(--fg2);cursor:pointer;font-family:'Outfit',sans-serif;transition:.12s;white-space:nowrap}
 .btn-sm:hover{border-color:var(--gold);color:var(--navy)}
@@ -1159,7 +1163,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .ig-stat-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--fg3);margin-top:3px}
 
 /* ── Instagram view toggle ── */
-.ig-view-toggle{display:flex;gap:6px;margin-bottom:14px}
+.ig-view-toggle{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
 .ig-view-btn{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:6px 14px;font-family:'Outfit',sans-serif;font-size:12px;font-weight:600;color:var(--fg3);cursor:pointer;transition:.12s}
 .ig-view-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
 
@@ -1478,6 +1482,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
   <div class="ig-view-toggle">
     <button class="ig-view-btn active" id="igBtnCal" onclick="setIgView('cal')">📅 Mês</button>
     <button class="ig-view-btn" id="igBtnWeek" onclick="setIgView('week')">🗓️ Semana</button>
+    <button class="ig-view-btn" id="igBtnDay" onclick="setIgView('day')">📆 Dia</button>
     <button class="ig-view-btn" id="igBtnPlan" onclick="setIgView('plan')">📋 Planejamento</button>
   </div>
 
@@ -1504,6 +1509,18 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
       <button onclick="igChangeWeek(1)">Próxima semana ›</button>
     </div>
     <div class="ig-week-grid" id="igWeekGrid"></div>
+  </div>
+
+  <!-- Visão Dia — pra dias cheios de item, onde o painel espremido embaixo
+       do grid do mês fica apertado. Reaproveita o mesmo #igDayPanel (já
+       tem Obrigações/Demandas/Comercial/Eventos do dia), só dá a ele o
+       espaço principal da tela + navegação dia-a-dia. -->
+  <div id="igDayView" style="display:none">
+    <div class="ig-week-nav">
+      <button onclick="igChangeDay(-1)">‹ Dia anterior</button>
+      <span class="ig-week-label" id="igDayViewLabel"></span>
+      <button onclick="igChangeDay(1)">Próximo dia ›</button>
+    </div>
   </div>
 
   <div id="igPlanView" class="ig-plan-section" style="display:none">
@@ -2713,6 +2730,24 @@ function renderRadar() {
         alerts.push('<div class="renewal-alert-item">🟡 Mensalidade em negociação: <strong>'+escHtml(c.name)+'</strong></div>');
       }
     });
+    // Sucesso do Cliente (CS) — check-in atrasado e inatividade prolongada.
+    // Antes só apareciam dentro da aba Acessos/CS de cada cliente, um a um;
+    // precisava abrir card por card pra notar. Mesmo limiar já usado lá
+    // (renderClientes): 15d = atenção, 30d = crítico.
+    clients.forEach(c=>{
+      const cs=csData[c.id]||{};
+      if(cs.nextCheckin && cs.nextCheckin<todayStr){
+        alerts.push('<div class="renewal-alert-item" style="background:var(--red-lt);border-color:var(--red);color:var(--red)">🔴 Check-in de CS atrasado: <strong>'+escHtml(c.name)+'</strong> (previsto '+cs.nextCheckin.split('-').reverse().join('/')+')</div>');
+      }
+      if(cs.lastContact){
+        const diasSemContato=Math.floor((now-new Date(cs.lastContact))/86400000);
+        if(diasSemContato>=30){
+          alerts.push('<div class="renewal-alert-item" style="background:var(--red-lt);border-color:var(--red);color:var(--red)">🔴 '+diasSemContato+'d sem contato (CS): <strong>'+escHtml(c.name)+'</strong></div>');
+        } else if(diasSemContato>=15){
+          alerts.push('<div class="renewal-alert-item">🟡 '+diasSemContato+'d sem contato (CS): <strong>'+escHtml(c.name)+'</strong></div>');
+        }
+      }
+    });
     renewalEl.innerHTML=alerts.join('');
   }
 
@@ -3025,7 +3060,11 @@ function renderIgCalGrid(){
     // só posts. OFFICE_CHECKPOINTS é a mesma fonte usada no Início
     // (renderRadar), então não duplica com um seed próprio da Agenda.
     const items = [
-      ...evs.map(e=>({ type:e.type, desc:(e.time?e.time+' ':'')+(e.desc||'') })),
+      // evId só existe nos eventos reais da Agenda (igEvents) — é o que
+      // diferencia um chip que pode ser arrastado pra outro dia dos chips
+      // de obrigação/demanda/comercial, que pertencem a outras telas e não
+      // fazem sentido "mover" por aqui.
+      ...evs.map(e=>({ type:e.type, desc:(e.time?e.time+' ':'')+(e.desc||''), evId:e.id })),
       ...obrigs.map(t=>({ type:'obrigacao', desc:(t.cliente&&t.cliente.nome)||t.titulo })),
       ...checkpointsDodia.map(o=>({ type:'obrigacao', desc:o.titulo })),
       ...dems.map(dm=>({ type:'demanda', desc:dm.cliente })),
@@ -3037,10 +3076,11 @@ function renderIgCalGrid(){
     const chips = items.slice(0,2).map(it=>{
       const t = EV_TYPES[it.type]||{cls:'',label:it.type};
       const short = it.desc ? String(it.desc).slice(0,14)+(String(it.desc).length>14?'…':'') : t.label.replace(/\p{Emoji}/gu,'').trim();
-      return '<span class="ig-cell-evlabel '+t.cls+'">'+short+'</span>';
+      const dragAttrs = it.evId ? ' draggable="true" ondragstart="event.stopPropagation();dragIgEventStart(event,\''+escAttr(it.evId)+'\')" title="Arraste pra outro dia"' : '';
+      return '<span class="ig-cell-evlabel '+t.cls+'"'+dragAttrs+'>'+short+'</span>';
     }).join('');
     const more = items.length>2?'<span class="ev-more" style="font-size:7px;color:var(--fg4);margin-top:1px">+'+( items.length-2)+'</span>':'';
-    html += '<div class="ig-cell ig-cell-event'+(isToday?' is-today':'')+(isSel?' is-selected':'')+(items.length?' has-post':'')+'" onclick="igSelectDay(\''+ds+'\')">'+
+    html += '<div class="ig-cell ig-cell-event'+(isToday?' is-today':'')+(isSel?' is-selected':'')+(items.length?' has-post':'')+'" onclick="igSelectDay(\''+ds+'\')" ondragover="event.preventDefault()" ondrop="dropIgEventOnDay(event,\''+ds+'\')">'+
       '<span class="ig-cell-num">'+d+'</span>'+
       chips+more+
     '</div>';
@@ -3186,6 +3226,29 @@ function clearIgEventForm(){
 // Carrega um evento existente no formulário pra edição, em vez de só
 // permitir excluir e recriar do zero — inclusive dá pra mudar a data,
 // ou seja, "mover" o evento pra outro dia sem precisar de drag-and-drop.
+// Drag-and-drop pra mover um evento da Agenda pra outro dia direto na
+// grade — mesmo padrão já usado no kanban do Funil (dragLeadStart) e das
+// Demandas Pontuais (dragDemandaStart). Só eventos reais (igEvents) são
+// arrastáveis; obrigação/demanda/comercial seguem só editáveis na tela de
+// origem. Continua funcionando a edição manual da data (sem drag) também.
+let draggingIgEventId = null;
+function dragIgEventStart(ev, id){ draggingIgEventId = id; try{ ev.dataTransfer.effectAllowed='move'; }catch(e){} }
+function dropIgEventOnDay(ev, ds){
+  ev.preventDefault();
+  const id = draggingIgEventId;
+  draggingIgEventId = null;
+  if(!id) return;
+  const idx = igEvents.findIndex(e=>e.id===id);
+  if(idx<0 || igEvents[idx].date===ds) return;
+  igEvents[idx] = {...igEvents[idx], date: ds};
+  save('cb3_ig_events', igEvents);
+  renderIgCalGrid();
+  if(igSelectedDate) renderIgDayPanel(igSelectedDate);
+  if(igView==='week') renderIgWeek();
+  renderIgPlan();
+  showToast('Evento movido para '+ds.split('-').reverse().join('/'), 'ok');
+}
+
 function startEditIgEvent(id){
   const e = igEvents.find(x=>x.id===id);
   if(!e) return;
@@ -3227,6 +3290,10 @@ function cycleIgStatus(id, newStatus){
 }
 
 function closeIgPanel(){
+  // Na visão Dia o painel É a tela principal — fechar não pode deixar uma
+  // tela em branco (Mês/Semana/Planejamento ficam escondidos nessa visão).
+  // Volta pro Mês em vez disso.
+  if(igView==='day'){ setIgView('cal'); return; }
   igSelectedDate = null;
   document.getElementById('igDayPanel').classList.add('hidden');
   renderIgCal();
@@ -3248,11 +3315,22 @@ function setIgView(v){
   document.getElementById('igCalView').style.display=v==='cal'?'':'none';
   document.getElementById('igWeekView').style.display=v==='week'?'':'none';
   document.getElementById('igPlanView').style.display=v==='plan'?'':'none';
+  document.getElementById('igDayView').style.display=v==='day'?'':'none';
   document.getElementById('igBtnCal').classList.toggle('active',v==='cal');
   document.getElementById('igBtnWeek').classList.toggle('active',v==='week');
   document.getElementById('igBtnPlan').classList.toggle('active',v==='plan');
+  document.getElementById('igBtnDay').classList.toggle('active',v==='day');
   if(v==='plan') renderIgPlan();
   if(v==='week') renderIgWeek();
+  if(v==='day'){
+    if(!igSelectedDate){
+      const now=new Date(), pad=n=>String(n).padStart(2,'0');
+      igSelectedDate = now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate());
+    }
+    renderIgDayViewLabel();
+    renderIgDayPanel(igSelectedDate);
+    document.getElementById('igDayPanel').classList.remove('hidden');
+  }
 }
 
 function igChangeWeek(delta){
@@ -3260,6 +3338,27 @@ function igChangeWeek(delta){
   d.setDate(d.getDate() + delta*7);
   igWeekStart = d;
   renderIgWeek();
+}
+
+function renderIgDayViewLabel(){
+  const el = document.getElementById('igDayViewLabel');
+  if(!el || !igSelectedDate) return;
+  const d = new Date(igSelectedDate+'T00:00:00');
+  const lbl = d.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'});
+  el.textContent = lbl.charAt(0).toUpperCase()+lbl.slice(1);
+}
+
+// Navegação dia-a-dia da visão Dia — mantém mês e semana sincronizados
+// pra, se o usuário voltar pro Mês/Semana, já estar olhando o período certo.
+function igChangeDay(delta){
+  const cur = igSelectedDate ? new Date(igSelectedDate+'T00:00:00') : new Date();
+  cur.setDate(cur.getDate()+delta);
+  const pad = n=>String(n).padStart(2,'0');
+  igSelectedDate = cur.getFullYear()+'-'+pad(cur.getMonth()+1)+'-'+pad(cur.getDate());
+  igYear = cur.getFullYear(); igMonth = cur.getMonth();
+  { const d=new Date(cur); d.setDate(d.getDate()-d.getDay()); d.setHours(0,0,0,0); igWeekStart=d; }
+  renderIgDayViewLabel();
+  renderIgDayPanel(igSelectedDate);
 }
 
 // Visão semana — zoom de 7 dias sobre os mesmos dados do mês (obrigações
@@ -3289,7 +3388,7 @@ function renderIgWeek(){
     const dems = demandas.filter(dm=>dm.prazo===ds && dm.status!=='concluido' && dm.status!=='cancelado');
     const comercial = leads.filter(l=>l.followUpDate===ds && l.stage!=='won' && l.stage!=='lost');
     const items = [
-      ...evs.map(e=>({ type:e.type, label:(e.time?e.time+' ':'')+(e.desc||EV_TYPES[e.type]?.label||e.type) })),
+      ...evs.map(e=>({ type:e.type, label:(e.time?e.time+' ':'')+(e.desc||EV_TYPES[e.type]?.label||e.type), evId:e.id })),
       ...obrigs.map(t=>({ type:'obrigacao', label:(t.cliente&&t.cliente.nome)||t.titulo })),
       ...checkpoints.map(o=>({ type:'obrigacao', label:o.titulo })),
       ...dems.map(dm=>({ type:'demanda', label:dm.cliente })),
@@ -3299,10 +3398,11 @@ function renderIgWeek(){
     const isSel = igSelectedDate===ds;
     html += '<div class="ig-week-col'+(isToday?' is-today':'')+(isSel?' is-selected':'')+'">'+
       '<div class="ig-week-col-hd" onclick="igSelectDay(\''+ds+'\')">'+dayNames[dt.getDay()]+' <span>'+diaNum+'</span></div>'+
-      '<div class="ig-week-col-body" onclick="igSelectDay(\''+ds+'\')">'+
+      '<div class="ig-week-col-body" onclick="igSelectDay(\''+ds+'\')" ondragover="event.preventDefault()" ondrop="dropIgEventOnDay(event,\''+ds+'\')">'+
         (items.length ? items.map(it=>{
           const t = EV_TYPES[it.type]||{cls:'',label:it.type};
-          return '<div class="ig-week-item '+t.cls+'">'+escHtml(it.label)+'</div>';
+          const dragAttrs = it.evId ? ' draggable="true" ondragstart="event.stopPropagation();dragIgEventStart(event,\''+escAttr(it.evId)+'\')" title="Arraste pra outro dia"' : '';
+          return '<div class="ig-week-item '+t.cls+'"'+dragAttrs+'>'+escHtml(it.label)+'</div>';
         }).join('') : '<div class="ig-week-empty">—</div>')+
       '</div>'+
     '</div>';
@@ -3898,6 +3998,16 @@ function fmtBRL(v){
   return 'R$ '+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 
+// Link direto pro WhatsApp do cliente (wa.me) — aceita o número como foi
+// digitado no cadastro ("84 99611-3974", com ou sem +55/parênteses/traço),
+// extrai só os dígitos e garante o DDI 55 na frente.
+function waLink(phone){
+  let digits = String(phone||'').replace(/\D/g,'');
+  if(!digits) return '';
+  if(!digits.startsWith('55')) digits = '55'+digits;
+  return 'https://wa.me/'+digits;
+}
+
 // Mensalidade de um cliente — prioriza o valor digitado em revenues[c.id]
 // (string, formato BR livre: "1.234,56") sobre o c.mensalidade do cadastro
 // (número JS puro, ex. 466.66). Bug real encontrado: aplicar o mesmo
@@ -4306,7 +4416,7 @@ function renderClientes(){
         '</div>'+
         '<div class="csc-field">'+
           '<div class="csc-field-label">WhatsApp</div>'+
-          '<div class="csc-field-val">'+(c.whatsapp?escHtml(c.whatsapp):'—')+'</div>'+
+          '<div class="csc-field-val">'+(c.whatsapp?'<a class="wa-link" href="'+waLink(c.whatsapp)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Abrir conversa no WhatsApp">💬 '+escHtml(c.whatsapp)+'</a>':'—')+'</div>'+
         '</div>'+
         '<div class="csc-field">'+
           '<div class="csc-field-label">Fechamento '+MONTHS_PT[fecMonth].slice(0,3)+'</div>'+
