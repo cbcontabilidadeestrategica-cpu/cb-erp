@@ -1117,8 +1117,9 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .radar-fin-section{margin-bottom:16px}
 
 /* ── Instagram stats strip ── */
-.ig-stats-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
-@media(max-width:520px){.ig-stats-strip{grid-template-columns:repeat(2,1fr)}}
+.ig-stats-strip{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:14px}
+@media(max-width:700px){.ig-stats-strip{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:420px){.ig-stats-strip{grid-template-columns:repeat(2,1fr)}}
 .ig-stat-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;box-shadow:var(--shadow-card);text-align:center}
 .ig-stat-num{font-size:26px;font-weight:900;font-variant-numeric:tabular-nums;color:var(--navy);line-height:1}
 .ig-stat-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--fg3);margin-top:3px}
@@ -2185,21 +2186,15 @@ function paintHoje() {
   }
 }
 
-const OBLIGATIONS = [
-  { day:1,  label:'Avisar clientes — início da coleta',     clients:'Todos os clientes',          dir:'CS / Nathan',        urg:'amber' },
-  { day:5,  label:'Conferência de ponto — DP',              clients:'Lidera Planejados, Jurema',  dir:'Dir. DP',            urg:'amber' },
-  { day:7,  label:'Prazo coleta NFs + extrato bancário',    clients:'Todos os clientes',          dir:'Dir. Fiscal',        urg:'amber' },
-  { day:7,  label:'FGTS mensal (GRF)',                      clients:'Lidera Planejados, Jurema',  dir:'Dir. DP',            urg:'red'   },
-  { day:10, label:'eSocial S-1200/S-1210',                  clients:'Lidera Planejados, Jurema',  dir:'Dir. DP',            urg:'amber' },
-  { day:10, label:'Conciliação bancária',                   clients:'Todos os clientes',          dir:'Dir. Contábil',      urg:'amber' },
-  { day:12, label:'Lançamentos contábeis',                  clients:'Todos os clientes',          dir:'Dir. Contábil',      urg:'amber' },
-  { day:13, label:'DARF IRRF sobre folha',                  clients:'Lidera Planejados, Jurema',  dir:'Dir. DP',            urg:'amber' },
-  { day:14, label:'Relatórios gerenciais prontos (interno)',clients:'Todos os clientes',          dir:'Dir. Contábil',      urg:'amber' },
-  { day:15, label:'⭐ ENTREGA AO CLIENTE',                  clients:'Todos os clientes',          dir:'Meta CB',            urg:'red'   },
-  { day:20, label:'DAS — Simples Nacional',  clients:'Lidera, Cozinha Caseira, GM Joias', dir:'Dir. Fiscal', urg:'red'   },
-  { day:20, label:'DCTFWeb — INSS folha',    clients:'Lidera Planejados, Jurema',  dir:'Dir. DP',     urg:'red'   },
-  { day:25, label:'Planejamento mês seguinte',              clients:'Interno CB',                 dir:'Nathan',             urg:'amber' },
-  { day:28, label:'Início coleta mês seguinte',             clients:'Todos os clientes',          dir:'CS / Nathan',        urg:'amber' },
+// Checkpoints de processo do escritório — não são obrigação de nenhum
+// cliente específico (não existem em getSteps), então continuam fixos por
+// dia do mês. Tudo que É por cliente (coleta, FGTS, DAS, conciliação,
+// lançamentos, DCTFWeb, entrega etc.) agora vem direto da tabela `tarefa`
+// real — ver pendentesObrig/gruposPendentes em renderRadar().
+const OFFICE_CHECKPOINTS = [
+  { day:1,  titulo:'Avisar clientes — início da coleta', setor:'CS / Nathan', urg:'amber' },
+  { day:25, titulo:'Planejamento mês seguinte',          setor:'Nathan',      urg:'amber' },
+  { day:28, titulo:'Início coleta mês seguinte',         setor:'CS / Nathan', urg:'amber' },
 ];
 
 const WEEK_BLOCKS = {
@@ -2550,9 +2545,14 @@ function renderRadar() {
   document.getElementById('headerDate').textContent =
     now.toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'2-digit'});
 
-  // KPI: obrigações fixas + demandas reais com prazo
+  // KPI: obrigações reais (por cliente, da tabela `tarefa`) + demandas reais
+  // com prazo. Antes "urgent48Obs"/"week7Obs" vinham de uma lista fixa de
+  // ~14 regras genéricas (OBLIGATIONS), sem relação com o que cada cliente
+  // de fato tem pendente — podia mostrar 0 urgências com o fechamento todo
+  // atrasado, ou vice-versa. Agora conta as linhas reais e pendentes.
   const msPerDay = 86400000;
-  const urgent48Obs = OBLIGATIONS.filter(o => o.day >= day && o.day <= day+2).length;
+  const pendentesObrig = hojeTarefas.filter(t => t.tipo === 'obrigacao' && t.status !== 'concluido');
+  const urgent48Obs = pendentesObrig.filter(t => { const dd = prazoInfo(t.prazo).dd; return dd !== null && dd >= -1 && dd <= 2; }).length;
   const urgent48Dem = demandas.filter(d => {
     if(['concluido','cancelado'].includes(d.status)||!d.prazo) return false;
     const diff = (new Date(d.prazo) - now) / msPerDay;
@@ -2560,13 +2560,31 @@ function renderRadar() {
   }).length;
   const urgent48 = urgent48Obs + urgent48Dem;
 
-  const week7Obs = OBLIGATIONS.filter(o => o.day >= day && o.day <= day+7).length;
+  const week7Obs = pendentesObrig.filter(t => { const dd = prazoInfo(t.prazo).dd; return dd !== null && dd >= -1 && dd <= 7; }).length;
   const week7Dem = demandas.filter(d => {
     if(['concluido','cancelado'].includes(d.status)||!d.prazo) return false;
     const diff = (new Date(d.prazo) - now) / msPerDay;
     return diff >= -1 && diff <= 7;
   }).length;
   const week7 = week7Obs + week7Dem;
+
+  // Agrupa as obrigações pendentes reais por etapa (mesmo rótulo = mesma
+  // regra em getSteps) pra não listar o mesmo tipo de obrigação uma vez por
+  // cliente — vira "4 clientes pendentes" em vez de 4 linhas iguais.
+  function groupObrigPendentes(items) {
+    const map = new Map();
+    items.forEach(t => {
+      const key = t.titulo;
+      if (!map.has(key)) map.set(key, { titulo: t.titulo, setor: t.setor, prazo: t.prazo, risco: (t.descricao||'').includes('⚠️'), clientes: [] });
+      map.get(key).clientes.push(t.cliente ? t.cliente.nome : '—');
+    });
+    return [...map.values()];
+  }
+  const officeItems = OFFICE_CHECKPOINTS.map(o => {
+    const prazo = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(o.day).padStart(2,'0');
+    return { titulo: o.titulo, setor: o.setor, prazo, risco: o.urg==='red', clientes: null };
+  });
+  const gruposPendentes = [...groupObrigPendentes(pendentesObrig), ...officeItems].map(g => ({ ...g, dd: prazoInfo(g.prazo).dd }));
 
   document.getElementById('heroUrgCount').textContent = urgent48;
 
@@ -2590,11 +2608,11 @@ function renderRadar() {
     '<div class="radar-kpi"><div class="radar-kpi-num">'+week7+'</div><div class="radar-kpi-label">semana</div></div>'+
     '<div class="radar-kpi"><div class="radar-kpi-num">'+closingPct+'%</div><div class="radar-kpi-label">fechamento</div></div>';
 
-  const todayObs = OBLIGATIONS.filter(o => o.day >= day).sort((a,b)=>a.day-b.day).slice(0,5);
-  document.getElementById('obligationList').innerHTML = todayObs.length ? todayObs.map(o => {
-    const d = o.day - day;
-    const badge = d <= 0 ? 'HOJE' : d === 1 ? 'AMANHÃ' : 'dia '+o.day;
-    return '<li class="obligation-item"><span class="ob-dot '+o.urg+'"></span><div class="ob-info"><div class="ob-title">'+o.label+'</div><div class="ob-meta">'+o.clients+' · '+o.dir+'</div></div><span class="ob-day">'+badge+'</span></li>';
+  const obligMeta = g => g.clientes ? (g.clientes.length+' cliente'+(g.clientes.length===1?'':'s')+' pendente'+(g.clientes.length===1?'':'s')+' · '+escHtml(g.setor)) : escHtml(g.setor);
+  const todayObs = gruposPendentes.filter(g => g.dd !== null && g.dd >= 0).sort((a,b)=>a.dd-b.dd).slice(0,5);
+  document.getElementById('obligationList').innerHTML = todayObs.length ? todayObs.map(g => {
+    const badge = g.dd <= 0 ? 'HOJE' : g.dd === 1 ? 'AMANHÃ' : 'dia '+parseInt(g.prazo.slice(-2),10);
+    return '<li class="obligation-item"><span class="ob-dot '+(g.risco||g.dd<=2?'red':'amber')+'"></span><div class="ob-info"><div class="ob-title">'+escHtml(g.titulo)+'</div><div class="ob-meta">'+obligMeta(g)+'</div></div><span class="ob-day">'+badge+'</span></li>';
   }).join('')
   : '<li class="obligation-item"><div class="ob-info"><div class="ob-title" style="color:var(--green)">✅ Sem obrigações pendentes!</div></div></li>';
 
@@ -2622,9 +2640,9 @@ function renderRadar() {
     renewalEl.innerHTML=alerts.join('');
   }
 
-  const weekObs = OBLIGATIONS.filter(o => o.day > day+2 && o.day <= day+14).sort((a,b)=>a.day-b.day);
-  document.getElementById('weekObligList').innerHTML = weekObs.length ? weekObs.map(o =>
-    '<li class="obligation-item"><span class="ob-dot '+o.urg+'"></span><div class="ob-info"><div class="ob-title">'+o.label+'</div><div class="ob-meta">'+o.dir+'</div></div><span class="ob-day">dia '+o.day+'</span></li>'
+  const weekObs = gruposPendentes.filter(g => g.dd !== null && g.dd > 2 && g.dd <= 14).sort((a,b)=>a.dd-b.dd);
+  document.getElementById('weekObligList').innerHTML = weekObs.length ? weekObs.map(g =>
+    '<li class="obligation-item"><span class="ob-dot '+(g.risco?'red':'amber')+'"></span><div class="ob-info"><div class="ob-title">'+escHtml(g.titulo)+'</div><div class="ob-meta">'+obligMeta(g)+'</div></div><span class="ob-day">dia '+parseInt(g.prazo.slice(-2),10)+'</span></li>'
   ).join('')
   : '<li class="obligation-item"><div class="ob-info"><div class="ob-title" style="color:var(--fg3)">Nenhuma obrigação nos próximos 14 dias</div></div></li>';
 
@@ -2863,13 +2881,32 @@ function renderIgStats(){
   const planejados = posts.filter(e=>!e.status||e.status==='planejado').length;
   const today = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
   const proximos = igEvents.filter(e=>e.date>=today).length;
+  // A faixa só contava posts — a Agenda passou a mostrar obrigações e
+  // reuniões reais também, então os indicadores agora cobrem os dois.
   const el = document.getElementById('igStatsStrip');
   if(!el) return;
   el.innerHTML =
     '<div class="ig-stat-box"><div class="ig-stat-num">'+posts.length+'</div><div class="ig-stat-label">Posts '+MONTHS_PT[mo].slice(0,3)+'</div></div>'+
     '<div class="ig-stat-box"><div class="ig-stat-num" style="color:var(--green)">'+publicados+'</div><div class="ig-stat-label">Publicados</div></div>'+
     '<div class="ig-stat-box"><div class="ig-stat-num" style="color:var(--blue)">'+agendados+'</div><div class="ig-stat-label">Agendados</div></div>'+
+    '<div class="ig-stat-box"><div class="ig-stat-num" style="color:#6366f1">'+reuniaoCountMes(yr,mo)+'</div><div class="ig-stat-label">Reuniões '+MONTHS_PT[mo].slice(0,3)+'</div></div>'+
+    '<div class="ig-stat-box"><div class="ig-stat-num" style="color:#ef4444">'+obrigacoesPendentesMes(yr,mo)+'</div><div class="ig-stat-label">Obrig. pendentes</div></div>'+
     '<div class="ig-stat-box"><div class="ig-stat-num" style="color:var(--amber)">'+proximos+'</div><div class="ig-stat-label">Próximos eventos</div></div>';
+}
+
+// Conta reuniões/obrigações do mês mostrado na Agenda — mesma lógica usada
+// no painel do dia e no Hoje, só que somada pro mês inteiro.
+function reuniaoCountMes(yr, mo){
+  return (typeof igEvents!=='undefined'?igEvents:[]).filter(e=>{
+    if(e.type!=='reuniao'||!e.date) return false;
+    const p=e.date.split('-'); return parseInt(p[0])===yr&&parseInt(p[1])-1===mo;
+  }).length;
+}
+function obrigacoesPendentesMes(yr, mo){
+  return (typeof hojeTarefas!=='undefined'?hojeTarefas:[]).filter(t=>{
+    if(t.tipo!=='obrigacao'||t.status==='concluido'||!t.prazo) return false;
+    const p=t.prazo.split('-'); return parseInt(p[0])===yr&&parseInt(p[1])-1===mo;
+  }).length;
 }
 
 function renderIgCal(){
@@ -4324,7 +4361,7 @@ function renderDemandas(){
       const clientNotes = clientObj&&clientObj.notes?clientObj.notes:'';
       const canLeft=colIdx>0;
       const canRight=colIdx<DEM_COLUMNS.length-1;
-      return '<div class="dem-kan-card'+(isOverdue?' overdue':'')+'">'+
+      return '<div class="dem-kan-card'+(isOverdue?' overdue':'')+'" draggable="true" ondragstart="dragDemandaStart(event,\''+escAttr(d.id)+'\')">'+
         '<div class="dem-move-btns">'+
           '<button class="dem-move-btn" '+(canLeft?'onclick="moveDemanda(\''+escAttr(d.id)+'\',-1)"':'disabled')+' title="Mover para '+( colIdx>0?DEM_COLUMNS[colIdx-1].label:'')+'">◀</button>'+
           '<button class="dem-move-btn" '+(canRight?'onclick="moveDemanda(\''+escAttr(d.id)+'\',1)"':'disabled')+' title="Mover para '+(colIdx<DEM_COLUMNS.length-1?DEM_COLUMNS[colIdx+1].label:'')+'">▶</button>'+
@@ -4369,7 +4406,7 @@ function renderDemandas(){
         '<span class="dem-kan-title">'+col.label+'</span>'+
         '<span class="dem-kan-count" style="color:'+col.color+'">'+items.length+'</span>'+
       '</div>'+
-      '<div class="dem-kan-cards">'+(cards||'<div class="dem-kan-empty">Vazio</div>')+'</div>'+
+      '<div class="dem-kan-cards" ondragover="event.preventDefault()" ondrop="dropDemandaOnCol(event,\''+col.key+'\')">'+(cards||'<div class="dem-kan-empty">Vazio</div>')+'</div>'+
     '</div>';
   }).join('');
 }
@@ -4397,6 +4434,21 @@ function quickAddDemanda(){
   const qc=document.getElementById('qa-cliente'); if(qc) qc.value='';
   const qt=document.getElementById('qa-tipo'); if(qt) qt.value='';
   const qp=document.getElementById('qa-prazo'); if(qp) qp.value='';
+}
+
+let draggingDemandaId = null;
+function dragDemandaStart(ev, id){ draggingDemandaId = id; try{ ev.dataTransfer.effectAllowed='move'; }catch(e){} }
+function dropDemandaOnCol(ev, colKey){
+  ev.preventDefault();
+  const id = draggingDemandaId;
+  draggingDemandaId = null;
+  if(!id) return;
+  const idx = demandas.findIndex(d=>d.id===id);
+  if(idx<0 || demandas[idx].status===colKey) return;
+  demandas[idx].status = colKey;
+  save('cb3_demandas', demandas);
+  renderDemandas();
+  renderRadarDemandas();
 }
 
 function moveDemanda(id, direction){
