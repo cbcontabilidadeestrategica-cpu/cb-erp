@@ -863,6 +863,9 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .kanban-chk{font-size:10px;color:var(--fg3);margin-bottom:3px}
 .kanban-dor{font-size:11px;color:var(--fg2);margin-top:4px;padding-top:5px;border-top:1px solid var(--border);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .kanban-aging{font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px;background:rgba(0,0,0,.06);color:var(--fg3);margin-left:auto;flex-shrink:0;white-space:nowrap}
+.kanban-quick{display:flex;gap:5px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border)}
+.kanban-quick-btn{flex:1;font-size:10px;font-weight:700;padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--fg2);cursor:pointer;font-family:'Outfit',sans-serif;transition:.12s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kanban-quick-btn:hover{border-color:var(--gold);color:var(--navy)}
 .kanban-aging.warn{background:rgba(251,191,36,.15);color:var(--amber)}
 .kanban-aging.late{background:rgba(220,38,38,.12);color:var(--red)}
 .kanban-follow{font-size:11px;color:var(--fg3);margin-top:4px;padding-top:4px;border-top:1px dashed var(--border)}
@@ -3212,16 +3215,14 @@ function renderFunilKpis(){
 
 let draggingLeadId = null;
 function dragLeadStart(ev, id){ draggingLeadId = id; try{ ev.dataTransfer.effectAllowed='move'; }catch(e){} }
-function dropLeadOnStage(ev, stage){
-  ev.preventDefault();
-  const id = draggingLeadId;
-  draggingLeadId = null;
-  if(!id) return;
-  const l = getLeadById(id);
-  if(!l || l.stage===stage) return;
+// Lógica de mudança de estágio compartilhada entre o drag-and-drop e o
+// botão rápido "▶ Avançar" do card (item 3 das ações 1-clique) — evita
+// duplicar a regra do motivo de perda e do gatilho de criar cliente ao ganhar.
+function setLeadStage(l, stage){
+  if(!l || l.stage===stage) return false;
   if(stage==='lost' && !l.lostReason){
     const reason = (prompt('Motivo da perda deste lead:')||'').trim();
-    if(!reason) return; // cancela o drop sem motivo
+    if(!reason) return false; // cancela sem motivo
     l.lostReason = reason;
   }
   const prevStage = l.stage;
@@ -3232,6 +3233,37 @@ function dropLeadOnStage(ev, stage){
   if(stage==='won' && prevStage!=='won'){
     setTimeout(()=>offerCreateClientFromLead(l),200);
   }
+  return true;
+}
+function dropLeadOnStage(ev, stage){
+  ev.preventDefault();
+  const id = draggingLeadId;
+  draggingLeadId = null;
+  if(!id) return;
+  setLeadStage(getLeadById(id), stage);
+}
+// Avança uma etapa sem precisar arrastar (útil no mobile) — só até
+// Negociação; ganhar/perder o lead continua exigindo decisão deliberada
+// (drag-and-drop ou o modal), nunca um clique rápido por engano.
+function advanceLeadStage(ev, id){
+  ev.stopPropagation();
+  const l = getLeadById(id);
+  if(!l) return;
+  const idx = STAGE_ORDER.indexOf(l.stage);
+  if(idx<0 || idx>=STAGE_ORDER.length-3) return;
+  setLeadStage(l, STAGE_ORDER[idx+1]);
+}
+// Marca a próxima atividade pendente do checklist sem abrir o modal.
+function quickCheckLead(ev, id){
+  ev.stopPropagation();
+  const l = getLeadById(id);
+  if(!l) return;
+  if(!l.checklist) l.checklist = {};
+  const next = LEAD_CHECKS.find(c=>!l.checklist[c.id]);
+  if(!next) return;
+  l.checklist[next.id] = true;
+  save('cb3_leads', leads);
+  renderFunil();
 }
 
 function renderFunil(){
@@ -3249,6 +3281,8 @@ function renderFunil(){
       const agingClass = agingDays>=21?'late':agingDays>=10?'warn':'';
       const todayStr = new Date().toISOString().slice(0,10);
       const fuOverdue = l.followUpDate && l.followUpDate < todayStr;
+      const nextCheck = LEAD_CHECKS.find(c=>!(l.checklist&&l.checklist[c.id]));
+      const canAdvance = STAGE_ORDER.indexOf(l.stage) < STAGE_ORDER.length-3;
       return '<div class="kanban-card" draggable="true" ondragstart="dragLeadStart(event,\''+escAttr(l.id)+'\')" onclick="openLeadModal(\''+escAttr(l.id)+'\')">'+
         '<div class="kanban-card-top">'+
           '<span class="kanban-dot" style="background:'+dot+'"></span>'+
@@ -3264,6 +3298,10 @@ function renderFunil(){
             (fuOverdue?'⚠️':'📅')+' '+(l.nextStep?escHtml(l.nextStep):'')+
             (l.followUpDate?' ('+escHtml(l.followUpDate.slice(5).replace('-','/'))+')':'')+
           '</div>':'')+
+        ((nextCheck||canAdvance)?'<div class="kanban-quick">'+
+          (nextCheck?'<button class="kanban-quick-btn" onclick="quickCheckLead(event,\''+escAttr(l.id)+'\')" title="Marcar: '+escHtml(nextCheck.label)+'">✓ '+escHtml(nextCheck.label.split(' ').slice(0,2).join(' '))+'</button>':'')+
+          (canAdvance?'<button class="kanban-quick-btn" onclick="advanceLeadStage(event,\''+escAttr(l.id)+'\')" title="Avançar para '+escHtml(STAGE_LABELS[STAGE_ORDER[STAGE_ORDER.indexOf(l.stage)+1]])+'">▶ Avançar</button>':'')+
+        '</div>':'')+
       '</div>';
     }).join('');
     return '<div class="kanban-col">'+
