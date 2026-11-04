@@ -594,6 +594,26 @@ main{flex:1;padding:14px 20px 28px;max-width:1040px;width:100%;margin:0 auto}
 .ig-post-dot.case-dot{background:#1976d2}
 .ig-post-dot.bast-dot{background:#7b1fa2}
 .ig-post-dot.valor-dot{background:var(--gold2)}
+/* ── Agenda: visão Semana ── */
+.ig-week-nav{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.ig-week-nav button{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;color:var(--fg2);cursor:pointer;font-family:'Outfit',sans-serif}
+.ig-week-nav button:hover{border-color:var(--gold);color:var(--navy)}
+.ig-week-label{font-size:13px;font-weight:800;color:var(--fg)}
+.ig-week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+.ig-week-col{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;min-height:140px;display:flex;flex-direction:column}
+.ig-week-col.is-today{border-color:var(--gold)}
+.ig-week-col.is-selected{outline:2px solid var(--gold);outline-offset:-2px}
+.ig-week-col-hd{background:var(--bg3);text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--fg3);padding:6px 4px;cursor:pointer}
+.ig-week-col-hd span{font-size:13px;font-weight:900;color:var(--fg);text-transform:none;letter-spacing:0;margin-left:3px}
+.ig-week-col.is-today .ig-week-col-hd span{color:var(--gold2)}
+.ig-week-col-body{flex:1;padding:5px;display:flex;flex-direction:column;gap:3px;cursor:pointer}
+.ig-week-item{font-size:9.5px;font-weight:700;padding:3px 5px;border-radius:4px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.ig-week-empty{font-size:10px;color:var(--fg4);text-align:center;padding:8px 0}
+@media (max-width:700px){.ig-week-grid{grid-template-columns:repeat(7,minmax(70px,1fr));overflow-x:auto}}
+/* ── Agenda: editar evento inline ── */
+.ig-ev-time{font-size:10px;font-weight:800;color:var(--fg3);flex-shrink:0;font-variant-numeric:tabular-nums}
+.ig-ev-editable{cursor:pointer;transition:background .12s}
+.ig-ev-editable:hover{background:var(--bg4)}
 .post-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-card);padding:20px;margin-top:12px;display:none}
 .post-card.visible{display:block}
 .post-card-top{display:flex;align-items:flex-start;gap:12px;margin-bottom:16px}
@@ -1450,7 +1470,8 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
   <div class="ig-stats-strip" id="igStatsStrip"></div>
 
   <div class="ig-view-toggle">
-    <button class="ig-view-btn active" id="igBtnCal" onclick="setIgView('cal')">📅 Calendário</button>
+    <button class="ig-view-btn active" id="igBtnCal" onclick="setIgView('cal')">📅 Mês</button>
+    <button class="ig-view-btn" id="igBtnWeek" onclick="setIgView('week')">🗓️ Semana</button>
     <button class="ig-view-btn" id="igBtnPlan" onclick="setIgView('plan')">📋 Planejamento</button>
   </div>
 
@@ -1468,6 +1489,15 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
     <div class="ig-cal-wrap">
       <div class="ig-cal-grid" id="igCalGrid"></div>
     </div>
+  </div>
+
+  <div id="igWeekView" style="display:none">
+    <div class="ig-week-nav">
+      <button onclick="igChangeWeek(-1)">‹ Semana anterior</button>
+      <span class="ig-week-label" id="igWeekLabel"></span>
+      <button onclick="igChangeWeek(1)">Próxima semana ›</button>
+    </div>
+    <div class="ig-week-grid" id="igWeekGrid"></div>
   </div>
 
   <div id="igPlanView" class="ig-plan-section" style="display:none">
@@ -1506,6 +1536,14 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
           <option value="reuniao">🗣️ Reunião</option>
         </select>
       </div>
+      <div class="form-group" style="flex:1;min-width:95px">
+        <label>Data</label>
+        <input type="date" id="igEvDate">
+      </div>
+      <div class="form-group" style="flex:1;min-width:80px">
+        <label>Horário</label>
+        <input type="time" id="igEvTime">
+      </div>
       <div class="form-group" style="flex:1;min-width:100px">
         <label>Responsável</label>
         <select id="igEvResp">
@@ -1518,7 +1556,8 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
         <label>Descrição</label>
         <input type="text" id="igEvDesc" placeholder="Ex: Dica sobre DAS, Entrega GM Joias...">
       </div>
-      <button class="btn-primary" onclick="addIgEvent()" style="align-self:flex-end;padding:9px 14px;white-space:nowrap">+ Adicionar</button>
+      <button class="btn-primary" id="igEvSubmitBtn" onclick="addIgEvent()" style="align-self:flex-end;padding:9px 14px;white-space:nowrap">+ Adicionar</button>
+      <button class="btn-sm" id="igEvCancelBtn" onclick="cancelIgEventEdit()" style="align-self:flex-end;display:none">Cancelar edição</button>
     </div>
   </div>
 </section>
@@ -2302,6 +2341,7 @@ const ACESSOS_SEED_ROWS = [
   { cliente:'MEI Rodrigo Araújo',    cnpj:'69.041.180/0001-56', cpf:'', nasc:'', inscMun:'',        inscEst:'',             portalNacional:'', loginUvtPJ:'',               loginUvtPF:'',          senhaUvt:'', senhaDirecta:'', senhaEsocial:'' },
 ];
 let fecYear, fecMonth, igYear, igMonth, igSelectedDate = null, demFilter = 'all', igView = 'cal';
+let editingIgEventId = null, igWeekStart = null;
 let finYear, finMonth;
 let editingLeadId = null, editingClientId = null;
 let clientDefaults = { regime:'Simples Nacional', services:['Fiscal','Contábil'] };
@@ -2324,6 +2364,7 @@ function initState() {
   fecYear = now.getFullYear(); fecMonth = now.getMonth();
   igYear  = now.getFullYear(); igMonth  = now.getMonth();
   finYear = now.getFullYear(); finMonth = now.getMonth();
+  { const d = new Date(now); d.setDate(d.getDate() - d.getDay()); d.setHours(0,0,0,0); igWeekStart = d; } // domingo da semana atual
   try {
     const seedV  = localStorage.getItem('cb3_seed_v');
     // clients — sempre carrega; seed apenas se vazio
@@ -2952,7 +2993,7 @@ function renderIgCal(){
     // só posts. OFFICE_CHECKPOINTS é a mesma fonte usada no Início
     // (renderRadar), então não duplica com um seed próprio da Agenda.
     const items = [
-      ...evs.map(e=>({ type:e.type, desc:e.desc })),
+      ...evs.map(e=>({ type:e.type, desc:(e.time?e.time+' ':'')+(e.desc||'') })),
       ...obrigs.map(t=>({ type:'obrigacao', desc:(t.cliente&&t.cliente.nome)||t.titulo })),
       ...checkpointsDodia.map(o=>({ type:'obrigacao', desc:o.titulo })),
       ...dems.map(dm=>({ type:'demanda', desc:dm.cliente })),
@@ -2981,6 +3022,7 @@ function renderIgCal(){
 function igSelectDay(ds){
   igSelectedDate = (igSelectedDate===ds) ? null : ds;
   renderIgCal();
+  if(igView==='week') renderIgWeek();
   if(!igSelectedDate){ closeIgPanel(); return; }
   renderIgDayPanel(ds);
 }
@@ -2989,6 +3031,9 @@ function renderIgDayPanel(ds){
   const parts = ds.split('-');
   const label = parseInt(parts[2])+' de '+MONTHS_PT[parseInt(parts[1])-1]+' '+parts[0];
   document.getElementById('igPanelDate').textContent = label;
+  // Pré-preenche a data do formulário com o dia selecionado — mas só se não
+  // tiver uma edição em andamento (senão trocaria a data do evento sendo editado).
+  if(!editingIgEventId) document.getElementById('igEvDate').value = ds;
 
   // Obrigações do dia — vencimentos fiscais/contábeis reais, materializados
   // na tabela tarefa (origem obrigacao_auto), a mesma fonte das abas Hoje e
@@ -3056,44 +3101,88 @@ function renderIgDayPanel(ds){
   document.getElementById('igPanelCount').textContent = count ? '· '+count+' item'+(count>1?'s':'') : '';
 
   document.getElementById('igEventList').innerHTML = evs.length
-    ? evs.map(e=>{
+    ? evs.slice().sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99')).map(e=>{
         const t = EV_TYPES[e.type]||{label:e.type,cls:''};
         const isPost = e.type==='post';
         const status = e.status||'planejado';
         const nextStatus = status==='planejado'?'agendado':status==='agendado'?'publicado':'planejado';
         const statusLabel = status==='publicado'?'✅ Publicado':status==='agendado'?'📌 Agendado':'📝 Planejado';
-        return '<div class="ig-ev-item">'+
+        return '<div class="ig-ev-item ig-ev-editable" onclick="startEditIgEvent(\''+escAttr(e.id)+'\')" title="Clique para editar">'+
+          (e.time?'<span class="ig-ev-time">'+escHtml(e.time)+'</span>':'')+
           '<span class="ig-ev-chip '+t.cls+'">'+t.label+'</span>'+
           (e.resp?'<span class="ig-ev-resp">'+escHtml(e.resp)+'</span>':'')+
           '<span class="ig-ev-desc">'+escHtml(e.desc||'')+'</span>'+
-          (isPost?'<span class="ig-status-chip '+status+'" onclick="cycleIgStatus(\''+escAttr(e.id)+'\',\''+nextStatus+'\')" title="Clique para mudar status">'+statusLabel+'</span>':'')+
-          '<button class="ig-ev-del" onclick="removeIgEvent(\''+escAttr(e.id)+'\')">×</button>'+
+          (isPost?'<span class="ig-status-chip '+status+'" onclick="event.stopPropagation();cycleIgStatus(\''+escAttr(e.id)+'\',\''+nextStatus+'\')" title="Clique para mudar status">'+statusLabel+'</span>':'')+
+          '<button class="ig-ev-del" onclick="event.stopPropagation();removeIgEvent(\''+escAttr(e.id)+'\')">×</button>'+
         '</div>';
       }).join('')
     : '<p class="ig-empty-day">Nenhum evento agendado.</p>';
   document.getElementById('igDayPanel').classList.remove('hidden');
-  document.getElementById('igEvDesc').value = '';
 }
 
+// editingIgEventId: null = criando um evento novo; um id = editando um
+// evento existente (o formulário é o mesmo, só muda o que o botão faz).
 function addIgEvent(){
-  if(!igSelectedDate) return;
+  const date = document.getElementById('igEvDate').value || igSelectedDate;
+  if(!date) return;
   const type = document.getElementById('igEvType').value;
+  const time = document.getElementById('igEvTime').value || '';
   const resp = document.getElementById('igEvResp').value;
   const desc = document.getElementById('igEvDesc').value.trim();
-  const id = 'ev_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
-  igEvents.push({ id, date:igSelectedDate, type, resp, desc });
-  save('cb3_ig_events', igEvents);
-  renderIgDayPanel(igSelectedDate);
-  renderIgCal();
-  document.getElementById('igEvDesc').value = '';
-}
-
-function removeIgEvent(id){
-  igEvents = igEvents.filter(e=>e.id!==id);
+  if(editingIgEventId){
+    const idx = igEvents.findIndex(e=>e.id===editingIgEventId);
+    if(idx>-1) igEvents[idx] = {...igEvents[idx], date, type, time, resp, desc};
+    cancelIgEventEdit();
+  } else {
+    const id = 'ev_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+    igEvents.push({ id, date, type, time, resp, desc });
+    clearIgEventForm();
+  }
   save('cb3_ig_events', igEvents);
   if(igSelectedDate) renderIgDayPanel(igSelectedDate);
   renderIgCal();
   renderIgPlan();
+  if(igView==='week') renderIgWeek();
+}
+
+function clearIgEventForm(){
+  document.getElementById('igEvDesc').value = '';
+  document.getElementById('igEvTime').value = '';
+  if(igSelectedDate) document.getElementById('igEvDate').value = igSelectedDate;
+}
+
+// Carrega um evento existente no formulário pra edição, em vez de só
+// permitir excluir e recriar do zero — inclusive dá pra mudar a data,
+// ou seja, "mover" o evento pra outro dia sem precisar de drag-and-drop.
+function startEditIgEvent(id){
+  const e = igEvents.find(x=>x.id===id);
+  if(!e) return;
+  editingIgEventId = id;
+  document.getElementById('igEvType').value = e.type;
+  document.getElementById('igEvDate').value = e.date;
+  document.getElementById('igEvTime').value = e.time||'';
+  document.getElementById('igEvResp').value = e.resp||'Nathan';
+  document.getElementById('igEvDesc').value = e.desc||'';
+  document.getElementById('igEvSubmitBtn').textContent = '💾 Salvar edição';
+  document.getElementById('igEvCancelBtn').style.display = '';
+  document.getElementById('igEvDesc').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function cancelIgEventEdit(){
+  editingIgEventId = null;
+  document.getElementById('igEvSubmitBtn').textContent = '+ Adicionar';
+  document.getElementById('igEvCancelBtn').style.display = 'none';
+  clearIgEventForm();
+}
+
+function removeIgEvent(id){
+  igEvents = igEvents.filter(e=>e.id!==id);
+  if(editingIgEventId===id) cancelIgEventEdit();
+  save('cb3_ig_events', igEvents);
+  if(igSelectedDate) renderIgDayPanel(igSelectedDate);
+  renderIgCal();
+  renderIgPlan();
+  if(igView==='week') renderIgWeek();
 }
 
 function cycleIgStatus(id, newStatus){
@@ -3102,12 +3191,14 @@ function cycleIgStatus(id, newStatus){
   if(igSelectedDate) renderIgDayPanel(igSelectedDate);
   renderIgCal();
   renderIgPlan();
+  if(igView==='week') renderIgWeek();
 }
 
 function closeIgPanel(){
   igSelectedDate = null;
   document.getElementById('igDayPanel').classList.add('hidden');
   renderIgCal();
+  if(igView==='week') renderIgWeek();
 }
 
 function igChangeMonth(d){
@@ -3123,10 +3214,68 @@ function igChangeMonth(d){
 function setIgView(v){
   igView=v;
   document.getElementById('igCalView').style.display=v==='cal'?'':'none';
+  document.getElementById('igWeekView').style.display=v==='week'?'':'none';
   document.getElementById('igPlanView').style.display=v==='plan'?'':'none';
   document.getElementById('igBtnCal').classList.toggle('active',v==='cal');
+  document.getElementById('igBtnWeek').classList.toggle('active',v==='week');
   document.getElementById('igBtnPlan').classList.toggle('active',v==='plan');
   if(v==='plan') renderIgPlan();
+  if(v==='week') renderIgWeek();
+}
+
+function igChangeWeek(delta){
+  const d = new Date(igWeekStart);
+  d.setDate(d.getDate() + delta*7);
+  igWeekStart = d;
+  renderIgWeek();
+}
+
+// Visão semana — zoom de 7 dias sobre os mesmos dados do mês (obrigações
+// reais, demandas, comercial, checkpoints e eventos da agenda), pra dar a
+// granularidade que faltava sem precisar reconstruir tudo numa grade de
+// horário. Clicar num dia abre o mesmo painel de baixo que o mês usa.
+function renderIgWeek(){
+  const grid = document.getElementById('igWeekGrid');
+  if(!grid) return;
+  const start = new Date(igWeekStart);
+  const end = new Date(start); end.setDate(end.getDate()+6);
+  const fmtLbl = dt => dt.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'});
+  document.getElementById('igWeekLabel').textContent = fmtLbl(start)+' – '+fmtLbl(end);
+
+  const todayStr = new Date().toISOString().slice(0,10);
+  const pad = n => String(n).padStart(2,'0');
+  const dayNames = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+
+  let html = '';
+  for(let i=0;i<7;i++){
+    const dt = new Date(start); dt.setDate(dt.getDate()+i);
+    const ds = dt.getFullYear()+'-'+pad(dt.getMonth()+1)+'-'+pad(dt.getDate());
+    const diaNum = dt.getDate();
+    const evs = igEvents.filter(e=>e.date===ds);
+    const obrigs = hojeTarefas.filter(t=>t.tipo==='obrigacao' && t.prazo===ds && t.status!=='concluido');
+    const checkpoints = OFFICE_CHECKPOINTS.filter(o=>o.day===diaNum);
+    const dems = demandas.filter(dm=>dm.prazo===ds && dm.status!=='concluido' && dm.status!=='cancelado');
+    const comercial = leads.filter(l=>l.followUpDate===ds && l.stage!=='won' && l.stage!=='lost');
+    const items = [
+      ...evs.map(e=>({ type:e.type, label:(e.time?e.time+' ':'')+(e.desc||EV_TYPES[e.type]?.label||e.type) })),
+      ...obrigs.map(t=>({ type:'obrigacao', label:(t.cliente&&t.cliente.nome)||t.titulo })),
+      ...checkpoints.map(o=>({ type:'obrigacao', label:o.titulo })),
+      ...dems.map(dm=>({ type:'demanda', label:dm.cliente })),
+      ...comercial.map(l=>({ type:'comercial', label:l.name })),
+    ];
+    const isToday = ds===todayStr;
+    const isSel = igSelectedDate===ds;
+    html += '<div class="ig-week-col'+(isToday?' is-today':'')+(isSel?' is-selected':'')+'">'+
+      '<div class="ig-week-col-hd" onclick="igSelectDay(\''+ds+'\')">'+dayNames[dt.getDay()]+' <span>'+diaNum+'</span></div>'+
+      '<div class="ig-week-col-body" onclick="igSelectDay(\''+ds+'\')">'+
+        (items.length ? items.map(it=>{
+          const t = EV_TYPES[it.type]||{cls:'',label:it.type};
+          return '<div class="ig-week-item '+t.cls+'">'+escHtml(it.label)+'</div>';
+        }).join('') : '<div class="ig-week-empty">—</div>')+
+      '</div>'+
+    '</div>';
+  }
+  grid.innerHTML = html;
 }
 
 function renderIgPlan(){
