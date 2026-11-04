@@ -979,6 +979,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .ig-panel-count{font-size:11px;color:var(--fg3);font-weight:500;margin-left:8px}
 .ev-obrigacao{background:var(--purple-lt);color:var(--purple)}
 .ev-reuniao{background:var(--red-lt);color:var(--red)}
+.ev-comercial{background:var(--gold-lt);color:var(--gold2)}
 .ig-ev-resp{font-size:10px;font-weight:700;padding:2px 7px;background:var(--bg4);border-radius:10px;color:var(--fg2);flex-shrink:0}
 
 /* ── Client Settings Cards ── */
@@ -1295,7 +1296,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
       <button class="sidebar-nav-btn" onclick="switchTab('funil',this)" data-tab="funil"><span class="nav-icon">🎯</span><span class="nav-label"> CRM</span></button>
       <button class="sidebar-nav-btn" onclick="switchTab('fechamento',this)" data-tab="fechamento"><span class="nav-icon">✅</span><span class="nav-label"> Obrigações</span></button>
       <button class="sidebar-nav-btn" onclick="switchTab('demandas',this)" data-tab="demandas"><span class="nav-icon">📋</span><span class="nav-label"> Demandas Pontuais</span></button>
-      <button class="sidebar-nav-btn" onclick="switchTab('instagram',this)" data-tab="instagram"><span class="nav-icon">📸</span><span class="nav-label"> Instagram</span></button>
+      <button class="sidebar-nav-btn" onclick="switchTab('instagram',this)" data-tab="instagram"><span class="nav-icon">📅</span><span class="nav-label"> Agenda</span></button>
       <button class="sidebar-nav-btn" onclick="switchTab('financeiro',this)" data-tab="financeiro"><span class="nav-icon">💰</span><span class="nav-label"> Financeiro</span></button>
     </nav>
     <div class="sidebar-user" id="sidebarUser"></div>
@@ -1459,6 +1460,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
       <span class="ev-legend-chip ev-entrega">📦 Entrega</span>
       <span class="ev-legend-chip ev-obrigacao">⚖️ Obrigação</span>
       <span class="ev-legend-chip ev-reuniao">🗣️ Reunião</span>
+      <span class="ev-legend-chip ev-comercial">💼 Comercial</span>
     </div>
     <div class="ig-cal-wrap">
       <div class="ig-cal-grid" id="igCalGrid"></div>
@@ -1483,6 +1485,9 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 
     <div class="ig-panel-section-hd">📋 Demandas do dia</div>
     <div class="ig-event-list" id="igDemandaList"></div>
+
+    <div class="ig-panel-section-hd">💼 Comercial do dia</div>
+    <div class="ig-event-list" id="igComercialList"></div>
 
     <div class="ig-panel-section-hd">📅 Eventos da agenda</div>
     <div class="ig-event-list" id="igEventList"></div>
@@ -2331,6 +2336,14 @@ function initState() {
     }
     leads        = seedV ? JSON.parse(localStorage.getItem('cb3_leads') || '[]') : null;
     igEvents     = JSON.parse(localStorage.getItem('cb3_ig_events') || '[]');
+    // Migração: remove os eventos genéricos "s_ob_*" que duplicavam as
+    // obrigações reais por cliente (já materializadas em `tarefa` e
+    // mostradas na Agenda via hojeTarefas) e os checkpoints do escritório
+    // (já cobertos por OFFICE_CHECKPOINTS). Sem isso o mesmo prazo
+    // aparecia duas vezes no mesmo dia do calendário.
+    { const before = igEvents.length;
+      igEvents = igEvents.filter(e => !String(e.id).startsWith('s_ob_'));
+      if (igEvents.length !== before) save('cb3_ig_events', igEvents); }
     closingData  = JSON.parse(localStorage.getItem('cb3_close')    || '{}');
     clientDrives = JSON.parse(localStorage.getItem('cb3_drives')   || '{}');
     revenues     = JSON.parse(localStorage.getItem('cb3_rev')      || '{}');
@@ -2414,26 +2427,11 @@ function initState() {
         if(dow === 5) igEvents.push({ id:'s_'+dts+'_pf',date:dts, type:'post',     desc:'🏆 Case / Prova Social CB' });
       }
 
-      // Entregas e obrigações mensais fixas
-      const ob = (id, day, type, desc, resp) => {
-        const d2 = Math.min(day, dim);
-        igEvents.push({ id:'s_ob_'+id, date:dateStr(d2), type, desc, resp:resp||'Nathan' });
-      };
-      ob('aviso',    1,  'entrega',   '📢 Avisar clientes — início da coleta do mês anterior');
-      ob('ponto',    5,  'entrega',   '📋 Conf. de ponto — Lidera Planejados + Jurema');
-      ob('coleta',   7,  'entrega',   '📥 Prazo coleta NFs + extrato bancário — todos');
-      ob('fgts',     7,  'obrigacao', '🏦 FGTS GRF — Lidera Planejados + Jurema');
-      ob('esocial',  10, 'obrigacao', '🖥 eSocial S-1200/1210 — Lidera + Jurema');
-      ob('conc',     10, 'entrega',   '⚖️ Conciliação bancária — todos os clientes');
-      ob('lanc',     12, 'entrega',   '📒 Lançamentos contábeis — todos os clientes');
-      ob('irrf',     13, 'obrigacao', '📄 DARF IRRF s/ folha — Lidera Planejados + Jurema');
-      ob('rel',      14, 'entrega',   '📊 Relatórios gerenciais prontos internamente');
-      ob('entrega',  15, 'entrega',   '⭐ ENTREGA AO CLIENTE — todos os 5 clientes');
-      ob('das',      20, 'obrigacao', '🧾 DAS Simples Nacional — Lidera, Jurema, Cozinha Caseira');
-      ob('dctf',     20, 'obrigacao', '📑 DCTFWeb INSS folha — Lidera + Jurema');
-      ob('lp',       20, 'obrigacao', '💼 PIS/COFINS + IRPJ/CSLL — Kitanda Paraíso');
-      ob('plan',     25, 'entrega',   '📅 Planejamento mês seguinte — revisão interna CB');
-      ob('nextcol',  dim >= 28 ? 28 : dim, 'entrega', '📢 Início coleta próximo mês — avisar clientes');
+      // Nota: as entregas/obrigações mensais fixas que existiam aqui (FGTS,
+      // DAS, eSocial, coleta, etc.) foram removidas — duplicavam as
+      // obrigações reais por cliente (hojeTarefas/tarefa) e os checkpoints
+      // do escritório (OFFICE_CHECKPOINTS), ambos já mostrados na Agenda
+      // (ver renderIgCal/renderIgDayPanel) com dados reais, não fixos.
 
       save('cb3_ig_events', igEvents);
     }
@@ -2478,7 +2476,7 @@ function switchTab(name, btn) {
   document.querySelectorAll('.sidebar-nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   document.querySelectorAll('[data-tab="'+name+'"]').forEach(b => b.classList.add('active'));
-  const tabLabels = {radar:'Início',hoje:'Hoje',fechamento:'Obrigações',instagram:'Instagram',funil:'CRM',clientes:'Clientes',demandas:'Demandas Pontuais',financeiro:'Financeiro'};
+  const tabLabels = {radar:'Início',hoje:'Hoje',fechamento:'Obrigações',instagram:'Agenda',funil:'CRM',clientes:'Clientes',demandas:'Demandas Pontuais',financeiro:'Financeiro'};
   const ind = document.getElementById('headerTabIndicator');
   if(ind){ ind.textContent = tabLabels[name]||name; }
   if (name === 'hoje') renderHoje();
@@ -2865,6 +2863,7 @@ const EV_TYPES = {
   entrega:  { label:'📦 Entrega',  cls:'ev-entrega' },
   obrigacao:{ label:'⚖️ Obrigação',cls:'ev-obrigacao'},
   reuniao:  { label:'🗣️ Reunião', cls:'ev-reuniao' },
+  comercial:{ label:'💼 Comercial',cls:'ev-comercial'},
 };
 
 function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
@@ -2933,12 +2932,19 @@ function renderIgCal(){
     const evs = igEvents.filter(e=>e.date===ds);
     const obrigs = hojeTarefas.filter(t=>t.tipo==='obrigacao' && t.prazo===ds && t.status!=='concluido');
     const dems = demandas.filter(dm=>dm.prazo===ds && dm.status!=='concluido' && dm.status!=='cancelado');
-    // Itens combinados — eventos da agenda, obrigações reais e demandas pontuais —
-    // para que o calendário mostre tudo que acontece no dia, não só posts.
+    const checkpointsDodia = OFFICE_CHECKPOINTS.filter(o=>o.day===d);
+    const comercialDodia = leads.filter(l=>l.followUpDate===ds && l.stage!=='won' && l.stage!=='lost');
+    // Itens combinados — eventos da agenda, obrigações reais (por cliente),
+    // checkpoints internos do escritório, demandas pontuais e follow-ups
+    // comerciais — pra o calendário mostrar tudo que acontece no dia, não
+    // só posts. OFFICE_CHECKPOINTS é a mesma fonte usada no Início
+    // (renderRadar), então não duplica com um seed próprio da Agenda.
     const items = [
       ...evs.map(e=>({ type:e.type, desc:e.desc })),
       ...obrigs.map(t=>({ type:'obrigacao', desc:(t.cliente&&t.cliente.nome)||t.titulo })),
+      ...checkpointsDodia.map(o=>({ type:'obrigacao', desc:o.titulo })),
       ...dems.map(dm=>({ type:'demanda', desc:dm.cliente })),
+      ...comercialDodia.map(l=>({ type:'comercial', desc:l.name })),
     ];
     const isToday = d===todayD;
     const isSel = igSelectedDate===ds;
@@ -2973,15 +2979,24 @@ function renderIgDayPanel(ds){
   document.getElementById('igPanelDate').textContent = label;
 
   // Obrigações do dia — vencimentos fiscais/contábeis reais, materializados
-  // na tabela tarefa (origem obrigacao_auto), a mesma fonte das abas Hoje e Obrigações.
+  // na tabela tarefa (origem obrigacao_auto), a mesma fonte das abas Hoje e
+  // Obrigações, + checkpoints internos do escritório (mesma fonte do Início).
   const obrigList = document.getElementById('igObrigList');
   const obrigsDodia = hojeTarefas.filter(t => t.tipo === 'obrigacao' && t.prazo === ds && t.status !== 'concluido');
-  if(obrigsDodia.length){
+  const diaNum = parseInt(ds.split('-')[2], 10);
+  const checkpointsDodia = OFFICE_CHECKPOINTS.filter(o => o.day === diaNum);
+  if(obrigsDodia.length || checkpointsDodia.length){
     obrigList.innerHTML = obrigsDodia.map(t =>
       '<div class="ig-ev-item">'+
         '<span class="ig-ev-chip ev-obrigacao">⚖️ Obrigação</span>'+
         '<span class="ig-ev-desc"><strong>'+escHtml((t.cliente&&t.cliente.nome)||'')+'</strong> — '+escHtml(t.titulo||'')+'</span>'+
         '<span class="ig-ev-resp">'+escHtml(t.responsavel||'')+'</span>'+
+      '</div>'
+    ).join('') + checkpointsDodia.map(o =>
+      '<div class="ig-ev-item">'+
+        '<span class="ig-ev-chip ev-obrigacao">⚖️ Interno</span>'+
+        '<span class="ig-ev-desc">'+escHtml(o.titulo)+'</span>'+
+        '<span class="ig-ev-resp">'+escHtml(o.setor||'')+'</span>'+
       '</div>'
     ).join('');
   } else {
@@ -3005,9 +3020,27 @@ function renderIgDayPanel(ds){
     }
   }
 
+  // Comercial do dia — follow-ups de leads do Funil com data marcada nesse dia
+  // (antes só apareciam como alerta de atraso no Início, nunca na Agenda).
+  const comercialList = document.getElementById('igComercialList');
+  const comercialDodia = leads.filter(l => l.followUpDate === ds && l.stage !== 'won' && l.stage !== 'lost');
+  if(comercialList){
+    if(comercialDodia.length){
+      comercialList.innerHTML = comercialDodia.map(l =>
+        '<div class="ig-ev-item">'+
+          '<span class="ig-ev-chip ev-comercial">💼 Comercial</span>'+
+          '<span class="ig-ev-desc"><strong>'+escHtml(l.name)+'</strong> — follow-up'+(l.dor?': '+escHtml(l.dor):'')+'</span>'+
+          '<span class="ig-ev-resp">'+escHtml(l.resp||'')+'</span>'+
+        '</div>'
+      ).join('');
+    } else {
+      comercialList.innerHTML = '<p class="ig-empty-day">Sem follow-ups comerciais neste dia.</p>';
+    }
+  }
+
   // Eventos agendados
   const evs = igEvents.filter(e=>e.date===ds);
-  const count = evs.length + obrigsDodia.length + demandasDodia.length;
+  const count = evs.length + obrigsDodia.length + checkpointsDodia.length + demandasDodia.length + comercialDodia.length;
   document.getElementById('igPanelCount').textContent = count ? '· '+count+' item'+(count>1?'s':'') : '';
 
   document.getElementById('igEventList').innerHTML = evs.length
