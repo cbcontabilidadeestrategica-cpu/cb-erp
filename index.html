@@ -738,8 +738,8 @@ main{flex:1;padding:14px 20px 28px;max-width:1040px;width:100%;margin:0 auto}
 .dem-tag.financeiro{background:var(--green-lt);color:var(--green)}
 .dem-tag.outros{background:var(--bg3);color:var(--fg3)}
 .dem-status-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px}
-.dem-status-badge.aguardando{background:var(--amber-lt);color:var(--amber)}
-.dem-status-badge.em-andamento{background:var(--blue-lt);color:var(--blue)}
+.dem-status-badge.pendente{background:var(--amber-lt);color:var(--amber)}
+.dem-status-badge.em_andamento{background:var(--blue-lt);color:var(--blue)}
 .dem-status-badge.concluido{background:var(--green-lt);color:var(--green)}
 .dem-status-badge.cancelado{background:var(--bg3);color:var(--fg3)}
 .dem-add-btn{
@@ -1062,6 +1062,9 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .hoje-prazo-chip.pr-hoje{background:rgba(234,179,8,.18);color:var(--amber)}
 .hoje-prazo-chip.pr-em-breve{background:var(--blue-lt);color:var(--blue)}
 .hoje-prazo-chip.pr-normal{background:var(--bg3);color:var(--fg3)}
+.hoje-source-tag{font-size:10px;font-weight:700;padding:1px 7px;border-radius:999px;white-space:nowrap;margin-right:6px}
+.hoje-source-tag.src-demanda{background:var(--gold-lt);color:var(--gold2)}
+.hoje-source-tag.src-reuniao{background:rgba(220,38,38,.1);color:var(--red)}
 .hoje-item-actions{display:flex;align-items:center;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;margin-left:auto}
 .hoje-mini-select{background:var(--bg3);color:var(--fg2);border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:11px;max-width:96px;font-family:'Outfit',sans-serif}
 .hoje-status-pill{border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;white-space:nowrap;cursor:pointer;border:1px solid;font-family:'Outfit',sans-serif}
@@ -1597,8 +1600,8 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
       <div class="form-group">
         <label>Status inicial</label>
         <select id="demStatus">
-          <option value="aguardando">Aguardando retorno</option>
-          <option value="em-andamento">Em andamento</option>
+          <option value="pendente">Aguardando retorno</option>
+          <option value="em_andamento">Em andamento</option>
           <option value="concluido">Concluído</option>
           <option value="cancelado">Cancelado</option>
         </select>
@@ -1750,20 +1753,10 @@ async function mirrorToRelational(k, v) {
     }));
     if (rows.length) await sb.from('lead').upsert(rows, { onConflict: 'id' });
   }
-  if (k === 'cb3_demandas' && Array.isArray(v)) {
-    const byName = {};
-    (clients || []).forEach(c => { byName[c.name] = c.id; });
-    const statusMap = { 'em-andamento':'em_andamento', 'concluido':'concluido', 'aguardando':'pendente' };
-    const rows = v.map(d => ({
-      legacy_id: d.id, cliente_id: byName[d.cliente] || null, setor: d.setor || null,
-      tipo: d.tipo || null, titulo: d.tipo || d.desc || 'Demanda', descricao: d.desc || null,
-      responsavel: d.resp || null, prazo: d.prazo || null,
-      status: statusMap[d.status] || d.status || 'pendente',
-      valor: d.valor ? parseFloat(String(d.valor).replace(/\./g,'').replace(',','.')) || null : null,
-      origem: 'app', updated_at: new Date().toISOString(),
-    }));
-    if (rows.length) await sb.from('tarefa').upsert(rows, { onConflict: 'legacy_id' });
-  }
+  // Nota: demandas pontuais NÃO são mais espelhadas na tabela `tarefa` —
+  // ficavam órfãs lá quando excluídas no kanban (upsert nunca via delete),
+  // e o merge do Hoje agora lê o array `demandas` direto, sem precisar
+  // disso. Ver paintHoje().
 }
 
 async function logout() {
@@ -1991,21 +1984,121 @@ async function renderHoje() {
 
 // Repinta a lista a partir do cache local (hojeTarefas), sem ida ao servidor —
 // usada pelas ações (status/responsável/prazo) para resposta instantânea.
+// Urgência de um prazo (ISO yyyy-mm-dd) em relação a hoje. Compartilhada
+// pelo Hoje e pelo kanban de Demandas Pontuais — mesma régua visual nos
+// dois lugares.
+function prazoInfo(prazoISO) {
+  if (!prazoISO) return { dd: null, label: 'Sem prazo', cls: 'pr-normal' };
+  const hojeD = new Date(); hojeD.setHours(0,0,0,0);
+  const dd = Math.round((new Date(prazoISO+'T00:00:00') - hojeD) / 86400000);
+  const prazoBr = prazoISO.split('-').reverse().join('/');
+  if (dd < 0)   return { dd, label: 'Atrasada '+(-dd)+'d', cls: 'pr-atrasada' };
+  if (dd === 0) return { dd, label: 'Hoje',                cls: 'pr-hoje' };
+  if (dd === 1) return { dd, label: 'Amanhã',              cls: 'pr-hoje' };
+  if (dd <= 3)  return { dd, label: 'Em '+dd+'d',          cls: 'pr-em-breve' };
+  return { dd, label: prazoBr, cls: 'pr-normal' };
+}
+
+const HOJE_SOURCE_TAG = {
+  demanda: '<span class="hoje-source-tag src-demanda">📋 Demanda</span>',
+  reuniao: '<span class="hoje-source-tag src-reuniao">🗣️ Reunião</span>',
+};
+
+// Dispatchers genéricos das ações do Hoje — cada item carrega sua origem
+// (tarefa = obrigação recorrente / demanda = kanban de avulsos / reuniao =
+// evento da Agenda) e a ação é roteada pra onde o dado de fato mora, em vez
+// de forçar tudo pela tabela `tarefa`.
+function toggleHojeItemDone(source, id) {
+  if (source === 'tarefa') { toggleTarefaConcluida(Number(id)); return; }
+  if (source === 'demanda') {
+    const d = demandas.find(x=>x.id===id); if(!d) return;
+    d.status = d.status==='concluido' ? 'pendente' : 'concluido';
+    save('cb3_demandas', demandas); paintHoje(); renderDemandas(); renderRadarDemandas();
+    return;
+  }
+  if (source === 'reuniao') {
+    const e = igEvents.find(x=>x.id===id); if(!e) return;
+    e.status = (e.status==='concluido') ? 'pendente' : 'concluido';
+    save('cb3_ig_events', igEvents); paintHoje(); renderIgCal();
+    return;
+  }
+}
+function setHojeItemResp(source, id, val) {
+  if (source === 'tarefa') { setTarefaResp(Number(id), val); return; }
+  if (source === 'demanda') {
+    const d = demandas.find(x=>x.id===id); if(!d) return;
+    d.resp = val || ''; save('cb3_demandas', demandas); paintHoje(); renderDemandas();
+    return;
+  }
+  if (source === 'reuniao') {
+    const e = igEvents.find(x=>x.id===id); if(!e) return;
+    e.resp = val || ''; save('cb3_ig_events', igEvents); paintHoje();
+    return;
+  }
+}
+function setHojeItemPrazo(source, id, val) {
+  if (source === 'tarefa') { setTarefaPrazo(Number(id), val); return; }
+  if (source === 'demanda') {
+    const d = demandas.find(x=>x.id===id); if(!d) return;
+    d.prazo = val || ''; save('cb3_demandas', demandas); paintHoje(); renderDemandas(); renderRadarDemandas();
+    return;
+  }
+  if (source === 'reuniao') {
+    const e = igEvents.find(x=>x.id===id); if(!e) return;
+    e.date = val || e.date; save('cb3_ig_events', igEvents); paintHoje(); renderIgCal();
+    return;
+  }
+}
+function setHojeItemStatus(source, id, val) {
+  if (source === 'tarefa') { setTarefaStatus(Number(id), val); return; }
+  if (source === 'demanda') {
+    const d = demandas.find(x=>x.id===id); if(!d) return;
+    d.status = val; save('cb3_demandas', demandas); paintHoje(); renderDemandas(); renderRadarDemandas();
+    return;
+  }
+  if (source === 'reuniao') {
+    const e = igEvents.find(x=>x.id===id); if(!e) return;
+    e.status = val; save('cb3_ig_events', igEvents); paintHoje(); renderIgCal();
+    return;
+  }
+}
+
 function paintHoje() {
   const lista = document.getElementById('hojeLista');
   const contador = document.getElementById('hojeContador');
   if (!lista || !sbUser) return;
 
-  // popula filtros uma vez
+  // Unifica as 3 fontes do dia a dia num só modelo de item: obrigações
+  // recorrentes (tarefa), demandas pontuais do kanban e reuniões cadastradas
+  // na Agenda. Antes só obrigações apareciam aqui — demandas e reuniões só
+  // em suas próprias abas, fácil de esquecer um prazo de serviço avulso.
+  const obrigacaoItems = hojeTarefas.filter(t=>t.tipo==='obrigacao').map(t => ({
+    source: 'tarefa', id: t.id, titulo: t.titulo, descricao: t.descricao,
+    setor: t.setor, responsavel: t.responsavel, prazo: t.prazo, status: t.status || 'pendente',
+    clienteNome: t.cliente ? t.cliente.nome : '—',
+  }));
+  const demandaItems = demandas.map(d => ({
+    source: 'demanda', id: d.id, titulo: d.tipo || d.desc || 'Demanda', descricao: d.desc || '',
+    setor: d.setor || '', responsavel: d.resp || '', prazo: d.prazo || '', status: d.status || 'pendente',
+    clienteNome: d.cliente || '—',
+  }));
+  const reuniaoItems = igEvents.filter(e=>e.type==='reuniao').map(e => ({
+    source: 'reuniao', id: e.id, titulo: 'Reunião', descricao: e.desc || '',
+    setor: '', responsavel: e.resp || '', prazo: e.date || '', status: e.status || 'pendente',
+    clienteNome: '—',
+  }));
+  const todosItens = [...obrigacaoItems, ...demandaItems, ...reuniaoItems];
+
+  // popula filtros uma vez (a partir do conjunto unificado, não só obrigações)
   const selSetor = document.getElementById('hojeFiltroSetor');
   const selResp = document.getElementById('hojeFiltroResp');
   if (selSetor && selSetor.options.length === 1) {
-    [...new Set(hojeTarefas.map(t=>t.setor).filter(Boolean))].sort().forEach(s => {
+    [...new Set(todosItens.map(t=>t.setor).filter(Boolean))].sort().forEach(s => {
       const o = document.createElement('option'); o.value = s; o.textContent = s; selSetor.appendChild(o);
     });
   }
   if (selResp && selResp.options.length === 1) {
-    [...new Set(hojeTarefas.map(t=>t.responsavel).filter(Boolean))].sort().forEach(r => {
+    [...new Set(todosItens.map(t=>t.responsavel).filter(Boolean))].sort().forEach(r => {
       const o = document.createElement('option'); o.value = r; o.textContent = r; selResp.appendChild(o);
     });
   }
@@ -2016,56 +2109,53 @@ function paintHoje() {
   // Curto prazo: só entra na lista quem tem prazo definido e vencendo em até
   // 10 dias (atrasada conta também, já que vencido é ainda mais urgente que
   // "dentro de 10 dias"). Sem isso a aba Hoje ficava com todas as tarefas do
-  // mês inteiro misturadas, difícil de usar no dia a dia.
+  // mês inteiro misturadas, difícil de usar no dia a dia. 'cancelado' nunca
+  // entra — não é mais acionável em lugar nenhum.
   const limite = new Date(); limite.setDate(limite.getDate()+10);
   const limiteISO = limite.toISOString().slice(0,10);
-  const filtradas = hojeTarefas.filter(t =>
+  const filtradas = todosItens.filter(t =>
     (!fSetor || t.setor === fSetor) && (!fResp || t.responsavel === fResp) &&
+    t.status !== 'cancelado' &&
     (fStatus ? t.status === fStatus : t.status !== 'concluido') &&
     (!!t.prazo && t.prazo <= limiteISO)
   );
 
   const sectorColor = { 'Fiscal':'#ef4444','Depto. Pessoal':'#eab308','Contábil':'#10b981','Societário':'#6366f1','Financeiro':'#22c55e','Sucesso do Cliente':'#ec4899' };
-  const respOptions = [...new Set(hojeTarefas.map(t=>t.responsavel).filter(Boolean))].sort();
-  const hojeD = new Date(); hojeD.setHours(0,0,0,0);
-  const diffDias = (prazo) => prazo ? Math.round((new Date(prazo+'T00:00:00') - hojeD) / 86400000) : null;
+  const respOptions = [...new Set(todosItens.map(t=>t.responsavel).filter(Boolean))].sort();
 
   function renderHojeItem(t){
-    const dd = diffDias(t.prazo);
+    const pinfo = prazoInfo(t.prazo);
+    const dd = pinfo.dd;
     const cor = sectorColor[t.setor] || '#64748b';
-    const clienteNome = t.cliente ? escHtml(t.cliente.nome) : '—';
     const isDone = t.status === 'concluido';
-    const prazoBr = t.prazo ? t.prazo.split('-').reverse().join('/') : '';
-    let prazoLabel, prazoCls;
-    if (dd === null) { prazoLabel = 'Sem prazo'; prazoCls = 'pr-normal'; }
-    else if (dd < 0)  { prazoLabel = 'Atrasada '+(-dd)+'d'; prazoCls = 'pr-atrasada'; }
-    else if (dd === 0){ prazoLabel = 'Hoje'; prazoCls = 'pr-hoje'; }
-    else if (dd === 1){ prazoLabel = 'Amanhã'; prazoCls = 'pr-hoje'; }
-    else if (dd <= 3) { prazoLabel = 'Em '+dd+'d'; prazoCls = 'pr-em-breve'; }
-    else              { prazoLabel = prazoBr; prazoCls = 'pr-normal'; }
     const stKey = t.status || 'pendente';
     const stColor = HOJE_STATUS_COLOR[stKey] || 'var(--fg2)';
     const stBg = HOJE_STATUS_BG[stKey] || HOJE_STATUS_BG.pendente;
     const stBorder = HOJE_STATUS_BORDER[stKey] || HOJE_STATUS_BORDER.pendente;
+    const srcTag = HOJE_SOURCE_TAG[t.source] || '';
+    const idAttr = escAttr(String(t.id));
+    const statusOpts = `<option value="pendente"${stKey==='pendente'?' selected':''}>Pendente</option>
+          <option value="em_andamento"${stKey==='em_andamento'?' selected':''}>Em andamento</option>
+          <option value="concluido"${stKey==='concluido'?' selected':''}>Concluído</option>`
+      + (t.source==='demanda' ? `<option value="cancelado"${stKey==='cancelado'?' selected':''}>Cancelado</option>` : '');
     return `<div class="hoje-item${dd!==null&&dd<0&&!isDone?' is-atrasada':''}${isDone?' is-done':''}">
-      <span class="hoje-check${isDone?' checked':''}" onclick="toggleTarefaConcluida(${t.id})" title="${isDone?'Reabrir tarefa':'Marcar como concluída'}">${isDone?'✓':''}</span>
+      <span class="hoje-check${isDone?' checked':''}" onclick="toggleHojeItemDone('${t.source}','${idAttr}')" title="${isDone?'Reabrir':'Marcar como concluída'}">${isDone?'✓':''}</span>
       <div class="hoje-item-main">
         <div class="hoje-item-top">
+          ${srcTag}
           <span class="hoje-item-title${isDone?' done':''}">${escHtml(t.titulo||'')}</span>
-          <span class="hoje-prazo-chip ${prazoCls}">${prazoLabel}</span>
+          <span class="hoje-prazo-chip ${pinfo.cls}">${pinfo.label}</span>
         </div>
-        <div class="hoje-item-meta"><span class="hoje-sector-dot" style="background:${cor}"></span>${clienteNome} · ${escHtml(t.setor||'')}${t.descricao ? ' · '+escHtml(t.descricao) : ''}</div>
+        <div class="hoje-item-meta">${t.setor?'<span class="hoje-sector-dot" style="background:'+cor+'"></span>':''}${escHtml(t.clienteNome)} ${t.setor?'· '+escHtml(t.setor):''}${t.descricao ? ' · '+escHtml(t.descricao) : ''}</div>
       </div>
       <div class="hoje-item-actions">
-        <select class="hoje-mini-select" onchange="setTarefaResp(${t.id},this.value)" title="Responsável">
+        <select class="hoje-mini-select" onchange="setHojeItemResp('${t.source}','${idAttr}',this.value)" title="Responsável">
           <option value="">Sem resp.</option>
           ${respOptions.map(r=>`<option value="${escHtml(r)}"${t.responsavel===r?' selected':''}>${escHtml(r)}</option>`).join('')}
         </select>
-        <input type="date" class="hoje-mini-select" value="${t.prazo||''}" onchange="setTarefaPrazo(${t.id},this.value)" title="Prazo" style="max-width:118px">
-        <select class="hoje-status-pill" onchange="setTarefaStatus(${t.id},this.value)" title="Situação" style="background:${stBg};color:${stColor};border-color:${stBorder}">
-          <option value="pendente"${stKey==='pendente'?' selected':''}>Pendente</option>
-          <option value="em_andamento"${stKey==='em_andamento'?' selected':''}>Em andamento</option>
-          <option value="concluido"${stKey==='concluido'?' selected':''}>Concluído</option>
+        <input type="date" class="hoje-mini-select" value="${t.prazo||''}" onchange="setHojeItemPrazo('${t.source}','${idAttr}',this.value)" title="Prazo" style="max-width:118px">
+        <select class="hoje-status-pill" onchange="setHojeItemStatus('${t.source}','${idAttr}',this.value)" title="Situação" style="background:${stBg};color:${stColor};border-color:${stBorder}">
+          ${statusOpts}
         </select>
       </div>
     </div>`;
@@ -2079,7 +2169,7 @@ function paintHoje() {
     { key:'semana',   label:'🟡 Próximos 7 dias',   test:dd=>dd!==null&&dd>=1&&dd<=7 },
     { key:'adiante',  label:'⚪ Em até 10 dias',     test:dd=>dd===null||dd>=8 },
   ];
-  const buckets = grupos.map(g => ({ ...g, items: filtradas.filter(t=>g.test(diffDias(t.prazo))) }));
+  const buckets = grupos.map(g => ({ ...g, items: filtradas.filter(t=>g.test(prazoInfo(t.prazo).dd)) }));
 
   lista.innerHTML = buckets.filter(b=>b.items.length).map(b =>
     `<div class="hoje-group">
@@ -2089,7 +2179,7 @@ function paintHoje() {
   ).join('') || '<p style="padding:16px;color:var(--fg2)">Nenhuma tarefa encontrada com esse filtro.</p>';
 
   if (contador) {
-    const foraDoPrazo = hojeTarefas.filter(t => t.status !== 'concluido' && (!t.prazo || t.prazo > limiteISO)).length;
+    const foraDoPrazo = todosItens.filter(t => t.status !== 'concluido' && t.status !== 'cancelado' && (!t.prazo || t.prazo > limiteISO)).length;
     contador.textContent = filtradas.length + ' tarefa' + (filtradas.length===1?'':'s') + ' em até 10 dias'
       + (foraDoPrazo ? ' · +'+foraDoPrazo+' mais adiante (ver Obrigações/Demandas)' : '');
   }
@@ -2240,6 +2330,18 @@ function initState() {
     clientDrives = JSON.parse(localStorage.getItem('cb3_drives')   || '{}');
     revenues     = JSON.parse(localStorage.getItem('cb3_rev')      || '{}');
     demandas     = seedV ? JSON.parse(localStorage.getItem('cb3_demandas') || '[]') : [];
+    // Migração de vocabulário: unifica os status das demandas com os mesmos
+    // nomes usados em `tarefa` (pendente/em_andamento/concluido/cancelado),
+    // que antes usava 'aguardando'/'em-andamento' — duas grafias pro mesmo
+    // conceito espalhadas pelo app.
+    { const DEM_STATUS_MIGRATE = { 'aguardando':'pendente', 'em-andamento':'em_andamento' };
+      let demMigrated = false;
+      demandas = demandas.map(d => {
+        if (DEM_STATUS_MIGRATE[d.status]) { demMigrated = true; return {...d, status: DEM_STATUS_MIGRATE[d.status]}; }
+        return d;
+      });
+      if (demMigrated) save('cb3_demandas', demandas);
+    }
     try { const sd=JSON.parse(localStorage.getItem('cb3_defaults')||'null'); if(sd) clientDefaults=sd; } catch(e){}
     try { onboarding=JSON.parse(localStorage.getItem('cb3_onboarding')||'{}'); } catch(e){}
     try { csData=JSON.parse(localStorage.getItem('cb3_cs')||'{}'); } catch(e){}
@@ -2255,28 +2357,28 @@ function initState() {
     // Seed demandas da planilha "Demandas Pontuais" — reseed se versão < 7
     if(!demandas.length || parseInt(seedV||'0') < 7) {
       demandas = [
-        { id:'d01', data:'2026-09-24', cliente:'Cozinha Caseira',   setor:'Financeiro',          tipo:'Implantação do Saipos',       desc:'Cadastrar recorrências, mapear contas a receber e gerar relatórios',                                 resp:'Nathan', prazo:'2026-10-10', valor:'',     status:'em-andamento' },
+        { id:'d01', data:'2026-09-24', cliente:'Cozinha Caseira',   setor:'Financeiro',          tipo:'Implantação do Saipos',       desc:'Cadastrar recorrências, mapear contas a receber e gerar relatórios',                                 resp:'Nathan', prazo:'2026-10-10', valor:'',     status:'em_andamento' },
         { id:'d02', data:'2026-09-17', cliente:'Cozinha Caseira',   setor:'Sucesso do Cliente',  tipo:'Verificar empréstimo',        desc:'Verificar com Lauanna se vai fazer o empréstimo com a manicure como fiadora',                        resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
         { id:'d03', data:'2026-09-24', cliente:'Cozinha Caseira',   setor:'Fiscal',              tipo:'Levantamento de débitos',     desc:'Fazer levantamento de débitos para apurar situação financeira do Bacana',                             resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
         { id:'d04', data:'2026-10-07', cliente:'Cozinha Caseira',   setor:'Financeiro',          tipo:'Gerar cobranças',             desc:'Criar cobranças no banco CORA para clientes com recorrências',                                       resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
-        { id:'d05', data:'2026-09-17', cliente:'Cozinha Caseira',   setor:'Fiscal',              tipo:'Regularizar bloqueio CNPJ',   desc:'Retirar bloqueio no CNPJ na UVT para compras (MEI antigo)',                                          resp:'Yuri',   prazo:'',           valor:'',     status:'em-andamento' },
-        { id:'d06', data:'2026-09-17', cliente:'GM Joias',          setor:'Financeiro',          tipo:'Implantação Bling',           desc:'Cobrar contratação do Bling para implantação de rotina financeira',                                   resp:'Nathan', prazo:'',           valor:'',     status:'em-andamento' },
-        { id:'d07', data:'2026-09-24', cliente:'GM Joias',          setor:'Financeiro',          tipo:'Implantação da planilha',     desc:'Cadastrar recorrências, mapear contas a receber e gerar relatórios',                                 resp:'Nathan', prazo:'2026-10-10', valor:'',     status:'em-andamento' },
-        { id:'d08', data:'2026-09-17', cliente:'GM Joias',          setor:'Fiscal',              tipo:'Acesso portal UVT',           desc:'Criar acesso PF na UVT',                                                                             resp:'Yuri',   prazo:'',           valor:'',     status:'em-andamento' },
-        { id:'d09', data:'2026-09-17', cliente:'GM Joias',          setor:'Societário',          tipo:'Abertura de MEI',             desc:'Abrir MEIs para as esposas',                                                                         resp:'Yuri',   prazo:'',           valor:'',     status:'em-andamento' },
+        { id:'d05', data:'2026-09-17', cliente:'Cozinha Caseira',   setor:'Fiscal',              tipo:'Regularizar bloqueio CNPJ',   desc:'Retirar bloqueio no CNPJ na UVT para compras (MEI antigo)',                                          resp:'Yuri',   prazo:'',           valor:'',     status:'em_andamento' },
+        { id:'d06', data:'2026-09-17', cliente:'GM Joias',          setor:'Financeiro',          tipo:'Implantação Bling',           desc:'Cobrar contratação do Bling para implantação de rotina financeira',                                   resp:'Nathan', prazo:'',           valor:'',     status:'em_andamento' },
+        { id:'d07', data:'2026-09-24', cliente:'GM Joias',          setor:'Financeiro',          tipo:'Implantação da planilha',     desc:'Cadastrar recorrências, mapear contas a receber e gerar relatórios',                                 resp:'Nathan', prazo:'2026-10-10', valor:'',     status:'em_andamento' },
+        { id:'d08', data:'2026-09-17', cliente:'GM Joias',          setor:'Fiscal',              tipo:'Acesso portal UVT',           desc:'Criar acesso PF na UVT',                                                                             resp:'Yuri',   prazo:'',           valor:'',     status:'em_andamento' },
+        { id:'d09', data:'2026-09-17', cliente:'GM Joias',          setor:'Societário',          tipo:'Abertura de MEI',             desc:'Abrir MEIs para as esposas',                                                                         resp:'Yuri',   prazo:'',           valor:'',     status:'em_andamento' },
         { id:'d10', data:'2026-10-07', cliente:'GM Joias',          setor:'Financeiro',          tipo:'Gerar cobranças',             desc:'Criar cobranças no banco CORA para clientes com recorrências',                                       resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
-        { id:'d11', data:'2026-09-17', cliente:'GM Joias',          setor:'Sucesso do Cliente',  tipo:'Aquisição de Empréstimo',     desc:'Solicitar para Rodrigo o empréstimo do Desenvolve RN',                                               resp:'Nathan', prazo:'',           valor:'',     status:'aguardando'   },
+        { id:'d11', data:'2026-09-17', cliente:'GM Joias',          setor:'Sucesso do Cliente',  tipo:'Aquisição de Empréstimo',     desc:'Solicitar para Rodrigo o empréstimo do Desenvolve RN',                                               resp:'Nathan', prazo:'',           valor:'',     status:'pendente'   },
         { id:'d12', data:'2026-09-17', cliente:'Jurema',            setor:'Depto. Pessoal',      tipo:'Emissão de Guia',             desc:'CND do FGTS',                                                                                        resp:'Nathan', prazo:'',           valor:'',     status:'concluido'    },
         { id:'d13', data:'2026-09-17', cliente:'Jurema',            setor:'Societário',          tipo:'Regularização',               desc:'Enviar guias para cliente pagar',                                                                     resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
         { id:'d14', data:'2026-10-07', cliente:'Jurema',            setor:'Financeiro',          tipo:'Gerar cobranças',             desc:'Criar cobranças no banco CORA para clientes com recorrências',                                       resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
         { id:'d15', data:'2026-09-17', cliente:'Jurema',            setor:'Societário',          tipo:'Cadastro no município',       desc:'Cadastro do município de Natal — requerimento indeferido; relançado',                                 resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
-        { id:'d16', data:'2026-09-17', cliente:'Kitanda Paraíso',   setor:'Depto. Pessoal',      tipo:'Admissão de funcionários',    desc:'Cobrar documentos para registro e incluir na folha',                                                 resp:'Nathan', prazo:'',           valor:'',     status:'aguardando'   },
-        { id:'d17', data:'2026-09-24', cliente:'Kitanda Paraíso',   setor:'Financeiro',          tipo:'Implantação da planilha',     desc:'Cadastrar recorrências, mapear contas a receber e gerar relatórios',                                 resp:'Nathan', prazo:'2026-10-10', valor:'',     status:'em-andamento' },
+        { id:'d16', data:'2026-09-17', cliente:'Kitanda Paraíso',   setor:'Depto. Pessoal',      tipo:'Admissão de funcionários',    desc:'Cobrar documentos para registro e incluir na folha',                                                 resp:'Nathan', prazo:'',           valor:'',     status:'pendente'   },
+        { id:'d17', data:'2026-09-24', cliente:'Kitanda Paraíso',   setor:'Financeiro',          tipo:'Implantação da planilha',     desc:'Cadastrar recorrências, mapear contas a receber e gerar relatórios',                                 resp:'Nathan', prazo:'2026-10-10', valor:'',     status:'em_andamento' },
         { id:'d18', data:'2026-09-17', cliente:'Kitanda Paraíso',   setor:'Societário',          tipo:'Regularização CNPJ',          desc:'Regularizar o CNPJ do Pai de Wilson',                                                                resp:'Yuri',   prazo:'',           valor:'750',  status:'concluido'    },
         { id:'d19', data:'2026-10-07', cliente:'Kitanda Paraíso',   setor:'Financeiro',          tipo:'Gerar cobranças',             desc:'Criar cobranças no banco CORA para clientes com recorrências',                                       resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
-        { id:'d20', data:'2026-10-08', cliente:'Kitanda Paraíso',   setor:'Fiscal',              tipo:'Declarar SEFIP',              desc:'Fazer declaração da SEFIP de Janeiro',                                                               resp:'Nathan', prazo:'',           valor:'',     status:'aguardando'   },
-        { id:'d21', data:'2026-09-17', cliente:'Lidera Planejados', setor:'Depto. Pessoal',      tipo:'Admissão de funcionários',    desc:'Cobrar documentos para registro e incluir na folha',                                                 resp:'Nathan', prazo:'',           valor:'',     status:'aguardando'   },
-        { id:'d22', data:'2026-09-24', cliente:'Lidera Planejados', setor:'Financeiro',          tipo:'Implantação da planilha',     desc:'Cadastrar recorrências, mapear contas a receber e gerar relatórios',                                 resp:'Nathan', prazo:'2026-10-10', valor:'',     status:'em-andamento' },
+        { id:'d20', data:'2026-10-08', cliente:'Kitanda Paraíso',   setor:'Fiscal',              tipo:'Declarar SEFIP',              desc:'Fazer declaração da SEFIP de Janeiro',                                                               resp:'Nathan', prazo:'',           valor:'',     status:'pendente'   },
+        { id:'d21', data:'2026-09-17', cliente:'Lidera Planejados', setor:'Depto. Pessoal',      tipo:'Admissão de funcionários',    desc:'Cobrar documentos para registro e incluir na folha',                                                 resp:'Nathan', prazo:'',           valor:'',     status:'pendente'   },
+        { id:'d22', data:'2026-09-24', cliente:'Lidera Planejados', setor:'Financeiro',          tipo:'Implantação da planilha',     desc:'Cadastrar recorrências, mapear contas a receber e gerar relatórios',                                 resp:'Nathan', prazo:'2026-10-10', valor:'',     status:'em_andamento' },
         { id:'d23', data:'2026-09-17', cliente:'Lidera Planejados', setor:'Societário',          tipo:'Acesso portal nacional',      desc:'Criar usuário no portal nacional',                                                                    resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
         { id:'d24', data:'2026-09-17', cliente:'Lidera Planejados', setor:'Sucesso do Cliente',  tipo:'Retorno com o banco',         desc:'Enviar documentos para o banco',                                                                     resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
         { id:'d25', data:'2026-09-17', cliente:'Lidera Planejados', setor:'Societário',          tipo:'Acesso portal UVT',           desc:'Criar usuário PF na UVT',                                                                            resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
@@ -4173,14 +4275,14 @@ function saveClientDefaults(){
    DEMANDAS — KANBAN
 ═══════════════════════════════════════════════ */
 const DEM_COLUMNS=[
-  {key:'aguardando',   label:'Aguardando',   color:'var(--amber)'},
-  {key:'em-andamento', label:'Em Andamento',  color:'var(--blue)'},
+  {key:'pendente',     label:'Aguardando',   color:'var(--amber)'},
+  {key:'em_andamento', label:'Em Andamento',  color:'var(--blue)'},
   {key:'concluido',    label:'Concluído',     color:'var(--green)'},
   {key:'cancelado',    label:'Cancelado',     color:'var(--fg4)'},
 ];
 const STATUS_OPTS=[
-  {v:'aguardando',l:'Aguardando'},
-  {v:'em-andamento',l:'Em andamento'},
+  {v:'pendente',l:'Aguardando'},
+  {v:'em_andamento',l:'Em andamento'},
   {v:'concluido',l:'Concluído'},
   {v:'cancelado',l:'Cancelado'},
 ];
@@ -4216,6 +4318,7 @@ function renderDemandas(){
       const prazoDate=d.prazo?new Date(d.prazo):null;
       const isOverdue=prazoDate&&prazoDate<now&&col.key!=='concluido'&&col.key!=='cancelado';
       const prazoFmt=d.prazo?d.prazo.split('-').reverse().join('/'):'';
+      const pinfo = d.prazo ? prazoInfo(d.prazo) : null;
       const statusSelOpts=STATUS_OPTS.map(o=>'<option value="'+o.v+'"'+(d.status===o.v?' selected':'')+'>'+o.l+'</option>').join('');
       const clientObj = clients.find(c=>c.name===d.cliente);
       const clientNotes = clientObj&&clientObj.notes?clientObj.notes:'';
@@ -4236,7 +4339,7 @@ function renderDemandas(){
           '<span>👤 '+escHtml(d.resp||'—')+'</span>'+
           '<span class="dem-tag '+(d.setor||'outros')+'">'+escHtml(d.setor||'')+'</span>'+
         '</div>'+
-        (prazoFmt?'<div class="dem-kan-meta" style="margin-top:3px">📅 '+prazoFmt+'</div>':'')+
+        (prazoFmt?'<div class="dem-kan-meta" style="margin-top:3px">📅 '+prazoFmt+(pinfo&&col.key!=='concluido'&&col.key!=='cancelado'?' <span class="hoje-prazo-chip '+pinfo.cls+'">'+pinfo.label+'</span>':'')+'</div>':'')+
         (isOverdue?'<div class="dem-kan-overdue">⚠️ Prazo vencido</div>':'')+
         '<div class="dem-kan-footer">'+
           '<select class="dem-status-select" onchange="changeDemStatus(\''+escAttr(d.id)+'\',this.value)">'+statusSelOpts+'</select>'+
@@ -4284,7 +4387,7 @@ function quickAddDemanda(){
     resp:'',
     setor:'',
     prazo,
-    status:'aguardando',
+    status:'pendente',
     data:new Date().toISOString().slice(0,10)
   });
   save('cb3_demandas',demandas);
@@ -4373,7 +4476,7 @@ function removeDemanda(i){
 function renderRadarDemandas(){
   const el = document.getElementById('radarDemandasList');
   if(!el) return;
-  const active = demandas.filter(d=>d.status==='aguardando'||d.status==='em-andamento');
+  const active = demandas.filter(d=>d.status==='pendente'||d.status==='em_andamento');
   if(!active.length){
     el.innerHTML='<div class="radar-dem-item"><span style="color:var(--green);font-size:13px">✅ Sem demandas ativas no momento</span></div>';
     return;
@@ -4384,7 +4487,7 @@ function renderRadarDemandas(){
     ? '<div style="background:rgba(220,38,38,.1);border-left:3px solid var(--red);border-radius:6px;padding:6px 10px;margin-bottom:8px;font-size:12px;color:var(--red);font-weight:700">⚠ '+overdueCount+' demanda'+(overdueCount>1?'s':'')+' com prazo vencido</div>'
     : '';
   el.innerHTML = summaryBanner + active.slice(0,8).map(d=>{
-    const isEm = d.status==='em-andamento';
+    const isEm = d.status==='em_andamento';
     const sClass = isEm ? 'amber' : 'red';
     const sLabel = isEm ? 'em andamento' : 'aguardando';
     const prazoDate = d.prazo ? new Date(d.prazo) : null;
