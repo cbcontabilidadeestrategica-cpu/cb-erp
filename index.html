@@ -1495,11 +1495,10 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
     <div class="ig-add-form">
       <div class="form-group" style="flex:2;min-width:120px">
         <label>Tipo</label>
-        <select id="igEvType">
+        <select id="igEvType" title="Demandas, obrigações e follow-ups comerciais aparecem aqui sozinhos — cadastre-os nas abas Demandas Pontuais, Obrigações ou CRM. Use este formulário só para marketing, entregas e reuniões.">
           <option value="post">📸 Post</option>
           <option value="gravacao">🎬 Gravação</option>
           <option value="edicao">✂️ Edição</option>
-          <option value="demanda">📋 Demanda específica</option>
           <option value="entrega">📦 Entrega a cliente</option>
           <option value="reuniao">🗣️ Reunião</option>
         </select>
@@ -2612,9 +2611,9 @@ function renderRadar() {
   }
 
   document.getElementById('radarKpis').innerHTML =
-    '<div class="radar-kpi"><div class="radar-kpi-num">'+urgent48+'</div><div class="radar-kpi-label">48h</div></div>'+
-    '<div class="radar-kpi"><div class="radar-kpi-num">'+week7+'</div><div class="radar-kpi-label">semana</div></div>'+
-    '<div class="radar-kpi"><div class="radar-kpi-num">'+closingPct+'%</div><div class="radar-kpi-label">fechamento</div></div>';
+    '<div class="radar-kpi" title="Obrigações por cliente + demandas pontuais com prazo entre ontem (atrasadas) e os próximos 2 dias"><div class="radar-kpi-num">'+urgent48+'</div><div class="radar-kpi-label">48h</div></div>'+
+    '<div class="radar-kpi" title="O mesmo que o 48h, mas olhando até 7 dias pra frente"><div class="radar-kpi-num">'+week7+'</div><div class="radar-kpi-label">semana</div></div>'+
+    '<div class="radar-kpi" title="% de etapas do fechamento do mês já concluídas, somando todos os clientes ativos"><div class="radar-kpi-num">'+closingPct+'%</div><div class="radar-kpi-label">fechamento</div></div>';
 
   const obligMeta = g => g.clientes ? (g.clientes.length+' cliente'+(g.clientes.length===1?'':'s')+' pendente'+(g.clientes.length===1?'':'s')+' · '+escHtml(g.setor)) : escHtml(g.setor);
   const todayObs = gruposPendentes.filter(g => g.dd !== null && g.dd >= 0).sort((a,b)=>a.dd-b.dd).slice(0,5);
@@ -2898,9 +2897,9 @@ function renderIgStats(){
     '<div class="ig-stat-box"><div class="ig-stat-num">'+posts.length+'</div><div class="ig-stat-label">Posts '+MONTHS_PT[mo].slice(0,3)+'</div></div>'+
     '<div class="ig-stat-box"><div class="ig-stat-num" style="color:var(--green)">'+publicados+'</div><div class="ig-stat-label">Publicados</div></div>'+
     '<div class="ig-stat-box"><div class="ig-stat-num" style="color:var(--blue)">'+agendados+'</div><div class="ig-stat-label">Agendados</div></div>'+
-    '<div class="ig-stat-box"><div class="ig-stat-num" style="color:#6366f1">'+reuniaoCountMes(yr,mo)+'</div><div class="ig-stat-label">Reuniões '+MONTHS_PT[mo].slice(0,3)+'</div></div>'+
-    '<div class="ig-stat-box"><div class="ig-stat-num" style="color:#ef4444">'+obrigacoesPendentesMes(yr,mo)+'</div><div class="ig-stat-label">Obrig. pendentes</div></div>'+
-    '<div class="ig-stat-box"><div class="ig-stat-num" style="color:var(--amber)">'+proximos+'</div><div class="ig-stat-label">Próximos eventos</div></div>';
+    '<div class="ig-stat-box" title="Reuniões cadastradas manualmente na Agenda neste mês"><div class="ig-stat-num" style="color:#6366f1">'+reuniaoCountMes(yr,mo)+'</div><div class="ig-stat-label">Reuniões '+MONTHS_PT[mo].slice(0,3)+'</div></div>'+
+    '<div class="ig-stat-box" title="Obrigações reais por cliente (fiscal, pessoal, contábil) com prazo neste mês e ainda não concluídas"><div class="ig-stat-num" style="color:#ef4444">'+obrigacoesPendentesMes(yr,mo)+'</div><div class="ig-stat-label">Obrig. pendentes</div></div>'+
+    '<div class="ig-stat-box" title="Todos os eventos da Agenda (posts, gravações, reuniões, entregas) com data a partir de hoje"><div class="ig-stat-num" style="color:var(--amber)">'+proximos+'</div><div class="ig-stat-label">Próximos eventos</div></div>';
 }
 
 // Conta reuniões/obrigações do mês mostrado na Agenda — mesma lógica usada
@@ -4679,6 +4678,7 @@ function runGlobalSearch(q){
   const query=(q||'').trim().toLowerCase();
   if(query.length<2){el.innerHTML='<div class="gs-empty">Digite ao menos 2 caracteres…</div>';return;}
   const STAGE_LBL={prosp:'Prospecção',qual:'Qualificado',prop:'Proposta',neg:'Negociação',negotiation:'Negociação',won:'Fechado',lost:'Perdido'};
+  const DEM_STATUS_LBL={pendente:'Pendente',em_andamento:'Em andamento',concluido:'Concluído',cancelado:'Cancelado'};
   let html='';
   const mc=clients.filter(c=>(c.name||'').toLowerCase().includes(query));
   if(mc.length) html+='<div class="global-search-section">Clientes</div>'+mc.slice(0,5).map(c=>
@@ -4693,7 +4693,7 @@ function runGlobalSearch(q){
   const md=demandas.filter(d=>(d.cliente||'').toLowerCase().includes(query)||(d.tipo||'').toLowerCase().includes(query)||(d.desc||'').toLowerCase().includes(query));
   if(md.length) html+='<div class="global-search-section">Demandas</div>'+md.slice(0,5).map(d=>
     '<div class="global-search-item" onclick="closeGlobalSearch();switchTab(\'demandas\',null)">'+
-    '<span style="font-size:14px">📋</span><div><div class="gs-name">'+escHtml(d.tipo||'Demanda')+'</div><div class="gs-sub">'+escHtml(d.cliente)+' · '+escHtml(d.status)+'</div></div>'+
+    '<span style="font-size:14px">📋</span><div><div class="gs-name">'+escHtml(d.tipo||'Demanda')+'</div><div class="gs-sub">'+escHtml(d.cliente)+' · '+(DEM_STATUS_LBL[d.status]||escHtml(d.status))+'</div></div>'+
     '<span class="gs-badge">Demanda</span></div>').join('');
   el.innerHTML=html||'<div class="gs-empty">Nenhum resultado para "'+escHtml(q)+'"</div>';
 }
