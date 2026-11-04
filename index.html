@@ -1266,6 +1266,9 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .fin-add-btn:hover{background:var(--surface2,rgba(0,0,0,.03));color:var(--navy)}
 /* ── Demandas quickadd ── */
 .dem-quickadd-strip{grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+.dem-filter-bar{grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.dem-filter-label{font-size:.78rem;color:var(--fg3);font-weight:600}
+.dem-filter-select{flex:0 0 auto;min-width:140px}
 .qa-input{font-size:.8rem;padding:.35rem .6rem;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--fg);flex:1;min-width:80px}
 .qa-input:focus{outline:none;border-color:var(--navy)}
 .qa-btn{font-size:.8rem;padding:.35rem .9rem;border-radius:6px;background:var(--navy);color:#fff;border:none;cursor:pointer;white-space:nowrap;font-weight:600}
@@ -2372,7 +2375,11 @@ const ACESSOS_SEED_ROWS = [
   { cliente:'Yuri Chavante Antunes', cnpj:'64.505.679/0001-53', cpf:'', nasc:'', inscMun:'',        inscEst:'',             portalNacional:'', loginUvtPJ:'',               loginUvtPF:'',          senhaUvt:'', senhaDirecta:'', senhaEsocial:'' },
   { cliente:'MEI Rodrigo Araújo',    cnpj:'69.041.180/0001-56', cpf:'', nasc:'', inscMun:'',        inscEst:'',             portalNacional:'', loginUvtPJ:'',               loginUvtPF:'',          senhaUvt:'', senhaDirecta:'', senhaEsocial:'' },
 ];
-let fecYear, fecMonth, igYear, igMonth, igSelectedDate = null, demFilter = 'all', igView = 'cal';
+let fecYear, fecMonth, igYear, igMonth, igSelectedDate = null, igView = 'cal';
+// Filtros reais do kanban de Demandas Pontuais — por responsável e setor,
+// numa linha acima das colunas (substituem o demFilter/setDemFilter antigos,
+// que eram de uma versão em lista do kanban e nunca tinham UI de verdade).
+let demFilterResp = 'all', demFilterSetor = 'all';
 let editingIgEventId = null, igWeekStart = null;
 let finYear, finMonth;
 let editingLeadId = null, editingClientId = null;
@@ -4402,6 +4409,7 @@ function renderClientes(){
           '</div>'+
         '</div>'+
         '<div class="csc-actions">'+
+          '<button class="btn-sm" style="background:var(--green);color:#fff" onclick="quickRegisterContact('+c.id+')" title="Marca hoje como último contato — sem precisar abrir a aba Sucesso do Cliente">✓ Contato hoje</button>'+
           '<button class="btn-sm navy" onclick="openEditClientModal('+c.id+')">✏️ Editar</button>'+
         '</div>'+
       '</div>'+
@@ -4573,6 +4581,20 @@ function toggleOnb(clientId, stepId){
 }
 
 /* CS */
+// Ação de 1 clique no topo do card — registra "hoje" como último contato
+// sem precisar abrir a aba Sucesso do Cliente e preencher a data manual.
+// Mesmo campo (cs.lastContact) que já alimenta o alerta de inatividade
+// aqui no card e no radar do Início.
+function quickRegisterContact(clientId){
+  if(!csData[clientId]) csData[clientId]={};
+  const pad=n=>String(n).padStart(2,'0');
+  const now=new Date();
+  csData[clientId].lastContact = now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate());
+  save('cb3_cs',csData);
+  renderClientes();
+  showToast('Contato de hoje registrado!', 'ok');
+}
+
 function setCsSat(clientId,val){
   if(!csData[clientId]) csData[clientId]={};
   csData[clientId].satisfaction=csData[clientId].satisfaction===val?0:val;
@@ -4825,8 +4847,29 @@ function renderDemandas(){
     '<button class="qa-btn" onclick="quickAddDemanda()">+ Adicionar</button>'+
   '</div>';
 
-  kanban.innerHTML=qaStrip+DEM_COLUMNS.map((col,colIdx)=>{
-    const items=demandas.filter(d=>d.status===col.key);
+  // Filtros de verdade (responsável/setor) numa linha acima das colunas —
+  // antes só existia a barra de adição rápida; nenhum filtro funcional
+  // existia de fato (o demFilter antigo nunca tinha UI nem era aplicado
+  // no kanban).
+  const respsEmUso = [...new Set(demandas.map(d=>d.resp).filter(Boolean))];
+  const setoresEmUso = [...new Set(demandas.map(d=>d.setor).filter(Boolean))];
+  const filterBar = '<div class="dem-filter-bar">'+
+    '<span class="dem-filter-label">Filtrar:</span>'+
+    '<select class="qa-input dem-filter-select" onchange="setDemFilterResp(this.value)">'+
+      '<option value="all"'+(demFilterResp==='all'?' selected':'')+'>👤 Todos responsáveis</option>'+
+      respsEmUso.map(r=>'<option value="'+escAttr(r)+'"'+(demFilterResp===r?' selected':'')+'>'+escHtml(r)+'</option>').join('')+
+    '</select>'+
+    '<select class="qa-input dem-filter-select" onchange="setDemFilterSetor(this.value)">'+
+      '<option value="all"'+(demFilterSetor==='all'?' selected':'')+'>🏷️ Todos setores</option>'+
+      setoresEmUso.map(s=>'<option value="'+escAttr(s)+'"'+(demFilterSetor===s?' selected':'')+'>'+escHtml(s)+'</option>').join('')+
+    '</select>'+
+    ((demFilterResp!=='all'||demFilterSetor!=='all')?'<button class="qa-btn" style="background:var(--fg4)" onclick="clearDemFilters()">× Limpar filtro</button>':'')+
+  '</div>';
+
+  kanban.innerHTML=qaStrip+filterBar+DEM_COLUMNS.map((col,colIdx)=>{
+    const items=demandas.filter(d=>d.status===col.key
+      && (demFilterResp==='all'||d.resp===demFilterResp)
+      && (demFilterSetor==='all'||d.setor===demFilterSetor));
     const cards=items.map((d)=>{
       const prazoDate=d.prazo?new Date(d.prazo):null;
       const isOverdue=prazoDate&&prazoDate<now&&col.key!=='concluido'&&col.key!=='cancelado';
@@ -4913,6 +4956,10 @@ function quickAddDemanda(){
 }
 
 let draggingDemandaId = null;
+function setDemFilterResp(v){ demFilterResp=v; renderDemandas(); }
+function setDemFilterSetor(v){ demFilterSetor=v; renderDemandas(); }
+function clearDemFilters(){ demFilterResp='all'; demFilterSetor='all'; renderDemandas(); }
+
 function dragDemandaStart(ev, id){ draggingDemandaId = id; try{ ev.dataTransfer.effectAllowed='move'; }catch(e){} }
 function dropDemandaOnCol(ev, colKey){
   ev.preventDefault();
@@ -4958,8 +5005,6 @@ function removeDemandaById(id, skipConfirm){
   showToast('Demanda excluída.', 'ok');
 }
 
-function setDemFilter(f){demFilter=f;renderDemandas()}
-
 function toggleDemForm(){
   const f=document.getElementById('demForm');
   f.classList.toggle('visible');
@@ -4993,10 +5038,6 @@ function addDemanda(){
   showToast('Demanda adicionada com sucesso!', 'ok');
 }
 
-function removeDemanda(i){
-  const filtered=demFilter==='all'?demandas:demandas.filter(d=>d.status===demFilter);
-  if(filtered[i]){removeDemandaById(filtered[i].id);}
-}
 
 /* ═══════════════════════════════════════════════
    RADAR — DEMANDAS
