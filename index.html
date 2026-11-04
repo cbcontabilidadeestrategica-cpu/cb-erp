@@ -1261,7 +1261,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .fin-add-btn{display:block;width:100%;text-align:center;font-size:.75rem;font-weight:700;color:var(--fg2);background:none;border:1px dashed var(--border);border-radius:8px;padding:.5rem;cursor:pointer;margin-top:.5rem}
 .fin-add-btn:hover{background:var(--surface2,rgba(0,0,0,.03));color:var(--navy)}
 /* ── Demandas quickadd ── */
-.dem-quickadd-strip{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+.dem-quickadd-strip{grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
 .qa-input{font-size:.8rem;padding:.35rem .6rem;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--fg);flex:1;min-width:80px}
 .qa-input:focus{outline:none;border-color:var(--navy)}
 .qa-btn{font-size:.8rem;padding:.35rem .9rem;border-radius:6px;background:var(--navy);color:#fff;border:none;cursor:pointer;white-space:nowrap;font-weight:600}
@@ -1282,7 +1282,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 <!-- Login Overlay -->
 <div id="loginOverlay" style="display:none">
   <div class="login-card">
-    <div class="login-logo"><svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:52px;height:52px"><circle cx="13" cy="18" r="10" stroke="white" stroke-width="2.5" fill="none"/><path d="M20 9h5a5 5 0 0 1 5 5v0a5 5 0 0 1-5 5h-5V9z" stroke="white" stroke-width="2.5" fill="none" stroke-linejoin="round"/><path d="M20 18h6a5 5 0 0 1 5 5v0a5 5 0 0 1-5 5h-6V18z" stroke="white" stroke-width="2.5" fill="none" stroke-linejoin="round"/></svg></div>
+    <div class="login-logo"><svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:52px;height:52px"><path d="M16.5 9.5 A10 10 0 1 0 16.5 26.5" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none"/><path d="M22 8 V28 M22 8 a5 5 0 0 1 0 10 M22 18 a5 5 0 0 1 0 10" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg></div>
     <div class="login-title">CB Contabilidade Estratégica</div>
     <div class="login-sub">CB HUB — acesso da equipe</div>
     <form class="login-form" onsubmit="event.preventDefault();doLogin()">
@@ -1299,7 +1299,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
   <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="sidebar-logo">
-      <div class="sidebar-logo-icon"><svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%"><circle cx="13" cy="18" r="10" stroke="white" stroke-width="2.5" fill="none"/><path d="M20 9h5a5 5 0 0 1 5 5v0a5 5 0 0 1-5 5h-5V9z" stroke="white" stroke-width="2.5" fill="none" stroke-linejoin="round"/><path d="M20 18h6a5 5 0 0 1 5 5v0a5 5 0 0 1-5 5h-6V18z" stroke="white" stroke-width="2.5" fill="none" stroke-linejoin="round"/></svg></div>
+      <div class="sidebar-logo-icon"><svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%"><path d="M16.5 9.5 A10 10 0 1 0 16.5 26.5" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none"/><path d="M22 8 V28 M22 8 a5 5 0 0 1 0 10 M22 18 a5 5 0 0 1 0 10" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg></div>
       <div>
         <div class="sidebar-brand-name">CB HUB</div>
         <div class="sidebar-brand-sub">Contabilidade</div>
@@ -1313,12 +1313,18 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
       <ul class="sidebar-search-results" id="sidebarSearchResults"></ul>
     </div>
     <nav class="sidebar-nav">
+      <!-- Ordem reorganizada pra seguir o fluxo real do dia a dia, em vez de
+           ficar aleatória: visão geral → operacional (o que precisa ser
+           feito hoje/no mês/avulso) → base de clientes → comercial/marketing
+           (funil + agenda, que já conversam entre si) → resultado financeiro.
+           Abas que "conversam" entre si (operacional; comercial+marketing)
+           agora ficam vizinhas, em vez de espalhadas. -->
       <button class="sidebar-nav-btn active" onclick="switchTab('radar',this)" data-tab="radar"><span class="nav-icon">📡</span><span class="nav-label"> Início</span></button>
       <button class="sidebar-nav-btn" onclick="switchTab('hoje',this)" data-tab="hoje"><span class="nav-icon">🎯</span><span class="nav-label"> Hoje</span></button>
-      <button class="sidebar-nav-btn" onclick="switchTab('clientes',this)" data-tab="clientes"><span class="nav-icon">👥</span><span class="nav-label"> Clientes</span></button>
-      <button class="sidebar-nav-btn" onclick="switchTab('funil',this)" data-tab="funil"><span class="nav-icon">🎯</span><span class="nav-label"> CRM</span></button>
       <button class="sidebar-nav-btn" onclick="switchTab('fechamento',this)" data-tab="fechamento"><span class="nav-icon">✅</span><span class="nav-label"> Obrigações</span></button>
       <button class="sidebar-nav-btn" onclick="switchTab('demandas',this)" data-tab="demandas"><span class="nav-icon">📋</span><span class="nav-label"> Demandas Pontuais</span></button>
+      <button class="sidebar-nav-btn" onclick="switchTab('clientes',this)" data-tab="clientes"><span class="nav-icon">👥</span><span class="nav-label"> Clientes</span></button>
+      <button class="sidebar-nav-btn" onclick="switchTab('funil',this)" data-tab="funil"><span class="nav-icon">🎯</span><span class="nav-label"> CRM</span></button>
       <button class="sidebar-nav-btn" onclick="switchTab('instagram',this)" data-tab="instagram"><span class="nav-icon">📅</span><span class="nav-label"> Agenda</span></button>
       <button class="sidebar-nav-btn" onclick="switchTab('financeiro',this)" data-tab="financeiro"><span class="nav-icon">💰</span><span class="nav-label"> Financeiro</span></button>
     </nav>
@@ -1335,7 +1341,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
     <!-- HEADER -->
     <header class="header">
       <div class="header-brand">
-        <div class="cb-logo"><svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="13" cy="18" r="10" stroke="white" stroke-width="2.5" fill="none"/><path d="M20 9h5a5 5 0 0 1 5 5v0a5 5 0 0 1-5 5h-5V9z" stroke="white" stroke-width="2.5" fill="none" stroke-linejoin="round"/><path d="M20 18h6a5 5 0 0 1 5 5v0a5 5 0 0 1-5 5h-6V18z" stroke="white" stroke-width="2.5" fill="none" stroke-linejoin="round"/></svg></div>
+        <div class="cb-logo"><svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16.5 9.5 A10 10 0 1 0 16.5 26.5" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none"/><path d="M22 8 V28 M22 8 a5 5 0 0 1 0 10 M22 18 a5 5 0 0 1 0 10" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg></div>
         <div>
           <span class="brand-name">CB</span>
           <span class="brand-sub">Contabilidade Estratégica</span>
@@ -1763,6 +1769,15 @@ async function showApp(user) {
     try{ renderRadar(); }catch(e){ console.error('Falha ao repintar Início:', e); }
     try{ renderFechamento(); }catch(e){ console.error('Falha ao repintar Obrigações:', e); }
     try{ renderClientes(); }catch(e){ console.error('Falha ao repintar Clientes:', e); }
+    // Agenda também depende de hojeTarefas (obrigações reais por cliente) —
+    // sem repintar aqui, o painel do dia ficava "vazio" se o clique
+    // acontecesse antes dessa busca assíncrona terminar (bug reportado:
+    // dia clicado sem obrigação/demanda/comercial mesmo já existindo).
+    try{
+      renderIgCalGrid();
+      if(igSelectedDate) renderIgDayPanel(igSelectedDate);
+      if(igView==='week') renderIgWeek();
+    }catch(e){ console.error('Falha ao repintar Agenda:', e); }
   }).catch(e=>console.error('Falha ao materializar obrigações:', e));
 }
 
@@ -2971,7 +2986,24 @@ function obrigacoesPendentesMes(yr, mo){
   }).length;
 }
 
-function renderIgCal(){
+// Garante que as obrigações reais do mês mostrado já existam em `tarefa`
+// antes de pintar a grade — mesmo padrão que o renderFechamento já usa pro
+// mês dele (fecYear/fecMonth). Sem isso, navegar a Agenda pra um mês ainda
+// não materializado (ex.: mês seguinte) deixava os dias "vazios" mesmo
+// tendo cronograma recorrente previsto — bug reportado pelo Nathan.
+async function renderIgCal(){
+  renderIgCalGrid();
+  if(!isPastMonth(igYear, igMonth)){
+    try {
+      await ensureMonthMaterialized(igYear, igMonth);
+      renderIgCalGrid();
+      if(igSelectedDate) renderIgDayPanel(igSelectedDate);
+      if(igView==='week') renderIgWeek();
+    } catch(e){ console.warn('ensureMonthMaterialized falhou (Agenda):', e); }
+  }
+}
+
+function renderIgCalGrid(){
   document.getElementById('igMonthLabel').textContent = MONTHS_PT[igMonth]+' '+igYear;
   const now = new Date();
   const todayD = (now.getFullYear()===igYear && now.getMonth()===igMonth) ? now.getDate() : -1;
@@ -3866,6 +3898,91 @@ function fmtBRL(v){
   return 'R$ '+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 
+// Mensalidade de um cliente — prioriza o valor digitado em revenues[c.id]
+// (string, formato BR livre: "1.234,56") sobre o c.mensalidade do cadastro
+// (número JS puro, ex. 466.66). Bug real encontrado: aplicar o mesmo
+// replace(/[^\d,]/g,'') direto num número JS stringificado ("466.66")
+// removia o ponto decimal tratando-o como separador de milhar, virando
+// 46666 — GM Joias (a única mensalidade com centavos) aparecia 100x maior
+// em qualquer tela que usasse esse cálculo (Clientes, e agora Financeiro).
+function parseMensalidade(c){
+  const raw = revenues[c.id];
+  if(raw!=null && raw!==''){
+    return parseFloat(String(raw).replace(/[^\d,]/g,'').replace(',','.'))||0;
+  }
+  return Number(c.mensalidade)||0;
+}
+
+// Precificação & margem — não temos custo real por cliente (tempo gasto,
+// folha etc.), então em vez de inventar número, usamos o nº de obrigações
+// mensais de cada cliente (getSteps, a mesma fonte que já dirige o
+// checklist de Obrigações) como proxy honesto de carga de trabalho: quanto
+// mais etapas o cliente exige por mês, mais operação ele consome. Preço por
+// obrigação = mensalidade ÷ nº de etapas, comparado à média do mesmo nível
+// (Prata/Ouro) pra sinalizar quem está defasado — dado real, não estimado.
+function calcPricingData(){
+  const rows = clients.map(c=>{
+    const mensalidade = parseMensalidade(c);
+    const steps = getSteps(c).length;
+    const precoPorObrig = steps ? mensalidade/steps : 0;
+    return { id:c.id, name:c.name, nivel:c.nivel||'—', regime:c.regime, mensalidade, steps, servicos:(c.services||[]).length, precoPorObrig };
+  });
+  const porNivel = {};
+  rows.forEach(r=>{ if(r.mensalidade>0){ (porNivel[r.nivel]=porNivel[r.nivel]||[]).push(r.precoPorObrig); } });
+  const mediaNivel = {};
+  Object.keys(porNivel).forEach(n=>{ const arr=porNivel[n]; mediaNivel[n]=arr.reduce((s,v)=>s+v,0)/arr.length; });
+  return { rows, mediaNivel };
+}
+
+function renderPrecificacaoCard(){
+  const { rows, mediaNivel } = calcPricingData();
+  const comMensalidade = rows.filter(r=>r.mensalidade>0);
+  const mrrTotal = comMensalidade.reduce((s,r)=>s+r.mensalidade,0);
+  const ticketMedio = comMensalidade.length ? mrrTotal/comMensalidade.length : 0;
+  const top3 = comMensalidade.slice().sort((a,b)=>b.mensalidade-a.mensalidade).slice(0,3);
+  const concentracaoPct = mrrTotal ? Math.round(top3.reduce((s,r)=>s+r.mensalidade,0)/mrrTotal*100) : 0;
+  const sorted = rows.slice().sort((a,b)=>a.precoPorObrig-b.precoPorObrig);
+  return `
+    <div class="fin-card" style="grid-column:1/-1">
+      <div class="fin-card-hd">
+        <h3>💡 Precificação & Margem</h3>
+        <span class="fin-card-total">Ticket médio: ${fmtBRL(ticketMedio)}</span>
+      </div>
+      <p style="font-size:11px;color:var(--fg3);margin:-4px 0 10px;line-height:1.5">
+        R$/obrigação = mensalidade ÷ nº de obrigações mensais do cliente (proxy de carga de trabalho — não é custo real, já que não rastreamos horas). Comparado à média do mesmo nível: clientes bem abaixo são candidatos a reajuste.
+      </p>
+      <table class="fin-table">
+        <thead><tr>
+          <th>Cliente</th><th>Nível</th><th style="text-align:center">Obrig./mês</th>
+          <th style="text-align:right">Mensalidade</th><th style="text-align:right">R$/obrigação</th><th>vs. média do nível</th>
+        </tr></thead>
+        <tbody>
+          ${sorted.map(r=>{
+            const media = mediaNivel[r.nivel]||0;
+            const diffPct = (media && r.mensalidade>0) ? ((r.precoPorObrig-media)/media*100) : null;
+            let flag;
+            if(r.mensalidade===0) flag='<span style="color:var(--fg4)">⚪ Sem mensalidade</span>';
+            else if(diffPct===null) flag='<span style="color:var(--fg4)">—</span>';
+            else if(diffPct<=-20) flag='<span style="color:var(--red);font-weight:700">🔴 '+Math.round(diffPct)+'% — candidato a reajuste</span>';
+            else if(diffPct>=20) flag='<span style="color:var(--green);font-weight:700">🟢 '+Math.round(diffPct)+'% acima</span>';
+            else flag='<span style="color:var(--amber)">🟡 na média</span>';
+            return `<tr>
+              <td style="font-weight:600">${escHtml(r.name)}</td>
+              <td>${escHtml(r.nivel)}</td>
+              <td style="text-align:center">${r.steps}</td>
+              <td style="text-align:right">${fmtBRL(r.mensalidade)}</td>
+              <td style="text-align:right">${fmtBRL(r.precoPorObrig)}</td>
+              <td>${flag}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+      <div style="margin-top:10px;font-size:12px;color:var(--fg3)">
+        📊 Concentração de receita: os <strong>3 maiores clientes</strong> (${top3.map(r=>escHtml(r.name)).join(', ')}) somam <strong>${concentracaoPct}%</strong> do MRR — ${concentracaoPct>=40?'atenção, alta dependência desses contratos.':'risco de concentração controlado.'}
+      </div>
+    </div>`;
+}
+
 function renderFinanceiroTab(){
   const el=document.getElementById('finContent');
   if(!el) return;
@@ -4046,6 +4163,9 @@ function renderFinanceiroTab(){
       <button class="fin-add-btn" onclick="addCapRow()">+ Nova despesa</button>
     </div>
 
+    <!-- PRECIFICAÇÃO & MARGEM -->
+    ${renderPrecificacaoCard()}
+
   </div>
 
   <!-- resultado -->
@@ -4158,7 +4278,7 @@ function renderClientes(){
     const doneCount=steps.filter(s=>getStepState(c.id, s.id, fecYear, fecMonth).done).length;
     const pct=steps.length?Math.round(doneCount/steps.length*100):0;
     const driveUrl=clientDrives[c.driveKey]||'';
-    const mensalidade=parseFloat(String(revenues[c.id]||c.mensalidade||0).replace(/[^\d,]/g,'').replace(',','.'))||0;
+    const mensalidade=parseMensalidade(c);
     const barColor=pct===100?'green':pct>50?'amber':'gold';
     return '<div class="client-settings-card">'+
       '<div class="csc-top">'+
