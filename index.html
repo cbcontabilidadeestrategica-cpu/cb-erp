@@ -1763,16 +1763,18 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 ═══════════════════════════════════════════════ */
 const SUPA_URL = 'https://sltqsiudggetsgqxodjq.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNsdHFzaXVkZ2dldHNncXhvZGpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0OTk2NDEsImV4cCI6MjEwODA3NTY0MX0.UuRoPvFpFhOZsoJw7wKLpL4owzXqtyVKzVSCUbTVQoA';
-// `sb` precisa ser reatribuível (não `const`): o cliente supabase-js às
-// vezes trava internamente numa chamada que nunca resolve nem rejeita (visto
-// em teste real — uma gravação ficava pendurada indefinidamente depois de
-// um 401 na sessão recém-aberta). Um reload de página sempre destravava
-// porque criava um cliente novo; recreateSupaClient() faz o mesmo sem
-// precisar recarregar a página inteira.
-let sb = supabase.createClient(SUPA_URL, SUPA_KEY);
-function recreateSupaClient() {
-  try { sb = supabase.createClient(SUPA_URL, SUPA_KEY); } catch(e) { console.warn('Falha ao recriar cliente Supabase:', e); }
-}
+// Tentativa anterior criava um novo cliente supabase-js (supabase.createClient)
+// toda vez que uma chamada travava, achando que isso "destravava" do mesmo
+// jeito que um reload de página. Na prática isso piorou o problema: o
+// cliente antigo continua rodando em segundo plano (nunca é descartado de
+// verdade — mantém seus próprios listeners/locks) e passa a brigar com o
+// novo pela mesma sessão no localStorage. O próprio supabase-js avisa no
+// console quando isso acontece: "Multiple GoTrueClient instances detected
+// ... may produce undefined behavior". Então NÃO recriamos o cliente em
+// tempo de execução — só o timeout + retry abaixo, e se mesmo assim falhar
+// repetidamente, pedimos pra recarregar a página (única forma seguramente
+// limpa de reiniciar o cliente).
+const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
 // Corre uma promise com prazo máximo — o cliente supabase-js pode ficar
 // pendurado (nem resolve nem rejeita) em vez de dar erro, então um simples
 // try/catch não basta: sem isso, uma chamada travada trava a gravação (ou a
@@ -1878,7 +1880,6 @@ async function loadFromSupabase() {
     });
   } catch(e) {
     console.warn('Supabase load failed:', e);
-    if (/^timeout:/.test((e && e.message) || '')) recreateSupaClient();
   }
   // Reenvia qualquer gravação que ficou pendente de uma sessão anterior.
   flushDirtyKeys();
@@ -1912,12 +1913,7 @@ async function saveSupa(k, v, attempt) {
     if (error) throw error;
     markKeyClean(k);
   } catch(e) {
-    const isTimeout = /^timeout:/.test((e && e.message) || '');
     console.warn('Supabase save error (tentativa ' + attempt + '/3 para "' + k + '"):', e);
-    // Se travou (não deu erro, só nunca respondeu), o cliente provavelmente
-    // ficou com a sessão/trava interna num estado ruim — recriar o cliente
-    // (mesmo efeito de recarregar a página) antes de tentar de novo.
-    if (isTimeout) recreateSupaClient();
     // Tenta mais 2 vezes com espera crescente — a falha observada é quase
     // sempre passageira (sessão ainda se firmando), então uma 2ª/3ª tentativa
     // costuma resolver sozinha.
@@ -1926,7 +1922,7 @@ async function saveSupa(k, v, attempt) {
       return;
     }
     console.error('Supabase: falha ao salvar "' + k + '" após 3 tentativas. A alteração continua só neste navegador.', e);
-    showToast('⚠ Não foi possível salvar no servidor — verifique sua conexão. A alteração fica só neste navegador até sincronizar.', 'err', 6000);
+    showToast('⚠ Não foi possível salvar no servidor. A alteração fica só neste navegador — recarregue a página pra tentar sincronizar de novo.', 'err', 7000);
     return;
   }
   // Espelha em tabelas relacionais (fase de transição — kv_store continua
@@ -2192,7 +2188,6 @@ async function renderHoje() {
     // mexer no filtro não atualizava NADA, nem as demandas pontuais (que já
     // estão em memória e não dependem dessa consulta). Agora sempre repinta
     // com o que tem, e só avisa que as obrigações podem estar desatualizadas.
-    if (/^timeout:/.test((e && e.message) || '')) recreateSupaClient();
     showToast('⚠ Não foi possível atualizar as obrigações agora — mostrando os dados mais recentes disponíveis.', 'err', 5000);
   }
   paintHoje();
