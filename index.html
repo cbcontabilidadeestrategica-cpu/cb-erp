@@ -1819,22 +1819,81 @@ async function showApp(user) {
   }).catch(e=>console.error('Falha ao materializar obrigações:', e));
 }
 
+// ───── Controle de chaves "sujas" (gravadas localmente mas ainda não
+// confirmadas no servidor) ─────
+// Problema real encontrado: a 1ª chamada ao Supabase logo após o login às
+// vezes falha com 401 (sessão ainda se firmando) e saveSupa() não tentava de
+// novo — a mudança ficava só no localStorage, sem aviso nenhum, e na próxima
+// vez que o app carregasse, loadFromSupabase() sobrescrevia o localStorage
+// com o valor antigo do servidor, apagando a mudança como se nunca tivesse
+// existido. As chaves "sujas" abaixo evitam esse apagamento e permitem
+// reenviar o que ficou pendente assim que possível.
+function getDirtyKeys() {
+  try { return JSON.parse(localStorage.getItem('cb3_dirty_keys') || '[]'); } catch(e) { return []; }
+}
+function markKeyDirty(k) {
+  try {
+    const s = new Set(getDirtyKeys()); s.add(k);
+    localStorage.setItem('cb3_dirty_keys', JSON.stringify([...s]));
+  } catch(e){}
+}
+function markKeyClean(k) {
+  try {
+    const s = new Set(getDirtyKeys()); s.delete(k);
+    localStorage.setItem('cb3_dirty_keys', JSON.stringify([...s]));
+  } catch(e){}
+}
+
 async function loadFromSupabase() {
   if (!sbUser) return;
   try {
     const { data, error } = await sb.from('kv_store').select('key,value');
     if (error) { console.warn('Supabase load error:', error); return; }
+    const dirty = new Set(getDirtyKeys());
     if (data) data.forEach(row => {
+      // Não sobrescreve uma chave que ainda tem gravação pendente de
+      // sincronizar — senão a mudança local recém-feita se perde.
+      if (dirty.has(row.key)) return;
       try { localStorage.setItem(row.key, JSON.stringify(row.value)); } catch(e){}
     });
   } catch(e) { console.warn('Supabase load failed:', e); }
+  // Reenvia qualquer gravação que ficou pendente de uma sessão anterior.
+  flushDirtyKeys();
 }
 
-async function saveSupa(k, v) {
+// Tenta de novo, com backoff curto, qualquer chave que ficou marcada como
+// pendente (gravação anterior falhou e não foi confirmada no servidor).
+function flushDirtyKeys() {
+  getDirtyKeys().forEach(k => {
+    try {
+      const raw = localStorage.getItem(k);
+      if (raw === null) { markKeyClean(k); return; }
+      saveSupa(k, JSON.parse(raw));
+    } catch(e){}
+  });
+}
+
+async function saveSupa(k, v, attempt) {
   if (!sbUser) return;
+  attempt = attempt || 1;
+  markKeyDirty(k);
   try {
-    await sb.from('kv_store').upsert({ key: k, value: v }, { onConflict: 'key' });
-  } catch(e) { console.warn('Supabase save error:', e); }
+    const { error } = await sb.from('kv_store').upsert({ key: k, value: v }, { onConflict: 'key' });
+    if (error) throw error;
+    markKeyClean(k);
+  } catch(e) {
+    console.warn('Supabase save error (tentativa ' + attempt + '/3 para "' + k + '"):', e);
+    // Tenta mais 2 vezes com espera crescente — a falha observada é quase
+    // sempre passageira (sessão ainda se firmando), então uma 2ª/3ª tentativa
+    // costuma resolver sozinha.
+    if (attempt < 3) {
+      setTimeout(() => saveSupa(k, v, attempt + 1), attempt * 900);
+      return;
+    }
+    console.error('Supabase: falha ao salvar "' + k + '" após 3 tentativas. A alteração continua só neste navegador.', e);
+    showToast('⚠ Não foi possível salvar no servidor — verifique sua conexão. A alteração fica só neste navegador até sincronizar.', 'err', 6000);
+    return;
+  }
   // Espelha em tabelas relacionais (fase de transição — kv_store continua
   // sendo a fonte usada pela UI; isso só mantém o banco novo sincronizado
   // em tempo real, sem mexer em nenhuma tela existente).
@@ -4967,6 +5026,14 @@ function quickAddDemanda(){
   save('cb3_demandas',demandas);
   renderDemandas();
   renderRadarDemandas();
+  // Prazo é opcional aqui de propósito (nem toda demanda tem uma data —
+  // ex. "aguardando resposta do cliente"), mas sem prazo a demanda NÃO
+  // aparece na aba Hoje (que só lista o que tem data definida). Isso já
+  // confundiu gente que esperava achar a demanda lá — avisa na hora em vez
+  // de deixar sumir silenciosamente.
+  if(!prazo){
+    showToast('Demanda criada sem prazo — ela não vai aparecer na aba Hoje até você definir uma data.', 'ok', 5000);
+  }
   /* limpar campos */
   const qc=document.getElementById('qa-cliente'); if(qc) qc.value='';
   const qt=document.getElementById('qa-tipo'); if(qt) qt.value='';
@@ -5068,8 +5135,12 @@ function renderRadarDemandas(){
     el.innerHTML='<div class="radar-dem-item"><span style="color:var(--green);font-size:13px">✅ Sem demandas ativas no momento</span></div>';
     return;
   }
-  const now = new Date();
-  const overdueCount = active.filter(d=>d.prazo&&new Date(d.prazo)<now).length;
+  // Usa prazoInfo() (mesma régua do kanban/Hoje) em vez de comparar
+  // `new Date(d.prazo) < new Date()` direto: isso comparava a meia-noite
+  // UTC do prazo com o instante atual, então qualquer demanda com prazo
+  // HOJE já aparecia como "vencida" a partir da meia-noite UTC — ou seja,
+  // quase o dia inteiro, mesmo faltando o dia inteiro pra vencer de fato.
+  const overdueCount = active.filter(d=>d.prazo && prazoInfo(d.prazo).dd < 0).length;
   const summaryBanner = overdueCount
     ? '<div style="background:rgba(220,38,38,.1);border-left:3px solid var(--red);border-radius:6px;padding:6px 10px;margin-bottom:8px;font-size:12px;color:var(--red);font-weight:700">⚠ '+overdueCount+' demanda'+(overdueCount>1?'s':'')+' com prazo vencido</div>'
     : '';
@@ -5077,8 +5148,7 @@ function renderRadarDemandas(){
     const isEm = d.status==='em_andamento';
     const sClass = isEm ? 'amber' : 'red';
     const sLabel = isEm ? 'em andamento' : 'aguardando';
-    const prazoDate = d.prazo ? new Date(d.prazo) : null;
-    const overdue = prazoDate && prazoDate < now && !['concluido','cancelado'].includes(d.status);
+    const overdue = d.prazo && prazoInfo(d.prazo).dd < 0 && !['concluido','cancelado'].includes(d.status);
     return '<div class="radar-dem-item">'+
       '<span class="ob-dot '+sClass+'"></span>'+
       '<div style="flex:1;min-width:0">'+
@@ -5094,7 +5164,7 @@ function renderRadarDemandas(){
 /* ═══════════════════════════════════════════════
    TOAST NOTIFICATIONS
 ═══════════════════════════════════════════════ */
-function showToast(msg, type='ok') {
+function showToast(msg, type='ok', duration=2800) {
   const container = document.getElementById('toastContainer');
   if (!container) return;
   const el = document.createElement('div');
@@ -5105,7 +5175,7 @@ function showToast(msg, type='ok') {
   setTimeout(() => {
     el.classList.remove('show');
     setTimeout(() => el.remove(), 300);
-  }, 2800);
+  }, duration);
 }
 
 /* ═══════════════════════════════════════════════
