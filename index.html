@@ -1867,8 +1867,9 @@ function markKeyClean(k) {
   } catch(e){}
 }
 
-async function loadFromSupabase() {
+async function loadFromSupabase(attempt) {
   if (!sbUser) return;
+  attempt = attempt || 1;
   try {
     const { data, error } = await withTimeout(sb.from('kv_store').select('key,value'), 10000, 'loadFromSupabase');
     if (error) { console.warn('Supabase load error:', error); return; }
@@ -1881,6 +1882,20 @@ async function loadFromSupabase() {
     });
   } catch(e) {
     console.warn('Supabase load failed:', e);
+    // Mesma causa mais provável de uma chamada "travar" até o timeout: o
+    // token de sessão expirando bem nesse instante (ex.: logo após o login,
+    // ou a aba ficou aberta e o token venceu). Renova e tenta de novo uma
+    // vez antes de seguir com os dados só do localStorage.
+    if (attempt === 1) {
+      try {
+        const { data: refreshed, error: refreshErr } = await withTimeout(sb.auth.refreshSession(), 6000, 'refreshSession');
+        if (!refreshErr && refreshed && refreshed.session) {
+          return loadFromSupabase(2);
+        }
+      } catch(refreshException) {
+        console.warn('Supabase: falha ao renovar sessão para retry de loadFromSupabase:', refreshException);
+      }
+    }
   }
   // Reenvia qualquer gravação que ficou pendente de uma sessão anterior.
   flushDirtyKeys();
@@ -1922,7 +1937,25 @@ async function saveSupa(k, v, attempt) {
       setTimeout(() => saveSupa(k, v, attempt + 1), attempt * 900);
       return;
     }
-    console.error('Supabase: falha ao salvar "' + k + '" após 3 tentativas. A alteração continua só neste navegador.', e);
+    // Antes de desistir (só na 1ª vez que chega aqui, attempt===3): a causa
+    // mais comum observada em produção para a chamada "travar" até o timeout
+    // (sem nunca resolver nem rejeitar) é o token de sessão ter
+    // expirado/estar se renovando. Força uma renovação e tenta mais uma vez
+    // — isso resolve sozinho sem precisar recarregar a página, que era a
+    // única saída oferecida ao usuário antes.
+    if (attempt === 3) {
+      try {
+        const { data: refreshed, error: refreshErr } = await withTimeout(sb.auth.refreshSession(), 6000, 'refreshSession');
+        if (!refreshErr && refreshed && refreshed.session) {
+          console.warn('Supabase: sessão renovada, tentando novamente salvar "' + k + '"...');
+          setTimeout(() => saveSupa(k, v, 4), 300);
+          return;
+        }
+      } catch(refreshException) {
+        console.warn('Supabase: falha ao renovar sessão para retry de "' + k + '":', refreshException);
+      }
+    }
+    console.error('Supabase: falha ao salvar "' + k + '" após tentativas. A alteração continua só neste navegador.', e);
     showToast('⚠ Não foi possível salvar no servidor. A alteração fica só neste navegador — recarregue a página pra tentar sincronizar de novo.', 'err', 7000);
     return;
   }
@@ -5295,12 +5328,30 @@ function renderRadarDemandas(){
 function showToast(msg, type='ok', duration=2800) {
   const container = document.getElementById('toastContainer');
   if (!container) return;
+  // Evita a "pilha" de toasts idênticos: se várias chaves falham ao salvar
+  // quase ao mesmo tempo (ex.: token de sessão expirando), o usuário via
+  // 5-6 cópias do mesmo aviso empilhadas. Em vez de criar um novo toast,
+  // reaproveita um já visível com a mesma mensagem e só reinicia o timer.
+  const existing = [...container.querySelectorAll('.toast.' + type)].find(e => e.dataset.msg === msg);
+  if (existing) {
+    const n = (parseInt(existing.dataset.count || '1', 10)) + 1;
+    existing.dataset.count = n;
+    existing.textContent = msg + (n > 1 ? ' (' + n + '×)' : '');
+    clearTimeout(existing.__hideTimer);
+    existing.__hideTimer = setTimeout(() => {
+      existing.classList.remove('show');
+      setTimeout(() => existing.remove(), 300);
+    }, duration);
+    return;
+  }
   const el = document.createElement('div');
   el.className = 'toast ' + type;
   el.textContent = msg;
+  el.dataset.msg = msg;
+  el.dataset.count = '1';
   container.appendChild(el);
   requestAnimationFrame(() => { el.classList.add('show'); });
-  setTimeout(() => {
+  el.__hideTimer = setTimeout(() => {
     el.classList.remove('show');
     setTimeout(() => el.remove(), 300);
   }, duration);
