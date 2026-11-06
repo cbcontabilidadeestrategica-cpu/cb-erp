@@ -1157,6 +1157,22 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .defaults-svc-item input{accent-color:var(--navy);width:14px;height:14px;cursor:pointer}
 .defaults-save-row{display:flex;align-items:center;gap:8px;margin-top:14px}
 .defaults-saved-msg{font-size:11px;color:var(--green);font-weight:600;opacity:0;transition:opacity .3s}
+
+/* ── Obrigações padrão por regime (tabela editável) ── */
+.oblig-table{width:100%;border-collapse:collapse;font-size:12px;min-width:720px}
+.oblig-table th{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--fg3);text-align:left;padding:7px 8px;border-bottom:1px solid var(--border);background:var(--bg3);white-space:nowrap}
+.oblig-table td{padding:6px 8px;border-bottom:1px solid var(--border2);vertical-align:middle}
+.oblig-table tr:last-child td{border-bottom:none}
+.oblig-inline-input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:5px 7px;font-family:'Outfit',sans-serif;font-size:11.5px;color:var(--fg)}
+.oblig-regime-chip{display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--fg2);white-space:nowrap;margin-right:6px;cursor:pointer;user-select:none}
+.oblig-regime-chip input{accent-color:var(--navy);width:11px;height:11px;cursor:pointer}
+.oblig-remove-btn{background:none;border:none;cursor:pointer;font-size:14px;opacity:.6;padding:2px 4px;border-radius:6px}
+.oblig-remove-btn:hover{opacity:1;background:var(--red-lt)}
+.oblig-client-item{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;background:var(--bg3);border-radius:8px;margin-bottom:6px}
+.oblig-client-item.disabled{opacity:.45;text-decoration:line-through}
+.oblig-client-item input[type=checkbox]{accent-color:var(--navy);width:15px;height:15px;cursor:pointer;margin-top:1px;flex-shrink:0}
+.oblig-client-extra-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;background:var(--gold-lt);border:1px solid var(--gold-bd);border-radius:8px;margin-bottom:6px;font-size:12px}
+.oblig-add-form{display:grid;grid-template-columns:1fr;gap:8px;margin-top:10px;padding:12px;background:var(--bg3);border-radius:10px}
 .defaults-saved-msg.show{opacity:1}
 
 /* ── Radar financial mini-dashboard ── */
@@ -1640,6 +1656,9 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 
   <div class="section-label" style="margin-top:28px">⚙️ PADRÕES DE CADASTRO</div>
   <div class="defaults-card" id="clientDefaultsCard"></div>
+
+  <div class="section-label" style="margin-top:28px">📋 OBRIGAÇÕES PADRÃO POR REGIME</div>
+  <div class="defaults-card" id="obligationTemplatesCard"></div>
 </section>
 
 <!-- ═══ DEMANDAS ═══ -->
@@ -1818,7 +1837,7 @@ async function showApp(user) {
     ['initState',initState],['initTheme',initTheme],['initSidebar',initSidebar],
     ['renderMetaBanner',renderMetaBanner],['renderRadar',renderRadar],['renderRadarDemandas',renderRadarDemandas],
     ['renderFechamento',renderFechamento],['renderIgCal',renderIgCal],['renderFunil',renderFunil],['renderFinanceiro',renderFinanceiro],
-    ['renderClientes',renderClientes],['renderClientDefaults',renderClientDefaults],['renderDemandas',renderDemandas],
+    ['renderClientes',renderClientes],['renderClientDefaults',renderClientDefaults],['renderObligationTemplates',renderObligationTemplates],['renderDemandas',renderDemandas],
   ];
   renders.forEach(([name,fn])=>{ try{ fn(); } catch(e){ console.error('Falha ao renderizar '+name+':', e); } });
   // Início/Obrigações/Clientes leem o status real das obrigações da mesma
@@ -2069,43 +2088,65 @@ const CERTS = [
   { cliente:"Yuri Chavante Antunes",  tipo:"A1 PJ", validade:"02/07/2027", cnpj:"64.505.679/0001-53", status:"ok" },
 ];
 
-function getSteps(client) {
-  if(client.regime === 'MEI') return [
-    { id:'das_mei',  label:'DAS MEI — pagamento mensal',  desc:'⚠️ Exclusão do MEI após 3 meses em atraso — recolher até dia 20', prazoDia:20, urg:'red'   },
-    { id:'conf_mei', label:'Confirmação de pagamento',    desc:'Registrar comprovante e arquivar no Drive do cliente',             prazoDia:22, urg:'amber' },
-  ];
-  const s = [];
-  s.push({ id:'coleta',    label:'Coleta de dados',               desc:'NFs emitidas, extrato bancário, faturamento',     prazoDia:7,  urg:'amber' });
-  if(client.hasEmployees) {
-    s.push({ id:'ponto',   label:'Conferência de ponto',           desc:'Fechar folha ponto × registro',                   prazoDia:5,  urg:'amber' });
-    s.push({ id:'fgts',    label:'FGTS — pagamento GRF',           desc:'⚠️ Multa 10% + SELIC se pago após dia 7',        prazoDia:7,  urg:'red'   });
-    s.push({ id:'esocial', label:'eSocial S-1200/S-1210',          desc:'Envio dos eventos de folha',                      prazoDia:10, urg:'amber' });
-    s.push({ id:'irrf',    label:'DARF IRRF sobre folha',          desc:'Se houver retenção no mês',                       prazoDia:13, urg:'amber' });
-  }
-  s.push({ id:'conc',      label:'Conciliação bancária',           desc:'Lançamentos × extrato',                           prazoDia:10, urg:'amber' });
-  s.push({ id:'lanc',      label:'Lançamentos contábeis',          desc:'Escrituração completa do mês',                    prazoDia:12, urg:'amber' });
-  if(client.regime === 'Simples Nacional') {
-    s.push({ id:'das',     label:'Apuração e pagamento DAS',       desc:'⚠️ Exclusão do SN após 3 meses em atraso',       prazoDia:20, urg:'red'   });
-  } else if(client.regime === 'Lucro Presumido') {
-    s.push({ id:'piscofins',label:'Apuração PIS/COFINS',            desc:'Competência do mês',                             prazoDia:20, urg:'amber' });
-    s.push({ id:'irpj',    label:'Apuração IRPJ/CSLL',             desc:'Trimestral: Mar/Jun/Set/Dez',                     prazoDia:20, urg:'amber' });
-    s.push({ id:'darfs',   label:'Emissão e pagamento DARFs',      desc:'Todos os tributos federais do mês',               prazoDia:20, urg:'amber' });
-  } else {
-    s.push({ id:'acc',     label:'Obrigações acessórias 3º setor', desc:'Verificar declarações específicas',               prazoDia:20, urg:'amber' });
-  }
-  if(client.hasEmployees) {
-    s.push({ id:'dctf',    label:'DCTFWeb — INSS folha',           desc:'Declaração de débitos previdenciários',           prazoDia:20, urg:'red'   });
-  }
-  s.push({ id:'relatorio', label:'Relatório gerencial',            desc:'DRE, fluxo de caixa, indicadores do mês',         prazoDia:14, urg:'amber' });
-  s.push({ id:'entrega',   label:'Entrega ao cliente',             desc:'⚡ Meta CB: até o dia 15',                        prazoDia:15, urg:'amber' });
-  return s;
+// ───── Obrigações padrão por regime (editável em Configurações de
+// Clientes → "Obrigações padrão por regime") ─────
+// Antes isso era um cálculo fixo no código (if/else por regime). Agora é
+// uma lista de dados: cada item diz a quais regimes se aplica
+// (`regimes:['all']` = todos, exceto MEI, que só recebe itens marcados
+// explicitamente com 'MEI') e se exige que o cliente tenha funcionários
+// (`requiresEmployees`). A ordem do array é a ordem de exibição.
+const OBLIG_REGIMES = ['Simples Nacional','Lucro Presumido','Lucro Real','Terceiro Setor','Imune / 3º Setor','MEI'];
+const OBLIG_SETORES = ['Fiscal','Depto. Pessoal','Contábil','Societário','Financeiro','Sucesso do Cliente'];
+let obligationTemplates = [
+  { id:'coleta',     label:'Coleta de dados',               desc:'NFs emitidas, extrato bancário, faturamento',               setor:'Fiscal',         prazoDia:7,  urg:'amber', regimes:['all'], requiresEmployees:false },
+  { id:'ponto',      label:'Conferência de ponto',           desc:'Fechar folha ponto × registro',                             setor:'Depto. Pessoal', prazoDia:5,  urg:'amber', regimes:['all'], requiresEmployees:true  },
+  { id:'fgts',       label:'FGTS — pagamento GRF',           desc:'⚠️ Multa 10% + SELIC se pago após dia 7',                  setor:'Depto. Pessoal', prazoDia:7,  urg:'red',   regimes:['all'], requiresEmployees:true  },
+  { id:'esocial',    label:'eSocial S-1200/S-1210',          desc:'Envio dos eventos de folha',                                setor:'Depto. Pessoal', prazoDia:10, urg:'amber', regimes:['all'], requiresEmployees:true  },
+  { id:'irrf',       label:'DARF IRRF sobre folha',          desc:'Se houver retenção no mês',                                 setor:'Depto. Pessoal', prazoDia:13, urg:'amber', regimes:['all'], requiresEmployees:true  },
+  { id:'conc',       label:'Conciliação bancária',           desc:'Lançamentos × extrato',                                     setor:'Contábil',       prazoDia:10, urg:'amber', regimes:['all'], requiresEmployees:false },
+  { id:'lanc',       label:'Lançamentos contábeis',          desc:'Escrituração completa do mês',                              setor:'Contábil',       prazoDia:12, urg:'amber', regimes:['all'], requiresEmployees:false },
+  { id:'das',        label:'Apuração e pagamento DAS',       desc:'⚠️ Exclusão do SN após 3 meses em atraso',                 setor:'Fiscal',         prazoDia:20, urg:'red',   regimes:['Simples Nacional'], requiresEmployees:false },
+  { id:'piscofins',  label:'Apuração PIS/COFINS',            desc:'Competência do mês',                                        setor:'Fiscal',         prazoDia:20, urg:'amber', regimes:['Lucro Presumido'], requiresEmployees:false },
+  { id:'irpj',       label:'Apuração IRPJ/CSLL',             desc:'Trimestral: Mar/Jun/Set/Dez',                               setor:'Fiscal',         prazoDia:20, urg:'amber', regimes:['Lucro Presumido'], requiresEmployees:false },
+  { id:'darfs',      label:'Emissão e pagamento DARFs',      desc:'Todos os tributos federais do mês',                         setor:'Fiscal',         prazoDia:20, urg:'amber', regimes:['Lucro Presumido'], requiresEmployees:false },
+  { id:'acc',        label:'Obrigações acessórias 3º setor', desc:'Verificar declarações específicas',                         setor:'Fiscal',         prazoDia:20, urg:'amber', regimes:['Lucro Real','Terceiro Setor','Imune / 3º Setor'], requiresEmployees:false },
+  { id:'dctf',       label:'DCTFWeb — INSS folha',           desc:'Declaração de débitos previdenciários',                     setor:'Depto. Pessoal', prazoDia:20, urg:'red',   regimes:['all'], requiresEmployees:true  },
+  { id:'relatorio',  label:'Relatório gerencial',            desc:'DRE, fluxo de caixa, indicadores do mês',                   setor:'Contábil',       prazoDia:14, urg:'amber', regimes:['all'], requiresEmployees:false },
+  { id:'entrega',    label:'Entrega ao cliente',             desc:'⚡ Meta CB: até o dia 15',                                  setor:'Contábil',       prazoDia:15, urg:'amber', regimes:['all'], requiresEmployees:false },
+  { id:'das_mei',    label:'DAS MEI — pagamento mensal',     desc:'⚠️ Exclusão do MEI após 3 meses em atraso — recolher até dia 20', setor:'Fiscal', prazoDia:20, urg:'red',   regimes:['MEI'], requiresEmployees:false },
+  { id:'conf_mei',   label:'Confirmação de pagamento',       desc:'Registrar comprovante e arquivar no Drive do cliente',      setor:'Fiscal',         prazoDia:22, urg:'amber', regimes:['MEI'], requiresEmployees:false },
+];
+
+// Aplica as regras de regime/funcionários de `obligationTemplates` a um
+// cliente, sem considerar ainda as exceções específicas dele (ver getSteps).
+function computeBaseSteps(client, templates) {
+  templates = templates || obligationTemplates;
+  const regime = client.regime;
+  const isMei = regime === 'MEI';
+  return templates.filter(t => {
+    const regimes = t.regimes || ['all'];
+    const isMeiOnly = regimes.includes('MEI') && !regimes.includes('all');
+    if (isMei) return isMeiOnly;
+    if (isMeiOnly) return false;
+    const appliesByRegime = regimes.includes('all') || regimes.includes(regime);
+    if (!appliesByRegime) return false;
+    if (t.requiresEmployees && !client.hasEmployees) return false;
+    return true;
+  }).map(t => ({ id:t.id, label:t.label, desc:t.desc||'', prazoDia:t.prazoDia, urg:t.urg||'amber', setor:t.setor||'Fiscal' }));
 }
 
-const SECTOR_BY_STEP = {
-  coleta:'Fiscal', das_mei:'Fiscal', conf_mei:'Fiscal', das:'Fiscal', piscofins:'Fiscal', irpj:'Fiscal', darfs:'Fiscal', acc:'Fiscal',
-  ponto:'Depto. Pessoal', fgts:'Depto. Pessoal', esocial:'Depto. Pessoal', irrf:'Depto. Pessoal', dctf:'Depto. Pessoal',
-  conc:'Contábil', lanc:'Contábil', relatorio:'Contábil', entrega:'Contábil',
-};
+// Obrigações finais de um cliente: a regra padrão do regime dele
+// (computeBaseSteps), menos o que ele marcou como "não se aplica"
+// (obligationOverrides.disabled) e mais o que foi adicionado só pra ele
+// (obligationOverrides.extra) — cadastrado na ficha do cliente.
+function getSteps(client) {
+  const base = computeBaseSteps(client);
+  const ov = (client && client.obligationOverrides) || {};
+  const disabled = new Set(ov.disabled || []);
+  const kept = base.filter(s => !disabled.has(s.id));
+  const extra = (ov.extra || []).map(e => ({ id:e.id, label:e.label, desc:e.desc||'', prazoDia:e.prazoDia, urg:e.urg||'amber', setor:e.setor||'Fiscal', custom:true }));
+  return [...kept, ...extra];
+}
 
 // Materializa as obrigações que hoje só existem como cálculo em memória
 // (getSteps) em linhas reais na tabela `tarefa`, uma vez por competência.
@@ -2125,7 +2166,7 @@ async function materializeObligations(targetYear, targetMonth) {
         rows.push({
           legacy_id: `obr_${c.id}_${s.id}_${ym}`,
           cliente_id: c.id,
-          setor: SECTOR_BY_STEP[s.id] || 'Fiscal',
+          setor: s.setor || 'Fiscal',
           tipo: 'obrigacao',
           titulo: s.label,
           descricao: (s.desc ? s.desc + ' · ' : '') + 'Competência ' + compLabel,
@@ -2536,6 +2577,11 @@ let demFilterResp = 'all', demFilterSetor = 'all';
 let editingIgEventId = null, igWeekStart = null;
 let finYear, finMonth;
 let editingLeadId = null, editingClientId = null;
+// Estado temporário do editor "Obrigações deste cliente" dentro do modal de
+// cliente — só é gravado em client.obligationOverrides quando Salvar é
+// clicado (saveClientModal). Reiniciado a cada abertura do modal.
+let modalObligDisabled = new Set();
+let modalObligExtra = [];
 let clientDefaults = { regime:'Simples Nacional', services:['Fiscal','Contábil'] };
 
 const ONBOARDING_STEPS = [
@@ -2596,6 +2642,9 @@ function initState() {
       if (demMigrated) save('cb3_demandas', demandas);
     }
     try { const sd=JSON.parse(localStorage.getItem('cb3_defaults')||'null'); if(sd) clientDefaults=sd; } catch(e){}
+    // Obrigações padrão por regime — se a equipe já editou/criou alguma,
+    // usa a versão salva; senão fica com o seed de obligationTemplates.
+    try { const ot=JSON.parse(localStorage.getItem('cb3_obligation_templates')||'null'); if(ot && Array.isArray(ot) && ot.length) obligationTemplates=ot; } catch(e){}
     try { onboarding=JSON.parse(localStorage.getItem('cb3_onboarding')||'{}'); } catch(e){}
     try { csData=JSON.parse(localStorage.getItem('cb3_cs')||'{}'); } catch(e){}
     try { commentsData=JSON.parse(localStorage.getItem('cb3_comments')||'{}'); } catch(e){}
@@ -4882,6 +4931,8 @@ function toggleAccPwd(id){
 /* CLIENT MODAL */
 function openNewClientModal(){
   editingClientId=null;
+  modalObligDisabled=new Set();
+  modalObligExtra=[];
   document.getElementById('modalClientTitle').textContent='Novo Cliente';
   buildClientModal(null);
   // Inject defaults banner
@@ -4898,6 +4949,9 @@ function openEditClientModal(id){
   const c=clients.find(x=>x.id===id);
   if(!c) return;
   editingClientId=id;
+  const ov = c.obligationOverrides || {};
+  modalObligDisabled = new Set(ov.disabled || []);
+  modalObligExtra = (ov.extra || []).map(e=>({...e}));
   document.getElementById('modalClientTitle').textContent=c.name;
   buildClientModal(c);
   document.getElementById('clientModal').classList.remove('hidden');
@@ -4932,7 +4986,7 @@ function buildClientModal(c){
     '</div>'+
     '<div class="modal-field-group">'+
       '<label>Regime Tributário</label>'+
-      '<select class="modal-input" id="mc_regime">'+regOpts+'</select>'+
+      '<select class="modal-input" id="mc_regime" onchange="renderClientObligationsSection()">'+regOpts+'</select>'+
     '</div>'+
     '<div class="modal-2col">'+
       '<div class="modal-field-group">'+
@@ -4946,12 +5000,13 @@ function buildClientModal(c){
     '</div>'+
     '<div class="modal-field-group">'+
       '<label>Possui funcionários (DP)?</label>'+
-      '<label class="modal-check-item"><input type="checkbox" id="mc_employees"'+(c&&c.hasEmployees?' checked':'')+'>Sim, cliente tem funcionários registrados</label>'+
+      '<label class="modal-check-item"><input type="checkbox" id="mc_employees" onchange="renderClientObligationsSection()"'+(c&&c.hasEmployees?' checked':'')+'>Sim, cliente tem funcionários registrados</label>'+
     '</div>'+
     '<div class="modal-field-group">'+
       '<label>Serviços contratados</label>'+
       '<div class="modal-checklist">'+svcChecks+'</div>'+
     '</div>'+
+    '<div class="modal-field-group" id="mc_oblig_wrap"></div>'+
     '<div class="modal-field-group">'+
       '<label>Contrato válido até</label>'+
       '<input class="modal-input" type="date" id="mc_renewal" value="'+escAttr(c?c.contractRenewal||'':'')+'">'+
@@ -4961,7 +5016,89 @@ function buildClientModal(c){
       '<textarea class="modal-input" id="mc_notes" rows="3" placeholder="Observações, particularidades, histórico importante..." style="resize:vertical;min-height:72px">'+escHtml(c?c.notes||'':'')+'</textarea>'+
     '</div>'+
     (c?'<div class="modal-danger-zone"><button class="btn-danger" onclick="removeClientFromModal()">🗑 Remover este cliente</button></div>':'');
+  renderClientObligationsSection();
 }
+
+// Seção "Obrigações deste cliente" dentro do modal de cadastro — mostra a
+// regra padrão (computeBaseSteps) já aplicada ao regime/funcionários que
+// estão selecionados NESTE INSTANTE no formulário (por isso é chamada de
+// novo a cada troca de regime ou do checkbox de funcionários), com
+// checkbox para desmarcar o que não se aplica a esse cliente específico,
+// mais a lista do que foi adicionado só pra ele (modalObligExtra).
+function renderClientObligationsSection(){
+  const wrap = document.getElementById('mc_oblig_wrap');
+  const regimeSel = document.getElementById('mc_regime');
+  const empChk = document.getElementById('mc_employees');
+  if(!wrap || !regimeSel || !empChk) return;
+  const pseudoClient = { regime: regimeSel.value, hasEmployees: empChk.checked };
+  const base = computeBaseSteps(pseudoClient);
+  const baseHtml = base.map(s=>{
+    const isOff = modalObligDisabled.has(s.id);
+    return '<label class="oblig-client-item'+(isOff?' disabled':'')+'">'+
+      '<input type="checkbox"'+(isOff?'':' checked')+' onchange="toggleModalObligDisabled(\''+s.id+'\',!this.checked)">'+
+      '<span><strong>'+escHtml(s.label)+'</strong> <span style="color:var(--fg3)">· '+escHtml(s.setor)+' · dia '+s.prazoDia+'</span>'+
+        (s.desc?'<div style="font-size:11px;color:var(--fg3);margin-top:2px">'+escHtml(s.desc)+'</div>':'')+
+      '</span></label>';
+  }).join('') || '<p style="font-size:12px;color:var(--fg3);margin:4px 0">Nenhuma obrigação padrão pra esse regime/configuração.</p>';
+  const extraHtml = modalObligExtra.map((e,i)=>
+    '<div class="oblig-client-extra-row"><div><strong>'+escHtml(e.label)+'</strong> · '+escHtml(e.setor)+' · dia '+e.prazoDia+(e.desc?' · '+escHtml(e.desc):'')+'</div>'+
+    '<button class="oblig-remove-btn" onclick="removeModalObligExtra('+i+')" title="Remover">🗑</button></div>'
+  ).join('');
+  const usedIds = new Set([...base.map(s=>s.id), ...modalObligExtra.map(e=>e.sourceId).filter(Boolean)]);
+  const catalogOpts = obligationTemplates.filter(t=>!usedIds.has(t.id)).map(t=>'<option value="'+escAttr(t.id)+'">'+escHtml(t.label)+'</option>').join('');
+  wrap.innerHTML =
+    '<label>Obrigações deste cliente</label>'+
+    '<p style="font-size:11px;color:var(--fg3);margin:-2px 0 8px">Geradas pelo regime e funcionários selecionados acima. Desmarque o que não se aplica a este cliente, ou adicione uma exclusiva dele.</p>'+
+    baseHtml + extraHtml +
+    '<div class="oblig-add-form">'+
+      '<select id="mc_oblig_pick" class="modal-input" onchange="onObligPickChange()">'+
+        '<option value="">+ Escolher obrigação existente…</option>'+catalogOpts+
+        '<option value="__custom">✏️ Obrigação personalizada…</option>'+
+      '</select>'+
+      '<div id="mc_oblig_custom_fields" style="display:none;flex-direction:column;gap:6px">'+
+        '<input class="modal-input" id="mc_oblig_c_label" placeholder="Nome da obrigação">'+
+        '<input class="modal-input" id="mc_oblig_c_desc" placeholder="Observação (opcional)">'+
+        '<div class="modal-2col">'+
+          '<select class="modal-input" id="mc_oblig_c_setor">'+OBLIG_SETORES.map(s=>'<option value="'+escAttr(s)+'">'+escHtml(s)+'</option>').join('')+'</select>'+
+          '<input class="modal-input" id="mc_oblig_c_prazo" type="number" min="1" max="31" placeholder="Dia do prazo" value="20">'+
+        '</div>'+
+        '<button class="btn-secondary" type="button" onclick="addModalObligCustom()">Adicionar</button>'+
+      '</div>'+
+    '</div>';
+}
+function onObligPickChange(){
+  const sel = document.getElementById('mc_oblig_pick');
+  const customBox = document.getElementById('mc_oblig_custom_fields');
+  if(!sel || !customBox) return;
+  if(sel.value === '__custom'){ customBox.style.display='flex'; return; }
+  if(sel.value){ addModalObligFromCatalog(sel.value); }
+  customBox.style.display='none';
+}
+function addModalObligFromCatalog(templateId){
+  const t = obligationTemplates.find(x=>x.id===templateId);
+  if(!t) return;
+  modalObligExtra.push({ id:'extra_'+Date.now(), sourceId:t.id, label:t.label, desc:t.desc||'', setor:t.setor, prazoDia:t.prazoDia, urg:t.urg||'amber' });
+  renderClientObligationsSection();
+}
+function addModalObligCustom(){
+  const labelEl=document.getElementById('mc_oblig_c_label');
+  const label=(labelEl.value||'').trim();
+  if(!label){ labelEl.focus(); return; }
+  const desc=(document.getElementById('mc_oblig_c_desc').value||'').trim();
+  const setor=document.getElementById('mc_oblig_c_setor').value;
+  const prazoDia=Math.min(31,Math.max(1,parseInt(document.getElementById('mc_oblig_c_prazo').value,10)||20));
+  modalObligExtra.push({ id:'extra_'+Date.now(), label, desc, setor, prazoDia, urg:'amber' });
+  renderClientObligationsSection();
+}
+function removeModalObligExtra(i){
+  modalObligExtra.splice(i,1);
+  renderClientObligationsSection();
+}
+function toggleModalObligDisabled(id, off){
+  if(off) modalObligDisabled.add(id); else modalObligDisabled.delete(id);
+  renderClientObligationsSection();
+}
+
 function saveClientModal(){
   const name=(document.getElementById('mc_name').value||'').trim();
   if(!name){document.getElementById('mc_name').focus();return;}
@@ -4973,12 +5110,13 @@ function saveClientModal(){
   const services=Array.from(document.querySelectorAll('.mc_svc:checked')).map(el=>el.value);
   const notes=(document.getElementById('mc_notes').value||'').trim();
   const contractRenewal=(document.getElementById('mc_renewal').value||'');
+  const obligationOverrides={ disabled:Array.from(modalObligDisabled), extra:modalObligExtra.map(e=>({...e})) };
   if(editingClientId){
     const idx=clients.findIndex(c=>c.id===editingClientId);
-    if(idx>-1) clients[idx]={...clients[idx],name,initials,regime,mensalidade,whatsapp,hasEmployees,services,notes,contractRenewal};
+    if(idx>-1) clients[idx]={...clients[idx],name,initials,regime,mensalidade,whatsapp,hasEmployees,services,notes,contractRenewal,obligationOverrides};
   } else {
     const newId=Date.now();
-    clients.push({id:newId,name,initials,regime,mensalidade,whatsapp,hasEmployees,services,notes,contractRenewal,driveKey:'drive_'+newId});
+    clients.push({id:newId,name,initials,regime,mensalidade,whatsapp,hasEmployees,services,notes,contractRenewal,obligationOverrides,driveKey:'drive_'+newId});
   }
   const isNew = !editingClientId;
   save('cb3_clients',clients);
@@ -5042,6 +5180,83 @@ function saveClientDefaults(){
   save('cb3_defaults',clientDefaults);
   const msg=document.getElementById('defaultsSavedMsg');
   if(msg){msg.classList.add('show');setTimeout(()=>msg.classList.remove('show'),2500);}
+}
+
+/* OBRIGAÇÕES PADRÃO POR REGIME — editor da tabela de obligationTemplates.
+   Isso NÃO afeta um cliente específico isoladamente — pra isso existe a
+   seção "Obrigações deste cliente" dentro do cadastro de cada cliente
+   (ver renderClientObligationsSection). Aqui é a regra geral. */
+const OBLIG_REGIME_ABBR = { 'Simples Nacional':'SN', 'Lucro Presumido':'LP', 'Lucro Real':'LR', 'Terceiro Setor':'3ºSet', 'Imune / 3º Setor':'Imune', 'MEI':'MEI' };
+function renderObligationTemplates(){
+  const el=document.getElementById('obligationTemplatesCard');
+  if(!el || typeof obligationTemplates==='undefined') return;
+  const rows = obligationTemplates.map(t=>{
+    const regimes = t.regimes||['all'];
+    const isAll = regimes.includes('all');
+    const regimeChips = OBLIG_REGIMES.map(r=>{
+      const checked = isAll || regimes.includes(r);
+      return '<label class="oblig-regime-chip" title="'+escAttr(r)+'"><input type="checkbox"'+(checked?' checked':'')+(isAll?' disabled':'')+' onchange="toggleObligationRegime(\''+t.id+'\',\''+r+'\',this.checked)">'+escHtml(OBLIG_REGIME_ABBR[r]||r)+'</label>';
+    }).join('');
+    return '<tr>'+
+      '<td><input class="oblig-inline-input" style="min-width:140px" value="'+escAttr(t.label)+'" onchange="updateObligationTemplate(\''+t.id+'\',\'label\',this.value)"></td>'+
+      '<td><input class="oblig-inline-input" style="min-width:160px" value="'+escAttr(t.desc||'')+'" onchange="updateObligationTemplate(\''+t.id+'\',\'desc\',this.value)"></td>'+
+      '<td><select class="oblig-inline-input" onchange="updateObligationTemplate(\''+t.id+'\',\'setor\',this.value)">'+OBLIG_SETORES.map(s=>'<option value="'+escAttr(s)+'"'+(t.setor===s?' selected':'')+'>'+escHtml(s)+'</option>').join('')+'</select></td>'+
+      '<td><input class="oblig-inline-input" style="width:56px" type="number" min="1" max="31" value="'+t.prazoDia+'" onchange="updateObligationTemplate(\''+t.id+'\',\'prazoDia\',this.value)"></td>'+
+      '<td><select class="oblig-inline-input" onchange="updateObligationTemplate(\''+t.id+'\',\'urg\',this.value)"><option value="amber"'+(t.urg!=='red'?' selected':'')+'>🟡 Atenção</option><option value="red"'+(t.urg==='red'?' selected':'')+'>🔴 Crítico</option></select></td>'+
+      '<td style="min-width:260px"><label class="oblig-regime-chip"><input type="checkbox"'+(isAll?' checked':'')+' onchange="toggleObligationAllRegimes(\''+t.id+'\',this.checked)">Todos</label>'+regimeChips+'</td>'+
+      '<td style="text-align:center"><input type="checkbox"'+(t.requiresEmployees?' checked':'')+' onchange="toggleObligationRequiresEmployees(\''+t.id+'\',this.checked)"></td>'+
+      '<td><button class="oblig-remove-btn" onclick="removeObligationTemplate(\''+t.id+'\')" title="Remover">🗑</button></td>'+
+    '</tr>';
+  }).join('');
+  el.innerHTML=
+    '<p style="font-size:13px;color:var(--fg2);margin-bottom:14px">Essas são as obrigações geradas automaticamente, por regime e por ter ou não funcionários. Edite, remova ou crie novas aqui — valem para todos os clientes que se encaixarem na regra. Para uma exceção pontual de um cliente específico, use "Obrigações deste cliente" dentro do cadastro dele.</p>'+
+    '<div class="table-scroll"><table class="oblig-table">'+
+      '<thead><tr><th>Obrigação</th><th>Observação</th><th>Setor</th><th>Dia prazo</th><th>Urgência</th><th>Aplica-se a</th><th>Só c/ funcionários</th><th></th></tr></thead>'+
+      '<tbody>'+rows+'</tbody>'+
+    '</table></div>'+
+    '<button class="btn-secondary" style="margin-top:12px" onclick="addObligationTemplate()">+ Nova obrigação padrão</button>';
+}
+function updateObligationTemplate(id, field, value){
+  const t = obligationTemplates.find(x=>x.id===id);
+  if(!t) return;
+  if(field==='prazoDia') value = Math.min(31, Math.max(1, parseInt(value,10)||1));
+  t[field]=value;
+  save('cb3_obligation_templates', obligationTemplates);
+}
+function toggleObligationRegime(id, regime, on){
+  const t = obligationTemplates.find(x=>x.id===id);
+  if(!t) return;
+  let regimes = (t.regimes||['all']).filter(r=>r!=='all');
+  if(on){ if(!regimes.includes(regime)) regimes.push(regime); }
+  else { regimes = regimes.filter(r=>r!==regime); }
+  t.regimes = regimes.length ? regimes : [regime]; // nunca fica sem nenhum regime
+  save('cb3_obligation_templates', obligationTemplates);
+  renderObligationTemplates();
+}
+function toggleObligationAllRegimes(id, on){
+  const t = obligationTemplates.find(x=>x.id===id);
+  if(!t) return;
+  t.regimes = on ? ['all'] : OBLIG_REGIMES.filter(r=>r!=='MEI');
+  save('cb3_obligation_templates', obligationTemplates);
+  renderObligationTemplates();
+}
+function toggleObligationRequiresEmployees(id, on){
+  const t = obligationTemplates.find(x=>x.id===id);
+  if(!t) return;
+  t.requiresEmployees = on;
+  save('cb3_obligation_templates', obligationTemplates);
+}
+function addObligationTemplate(){
+  const id = 'custom_'+Date.now();
+  obligationTemplates.push({ id, label:'Nova obrigação', desc:'', setor:'Fiscal', prazoDia:20, urg:'amber', regimes:['all'], requiresEmployees:false });
+  save('cb3_obligation_templates', obligationTemplates);
+  renderObligationTemplates();
+}
+function removeObligationTemplate(id){
+  if(!confirm('Remover esta obrigação padrão? Ela deixará de ser gerada automaticamente para todos os clientes que se encaixam na regra.')) return;
+  obligationTemplates = obligationTemplates.filter(t=>t.id!==id);
+  save('cb3_obligation_templates', obligationTemplates);
+  renderObligationTemplates();
 }
 
 /* ═══════════════════════════════════════════════
@@ -5500,6 +5715,7 @@ function applyClientTemplate(idx){
   if(regime) regime.value=t.regime;
   if(emp) emp.checked=t.employees;
   document.querySelectorAll('.mc_svc').forEach(cb=>{cb.checked=t.services.includes(cb.value);});
+  renderClientObligationsSection();
   showToast('Template aplicado: '+t.regime,'ok');
 }
 
