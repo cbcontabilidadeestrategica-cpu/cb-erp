@@ -1288,6 +1288,15 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .fin-row-del:hover{background:rgba(229,62,62,.12)}
 .fin-add-btn{display:block;width:100%;text-align:center;font-size:.75rem;font-weight:700;color:var(--fg2);background:none;border:1px dashed var(--border);border-radius:8px;padding:.5rem;cursor:pointer;margin-top:.5rem}
 .fin-add-btn:hover{background:var(--surface2,rgba(0,0,0,.03));color:var(--navy)}
+.fin-view-tabs{display:flex;gap:4px;flex-wrap:wrap}
+.fin-view-tab{font-size:.75rem;font-weight:700;padding:.4rem .75rem;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--fg2);cursor:pointer}
+.fin-view-tab:hover{background:var(--surface2,rgba(0,0,0,.03))}
+.fin-view-tab.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+.fin-cfg-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:560px){.fin-cfg-grid{grid-template-columns:1fr}}
+.fin-cfg-field label{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--fg3);margin-bottom:4px}
+.fin-cfg-plano-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.fin-cfg-plano-row input[type=color]{width:30px;height:30px;border:1px solid var(--border);border-radius:6px;padding:2px;cursor:pointer;flex-shrink:0}
 /* ── Demandas quickadd ── */
 .dem-quickadd-strip{grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
 .dem-filter-bar{grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
@@ -2576,6 +2585,8 @@ let fecYear, fecMonth, igYear, igMonth, igSelectedDate = null, igView = 'cal';
 let demFilterResp = 'all', demFilterSetor = 'all';
 let editingIgEventId = null, igWeekStart = null;
 let finYear, finMonth;
+let finView = 'operacional'; // 'operacional' | 'dre' | 'dfc' | 'config'
+function finSetView(v){ finView=v; renderFinanceiroTab(); }
 let editingLeadId = null, editingClientId = null;
 // Estado temporário do editor "Obrigações deste cliente" dentro do modal de
 // cliente — só é gravado em client.obligationOverrides quando Salvar é
@@ -2645,6 +2656,10 @@ function initState() {
     // Obrigações padrão por regime — se a equipe já editou/criou alguma,
     // usa a versão salva; senão fica com o seed de obligationTemplates.
     try { const ot=JSON.parse(localStorage.getItem('cb3_obligation_templates')||'null'); if(ot && Array.isArray(ot) && ot.length) obligationTemplates=ot; } catch(e){}
+    // Plano de contas e dados básicos do Financeiro — mesmo padrão: usa o
+    // que já foi salvo, senão fica no seed acima.
+    try { const pc=JSON.parse(localStorage.getItem('cb3_plano_contas')||'null'); if(pc && Array.isArray(pc) && pc.length) planoContas=pc; } catch(e){}
+    try { const fs2=JSON.parse(localStorage.getItem('cb3_fin_settings')||'null'); if(fs2) finSettings={...finSettings,...fs2,escritorio:{...finSettings.escritorio,...(fs2.escritorio||{})}}; } catch(e){}
     try { onboarding=JSON.parse(localStorage.getItem('cb3_onboarding')||'{}'); } catch(e){}
     try { csData=JSON.parse(localStorage.getItem('cb3_cs')||'{}'); } catch(e){}
     try { commentsData=JSON.parse(localStorage.getItem('cb3_comments')||'{}'); } catch(e){}
@@ -2740,11 +2755,8 @@ function initState() {
     }
     leads = leads || [];
 
-    // Seed revenues — sincronizado com mensalidades do CLIENTS_SEED
-    if(!seedV || parseInt(seedV) < 5) {
-      clients.forEach(c => { if(c.mensalidade > 0 && !revenues[c.id]) revenues[c.id] = c.mensalidade; });
-      save('cb3_rev', revenues);
-    }
+    // (O seed de `revenues` que existia aqui foi retirado — mensalidade
+    // agora vem só do cadastro do cliente, ver nota em getTotal().)
     if(!seedV || parseInt(seedV) < 8) localStorage.setItem('cb3_seed_v','8');
   } catch(e) {}
 }
@@ -3180,17 +3192,8 @@ const EV_TYPES = {
 
 function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 function escAttr(s){ return escHtml(s) }
-function parseRevVal(v){ return parseFloat(String(v||0).replace(/[R$\s.]/g,'').replace(',','.'))||0; }
-function fmtRevDisplay(v){ const n=parseRevVal(v); return n?n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'—'; }
-function onRevBlur(id,el){
-  const raw=el.textContent.replace(/[^\d,]/g,'');
-  const num=parseFloat(raw.replace(',','.'))||0;
-  revenues[id]=num;
-  save('cb3_rev',revenues);
-  el.textContent=num?num.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
-  el.classList.toggle('rev-val-empty',!num);
-  renderFinanceiro();
-}
+// (Edição direta de honorário por aqui foi removida — mensalidade agora só
+// se edita no cadastro do cliente, ver nota em getTotal().)
 
 function renderIgStats(){
   const now = new Date();
@@ -4042,7 +4045,12 @@ function closeLeadModal(){
 /* ═══════════════════════════════════════════════
    FINANCEIRO
 ═══════════════════════════════════════════════ */
-function getTotal(){return Object.values(revenues).reduce((s,v)=>s+parseRevVal(v),0)}
+// Mensalidade = sempre o que está no cadastro do cliente (c.mensalidade).
+// Até aqui existia um valor "paralelo" (o mapa `revenues`, editável direto
+// na tela de Início) que divergia do cadastro — Início mostrava um número
+// e Financeiro outro. Unificado numa fonte só: edita no cadastro do
+// cliente, aparece igual em todo lugar (Início, Financeiro, Precificação).
+function getTotal(){return clients.reduce((s,c)=>s+(Number(c.mensalidade)||0),0)}
 
 function renderFinanceiro(){
   const total=getTotal();
@@ -4050,7 +4058,7 @@ function renderFinanceiro(){
   const ticket=n?Math.round(total/n):0;
   let topClient='—', topVal=0;
   clients.forEach(c=>{
-    const v=parseFloat(String(revenues[c.id]||0).replace(/[^\d,]/g,'').replace(',','.'))||0;
+    const v=Number(c.mensalidade)||0;
     if(v>topVal){topVal=v;topClient=c.name;}
   });
   const projMRR=ticket*20;
@@ -4107,16 +4115,16 @@ function renderFinanceiro(){
       '<div class="stat-tile"><span class="stat-icon">📈</span><span class="stat-num green">'+(ticket?'R$ '+projMRR.toLocaleString('pt-BR'):'R$ 0')+'</span><span class="stat-label">Proj. MRR 20 clientes</span></div>'+
     '</div>'+
     '<div class="client-revenue-card">'+
-      '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--fg3);margin-bottom:8px">Honorários mensais (clique para editar)</div>'+
+      '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--fg3);margin-bottom:8px">Honorários mensais (clique pra abrir o cadastro do cliente e editar)</div>'+
       (clients.length?clients.map(c=>{
-        const val=parseRevVal(revenues[c.id]);
+        const val=Number(c.mensalidade)||0;
         const pct=total?Math.round(val/total*100):0;
         const disp=val?val.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
-        return '<div class="rev-row">'+
+        return '<div class="rev-row" style="cursor:pointer" onclick="openEditClientModal('+c.id+')" title="Editar no cadastro de '+escAttr(c.name)+'">'+
           '<span class="rev-name">'+escHtml(c.name)+'</span>'+
           '<div class="rev-bar-wrap"><div class="rev-bar"><div class="rev-bar-fill" style="width:'+pct+'%"></div></div></div>'+
           '<span class="rev-pct">'+pct+'%</span>'+
-          '<span class="rev-val'+(val?'':' rev-val-empty')+'" contenteditable="true" title="Clique para editar honorário" onblur="onRevBlur('+c.id+',this)">'+disp+'</span>'+
+          '<span class="rev-val'+(val?'':' rev-val-empty')+'">'+disp+' ✎</span>'+
         '</div>';
       }).join(''):'<div style="padding:12px 0;color:var(--fg3);font-size:13px">Nenhum cliente cadastrado ainda.</div>')+
     '</div>';
@@ -4141,8 +4149,6 @@ function renderFinanceiro(){
 
   renderMrrChart();
 }
-
-function setRevenue(id,val){ revenues[id]=val;save('cb3_rev',revenues);renderFinanceiro(); }
 
 /* ═══ FASE 3: MRR CHART (item 12) ═══════════════════════════ */
 function renderMrrChart(){
@@ -4263,6 +4269,31 @@ const GRUPO_COLOR={
   'Remuneração':'#6B46C1','Estrutura':'#D69E2E','Tecnologia':'#3182CE',
   'Comercial':'#D53F8C','Administrativo':'#718096'
 };
+
+// ───── Plano de Contas (editável em Financeiro → Configurações) ─────
+// Categorias de despesa e receita usadas pra agrupar Contas a Pagar, as
+// receitas avulsas e o DRE. As 5 de despesa abaixo são as mesmas que já
+// existiam fixas em GRUPO_COLOR/CAP_DEFAULT — migradas pra cá como ponto
+// de partida editável, sem quebrar as despesas recorrentes já cadastradas
+// (elas guardam o NOME do grupo, não um id, então renomear aqui não
+// atualiza despesas antigas automaticamente).
+let planoContas = [
+  { id:'remuneracao',      nome:'Remuneração',             tipo:'despesa', cor:'#6B46C1' },
+  { id:'estrutura',        nome:'Estrutura',                tipo:'despesa', cor:'#D69E2E' },
+  { id:'tecnologia',       nome:'Tecnologia',               tipo:'despesa', cor:'#3182CE' },
+  { id:'comercial',        nome:'Comercial',                tipo:'despesa', cor:'#D53F8C' },
+  { id:'administrativo',   nome:'Administrativo',           tipo:'despesa', cor:'#718096' },
+  { id:'honorarios',       nome:'Honorários Recorrentes',   tipo:'receita', cor:'#38A169' },
+  { id:'servicos_avulsos', nome:'Serviços Avulsos',         tipo:'receita', cor:'#D69E2E' },
+];
+function contaColor(nome){ const pc=planoContas.find(p=>p.nome===nome); return pc?pc.cor:(GRUPO_COLOR[nome]||'#718096'); }
+
+// ───── Dados básicos do escritório + metas (Financeiro → Configurações) ─────
+let finSettings = {
+  escritorio: { razaoSocial:'', cnpj:'', banco:'', agencia:'', conta:'', pix:'' },
+  metaClientes: 20,
+  diaCorte: 1,
+};
 function loadFinData(){
   const fk=finKey();
   const allCarSt=load(CAR_KEY)||{};
@@ -4302,18 +4333,11 @@ function waLink(phone){
   return 'https://wa.me/'+digits;
 }
 
-// Mensalidade de um cliente — prioriza o valor digitado em revenues[c.id]
-// (string, formato BR livre: "1.234,56") sobre o c.mensalidade do cadastro
-// (número JS puro, ex. 466.66). Bug real encontrado: aplicar o mesmo
-// replace(/[^\d,]/g,'') direto num número JS stringificado ("466.66")
-// removia o ponto decimal tratando-o como separador de milhar, virando
-// 46666 — GM Joias (a única mensalidade com centavos) aparecia 100x maior
-// em qualquer tela que usasse esse cálculo (Clientes, e agora Financeiro).
+// Mensalidade de um cliente — sempre direto do cadastro (c.mensalidade,
+// número JS puro). Existia antes uma 2ª fonte (revenues[c.id], editável
+// na tela de Início) que às vezes divergia do cadastro; foi retirada —
+// agora só se edita a mensalidade no cadastro do cliente.
 function parseMensalidade(c){
-  const raw = revenues[c.id];
-  if(raw!=null && raw!==''){
-    return parseFloat(String(raw).replace(/[^\d,]/g,'').replace(',','.'))||0;
-  }
   return Number(c.mensalidade)||0;
 }
 
@@ -4392,11 +4416,13 @@ function renderFinanceiroTab(){
   if(!el) return;
   const {carSt,carVal,cap,capSt,carExtra}=loadFinData();
 
-  /* CAR rows — valor: custom override OR revenue from Radar */
+  /* CAR rows — valor: SEMPRE a mensalidade do cadastro do cliente (sem
+     override por mês). Editar valor = editar o cadastro do cliente; aqui
+     só se controla o status (A receber/Recebido/Vencido/Negociando). */
   const carRows=clients.map(c=>{
     const key=String(c.id);
     const st=carSt[key]||'A receber';
-    const val= carVal[key]!=null ? Number(carVal[key]) : parseRevVal(revenues[c.id]);
+    const val=Number(c.mensalidade)||0;
     return {key,name:c.name,val,st,extra:false};
   });
   /* linhas avulsas (recebíveis fora da mensalidade fixa dos clientes) */
@@ -4407,23 +4433,45 @@ function renderFinanceiroTab(){
   const carRecebido = carAllRows.reduce((s,r)=>s+(r.st==='Recebido'?r.val:0),0);
   const inadimplentes = carAllRows.filter(r=>r.st==='Vencido'||r.st==='Negociando');
   const carVencido  = carAllRows.filter(r=>r.st==='Vencido').length;
+  // Histórico de inadimplência: em quantos meses já registrados essa
+  // mesma chave (cliente ou recebível avulso) apareceu como Vencido ou
+  // Negociando — dá uma noção de recorrência, não só do mês atual.
+  const allCarStHist = load(CAR_KEY)||{};
+  function mesesEmAtraso(key){
+    return Object.values(allCarStHist).filter(st=>st && (st[key]==='Vencido'||st[key]==='Negociando')).length;
+  }
   const capTotal    = cap.reduce((s,r)=>s+Number(r.valor||0),0);
   const saldoPrev   = carTotal-capTotal;
   const saldoReal   = carRecebido-capTotal;
 
   const kpiColor=(v)=>v>=0?'green':'red';
 
-  el.innerHTML=`
+  const viewTabs=[
+    {k:'operacional',label:'📊 Operacional'},
+    {k:'dre',label:'📈 DRE'},
+    {k:'dfc',label:'💵 Fluxo de Caixa'},
+    {k:'config',label:'⚙️ Configurações'},
+  ];
+  const navHtml=`
   <!-- header -->
   <div class="fin-header">
+    <div class="fin-view-tabs">
+      ${viewTabs.map(t=>`<button class="fin-view-tab${finView===t.k?' active':''}" onclick="finSetView('${t.k}')">${t.label}</button>`).join('')}
+    </div>
+    ${finView==='operacional'||finView==='dre'?`
     <div style="display:flex;align-items:center;gap:8px">
       <button class="fin-nav-btn" onclick="finChangeMonth(-1)" title="Mês anterior">‹</button>
       <div class="fin-mes">📅 ${MONTHS_PT[finMonth]} ${finYear}</div>
       <button class="fin-nav-btn" onclick="finChangeMonth(1)" title="Próximo mês">›</button>
-    </div>
-    <button class="fin-btn-mes" onclick="finNovoMes()" title="Avançar para próximo mês (reseta status CAR)">↺ Novo Mês</button>
-  </div>
+      ${finView==='operacional'?`<button class="fin-btn-mes" onclick="finNovoMes()" title="Avançar para próximo mês (reseta status CAR)">↺ Novo Mês</button>`:''}
+    </div>`:''}
+  </div>`;
 
+  if(finView==='config'){ el.innerHTML=navHtml+renderFinConfigView(); return; }
+  if(finView==='dre'){ el.innerHTML=navHtml+renderFinDRE(carAllRows,carRows,carExtraRows,cap,carTotal,capTotal); return; }
+  if(finView==='dfc'){ el.innerHTML=navHtml+renderFinDFC(); return; }
+
+  el.innerHTML=navHtml+`
   <!-- KPIs -->
   <div class="fin-kpis">
     <div class="fin-kpi ${kpiColor(saldoReal)}">
@@ -4465,11 +4513,8 @@ function renderFinanceiroTab(){
             return `<tr class="${rowCls}">
               <td style="font-weight:600">${r.extra?`<span style="opacity:.6">&#8627;</span> <input type="text" class="fin-input-desc" value="${escAttr(r.name)}" onchange="setCarExtraField('${r.key}','desc',this.value)">`:escHtml(r.name)}</td>
               <td style="text-align:right">
-                R$ <input type="number" class="fin-input-val"
-                  value="${r.val||''}"
-                  placeholder="0,00"
-                  title="Edite o valor"
-                  onchange="${r.extra?`setCarExtraField('${r.key}','valor',this.value)`:`setCarVal('${r.key}',this.value)`}">
+                ${r.extra?`R$\u00a0<input type="number" class="fin-input-val" value="${r.val||''}" placeholder="0,00" title="Edite o valor" onchange="setCarExtraField('${r.key}','valor',this.value)">`
+                  :`<span title="Mensalidade do cadastro — pra alterar, edite o cliente" style="cursor:pointer" onclick="openEditClientModal(${r.key})">${fmtBRL(r.val)} \u270e</span>`}
               </td>
               <td>
                 <select class="fin-select" onchange="${r.extra?`setCarExtraField('${r.key}','status',this.value)`:`setCarStatus('${r.key}',this.value)`}">
@@ -4504,19 +4549,20 @@ function renderFinanceiroTab(){
         <span class="fin-card-total" style="color:var(--red)">${inadimplentes.length} em aberto</span>
       </div>
       <table class="fin-table">
-        <thead><tr><th>Cliente / Descrição</th><th style="text-align:right">Valor</th><th>Situação</th></tr></thead>
+        <thead><tr><th>Cliente / Descrição</th><th style="text-align:right">Valor</th><th>Situação</th><th style="text-align:center" title="Em quantos meses já registrados essa chave apareceu como Vencido/Negociando">Meses em atraso</th></tr></thead>
         <tbody>
           ${inadimplentes.map(r=>`<tr class="fin-row-vencido">
             <td style="font-weight:600">${escHtml(r.name)}</td>
             <td style="text-align:right">${fmtBRL(r.val)}</td>
             <td><span style="font-weight:700;color:${r.st==='Vencido'?'var(--red)':'var(--amber)'}">${r.st}</span></td>
+            <td style="text-align:center">${mesesEmAtraso(r.key)}</td>
           </tr>`).join('')}
         </tbody>
         <tfoot>
           <tr style="border-top:2px solid var(--border)">
             <td style="font-weight:700;padding-top:.5rem">Total em risco</td>
             <td style="text-align:right;font-weight:700;padding-top:.5rem;color:var(--red)">${fmtBRL(inadimplentes.reduce((s,r)=>s+r.val,0))}</td>
-            <td></td>
+            <td></td><td></td>
           </tr>
         </tfoot>
       </table>
@@ -4534,25 +4580,19 @@ function renderFinanceiroTab(){
           <th>Grupo</th>
           <th style="text-align:right">Valor/mês</th>
           <th>Status</th>
-          <th></th>
         </tr></thead>
         <tbody>
           ${cap.map((r,i)=>{
             const cst=capSt[i]||'A pagar';
             return `<tr>
-            <td><input type="text" class="fin-input-desc" value="${escAttr(r.desc)}" onchange="setCapDesc(${i},this.value)"></td>
-            <td><span class="fin-cap-grupo" style="background:${GRUPO_COLOR[r.grupo]||'#718096'}">${escHtml(r.grupo)}</span></td>
-            <td style="text-align:right">
-              R$ <input type="number" class="fin-input-val"
-                value="${r.valor}"
-                onchange="setCapValor(${i},this.value)">
-            </td>
+            <td style="font-weight:600">${escHtml(r.desc)}</td>
+            <td><span class="fin-cap-grupo" style="background:${contaColor(r.grupo)}">${escHtml(r.grupo)}</span></td>
+            <td style="text-align:right">${fmtBRL(r.valor)}</td>
             <td>
               <select class="fin-cap-st-select" onchange="setCapStatus(${i},this.value)">
                 ${STATUS_CAP.map(s=>`<option value="${s}"${s===cst?' selected':''}>${s}</option>`).join('')}
               </select>
             </td>
-            <td><button class="fin-row-del" title="Remover" onclick="removeCapRow(${i})">&times;</button></td>
           </tr>`;
           }).join('')}
         </tbody>
@@ -4560,11 +4600,11 @@ function renderFinanceiroTab(){
           <tr style="border-top:2px solid var(--border)">
             <td colspan="2" style="font-weight:700;padding-top:.5rem">Total despesas</td>
             <td style="text-align:right;font-weight:700;padding-top:.5rem">${fmtBRL(capTotal)}</td>
-            <td></td><td></td>
+            <td></td>
           </tr>
         </tfoot>
       </table>
-      <button class="fin-add-btn" onclick="addCapRow()">+ Nova despesa</button>
+      <p style="font-size:11px;color:var(--fg3);margin:10px 0 0">Essa lista é fixa mês a mês — só o status muda aqui. Pra criar, editar ou remover uma despesa recorrente, vá em <a href="javascript:void(0)" onclick="finSetView('config')" style="color:var(--navy);font-weight:600">⚙️ Configurações → Despesas Recorrentes</a>.</p>
     </div>
 
     <!-- PRECIFICAÇÃO & MARGEM -->
@@ -4590,12 +4630,8 @@ function setCarStatus(key,val){
   saveFinData(carSt,carVal,cap,capSt);
   renderFinanceiroTab();
 }
-function setCarVal(key,val){
-  const {carSt,carVal,cap,capSt}=loadFinData();
-  carVal[key]=parseFloat(val)||0;
-  saveFinData(carSt,carVal,cap,capSt);
-  renderFinanceiroTab();
-}
+// (setCarVal — override manual do valor por mês/cliente — foi retirado:
+// o valor do Contas a Receber agora vem sempre do cadastro do cliente.)
 function setCapValor(idx,val){
   const {carSt,carVal,cap,capSt}=loadFinData();
   cap[idx].valor=parseFloat(val)||0;
@@ -4670,6 +4706,214 @@ function finNovoMes(){
     if(panel.classList.contains('active')) renderFinanceiroTab();
   }).observe(panel,{attributes:true,attributeFilter:['class']});
 })();
+
+/* ═══════════════════════════════════════════════
+   FINANCEIRO — CONFIGURAÇÕES
+   (Dados básicos do escritório, Plano de Contas,
+   Despesas Recorrentes — cadastro que não muda mês a mês)
+═══════════════════════════════════════════════ */
+function setCapGrupo(idx,val){
+  const {carSt,carVal,cap,capSt}=loadFinData();
+  cap[idx].grupo=val;
+  saveFinData(carSt,carVal,cap,capSt);
+  renderFinanceiroTab();
+}
+function updateFinSettingField(path,value){
+  // path: 'metaClientes' | 'diaCorte' | 'escritorio.razaoSocial' etc.
+  const parts=path.split('.');
+  let obj=finSettings;
+  for(let i=0;i<parts.length-1;i++){ obj[parts[i]]=obj[parts[i]]||{}; obj=obj[parts[i]]; }
+  obj[parts[parts.length-1]]=value;
+  save('cb3_fin_settings',finSettings);
+}
+function addPlanoConta(tipo){
+  const id=(tipo==='despesa'?'despesa_':'receita_')+Date.now();
+  planoContas.push({id,nome:'Nova categoria',tipo,cor:tipo==='despesa'?'#718096':'#38A169'});
+  save('cb3_plano_contas',planoContas);
+  renderFinanceiroTab();
+}
+function updatePlanoConta(id,field,value){
+  const pc=planoContas.find(p=>p.id===id);
+  if(!pc) return;
+  const oldNome=pc.nome;
+  pc[field]=value;
+  // Se renomeou, atualiza as despesas recorrentes que já usavam o nome
+  // antigo — senão elas ficam "órfãs" (grupo some do plano de contas).
+  if(field==='nome' && oldNome!==value){
+    const {carSt,carVal,cap,capSt}=loadFinData();
+    let changed=false;
+    cap.forEach(r=>{ if(r.grupo===oldNome){ r.grupo=value; changed=true; } });
+    if(changed) saveFinData(carSt,carVal,cap,capSt);
+  }
+  save('cb3_plano_contas',planoContas);
+  renderFinanceiroTab();
+}
+function removePlanoConta(id){
+  const pc=planoContas.find(p=>p.id===id);
+  if(!pc) return;
+  const {cap}=loadFinData();
+  const emUso=pc.tipo==='despesa' && cap.some(r=>r.grupo===pc.nome);
+  if(emUso && !confirm('A categoria "'+pc.nome+'" está sendo usada em despesas recorrentes. Remover mesmo assim? (as despesas continuam, só ficam sem categoria colorida)')) return;
+  if(!emUso && !confirm('Remover a categoria "'+pc.nome+'"?')) return;
+  planoContas=planoContas.filter(p=>p.id!==id);
+  save('cb3_plano_contas',planoContas);
+  renderFinanceiroTab();
+}
+
+function renderFinConfigView(){
+  const despesaContas=planoContas.filter(p=>p.tipo==='despesa');
+  const receitaContas=planoContas.filter(p=>p.tipo==='receita');
+  const {cap}=loadFinData();
+  const e=finSettings.escritorio||{};
+  return `
+  <div class="fin-card" style="margin-bottom:14px">
+    <div class="fin-card-hd"><h3>🏢 Dados básicos do escritório</h3></div>
+    <div style="padding:14px">
+      <div class="fin-cfg-grid">
+        <div class="fin-cfg-field"><label>Razão social</label><input class="modal-input" value="${escAttr(e.razaoSocial||'')}" onchange="updateFinSettingField('escritorio.razaoSocial',this.value)"></div>
+        <div class="fin-cfg-field"><label>CNPJ</label><input class="modal-input" value="${escAttr(e.cnpj||'')}" onchange="updateFinSettingField('escritorio.cnpj',this.value)"></div>
+        <div class="fin-cfg-field"><label>Banco</label><input class="modal-input" value="${escAttr(e.banco||'')}" onchange="updateFinSettingField('escritorio.banco',this.value)"></div>
+        <div class="fin-cfg-field"><label>Agência</label><input class="modal-input" value="${escAttr(e.agencia||'')}" onchange="updateFinSettingField('escritorio.agencia',this.value)"></div>
+        <div class="fin-cfg-field"><label>Conta</label><input class="modal-input" value="${escAttr(e.conta||'')}" onchange="updateFinSettingField('escritorio.conta',this.value)"></div>
+        <div class="fin-cfg-field"><label>PIX</label><input class="modal-input" value="${escAttr(e.pix||'')}" onchange="updateFinSettingField('escritorio.pix',this.value)"></div>
+        <div class="fin-cfg-field"><label>Meta de clientes ativos</label><input class="modal-input" type="number" min="1" value="${finSettings.metaClientes||20}" onchange="updateFinSettingField('metaClientes',parseInt(this.value,10)||20)"></div>
+        <div class="fin-cfg-field"><label>Dia de corte do mês financeiro</label><input class="modal-input" type="number" min="1" max="28" value="${finSettings.diaCorte||1}" onchange="updateFinSettingField('diaCorte',parseInt(this.value,10)||1)"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="fin-card" style="margin-bottom:14px">
+    <div class="fin-card-hd"><h3>📑 Plano de Contas</h3></div>
+    <div style="padding:14px">
+      <p style="font-size:11px;color:var(--fg3);margin:0 0 10px">Categorias usadas pra agrupar despesas e receitas no Contas a Pagar, nas receitas avulsas e no DRE.</p>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--fg3);margin-bottom:6px">Despesa</div>
+      ${despesaContas.map(pc=>`<div class="fin-cfg-plano-row">
+        <input type="color" value="${pc.cor}" onchange="updatePlanoConta('${pc.id}','cor',this.value)">
+        <input class="modal-input" style="flex:1" value="${escAttr(pc.nome)}" onchange="updatePlanoConta('${pc.id}','nome',this.value)">
+        <button class="oblig-remove-btn" title="Remover" onclick="removePlanoConta('${pc.id}')">🗑</button>
+      </div>`).join('')}
+      <button class="fin-add-btn" onclick="addPlanoConta('despesa')">+ Categoria de despesa</button>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--fg3);margin:14px 0 6px">Receita</div>
+      ${receitaContas.map(pc=>`<div class="fin-cfg-plano-row">
+        <input type="color" value="${pc.cor}" onchange="updatePlanoConta('${pc.id}','cor',this.value)">
+        <input class="modal-input" style="flex:1" value="${escAttr(pc.nome)}" onchange="updatePlanoConta('${pc.id}','nome',this.value)">
+        <button class="oblig-remove-btn" title="Remover" onclick="removePlanoConta('${pc.id}')">🗑</button>
+      </div>`).join('')}
+      <button class="fin-add-btn" onclick="addPlanoConta('receita')">+ Categoria de receita</button>
+    </div>
+  </div>
+
+  <div class="fin-card">
+    <div class="fin-card-hd"><h3>📤 Despesas Recorrentes</h3></div>
+    <div style="padding:14px">
+      <p style="font-size:11px;color:var(--fg3);margin:0 0 10px">Cadastro único — isso NÃO precisa ser refeito todo mês. O Contas a Pagar operacional usa essa mesma lista; lá você só marca o status (pago/a pagar) de cada mês.</p>
+      <table class="fin-table">
+        <thead><tr><th>Descrição</th><th>Grupo</th><th style="text-align:right">Valor/mês</th><th></th></tr></thead>
+        <tbody>
+          ${cap.map((r,i)=>`<tr>
+            <td><input type="text" class="fin-input-desc" value="${escAttr(r.desc)}" onchange="setCapDesc(${i},this.value)"></td>
+            <td><select class="fin-select" onchange="setCapGrupo(${i},this.value)">${despesaContas.map(pc=>`<option value="${escAttr(pc.nome)}"${pc.nome===r.grupo?' selected':''}>${escHtml(pc.nome)}</option>`).join('')}</select></td>
+            <td style="text-align:right">R$ <input type="number" class="fin-input-val" value="${r.valor}" onchange="setCapValor(${i},this.value)"></td>
+            <td><button class="fin-row-del" title="Remover" onclick="removeCapRow(${i})">&times;</button></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+      <button class="fin-add-btn" onclick="addCapRow()">+ Nova despesa recorrente</button>
+    </div>
+  </div>`;
+}
+
+/* ═══════════════════════════════════════════════
+   FINANCEIRO — DRE (Demonstração de Resultado)
+   Regime de competência (o que foi faturado no mês, não só o que já
+   entrou em caixa) — para isso usamos carTotal/capTotal, não carRecebido.
+═══════════════════════════════════════════════ */
+function renderFinDRE(carAllRows,carRows,carExtraRows,cap,carTotal,capTotal){
+  const receitaHonorarios=carRows.reduce((s,r)=>s+(r.st==='Cancelado'?0:r.val),0);
+  const receitaAvulsa=carExtraRows.reduce((s,r)=>s+(r.st==='Cancelado'?0:r.val),0);
+  const receitaTotal=receitaHonorarios+receitaAvulsa;
+  const despesaPorGrupo={};
+  cap.forEach(r=>{ despesaPorGrupo[r.grupo]=(despesaPorGrupo[r.grupo]||0)+Number(r.valor||0); });
+  const grupos=Object.keys(despesaPorGrupo);
+  const resultado=receitaTotal-capTotal;
+  const margem=receitaTotal?Math.round(resultado/receitaTotal*100):0;
+  return `
+  <p style="font-size:11px;color:var(--fg3);margin:0 0 12px">Regime de competência — o que foi faturado no mês (independente de já ter sido recebido ou pago). Pra ver o que de fato entrou/saiu do caixa, veja o Fluxo de Caixa.</p>
+  <div class="fin-card" style="margin-bottom:14px">
+    <div class="fin-card-hd"><h3>📈 DRE — ${MONTHS_PT[finMonth]} ${finYear}</h3></div>
+    <table class="fin-table">
+      <tbody>
+        <tr><td style="font-weight:700">(+) Receita Bruta</td><td style="text-align:right;font-weight:700">${fmtBRL(receitaTotal)}</td></tr>
+        <tr><td style="padding-left:1.5rem;color:var(--fg2)">Honorários recorrentes</td><td style="text-align:right">${fmtBRL(receitaHonorarios)}</td></tr>
+        <tr><td style="padding-left:1.5rem;color:var(--fg2)">Receitas avulsas</td><td style="text-align:right">${fmtBRL(receitaAvulsa)}</td></tr>
+        <tr><td style="font-weight:700;border-top:1px solid var(--border)">(−) Despesas</td><td style="text-align:right;font-weight:700;border-top:1px solid var(--border)">${fmtBRL(capTotal)}</td></tr>
+        ${grupos.map(g=>`<tr><td style="padding-left:1.5rem;color:var(--fg2)"><span class="fin-cap-grupo" style="background:${contaColor(g)}">${escHtml(g)}</span></td><td style="text-align:right">${fmtBRL(despesaPorGrupo[g])}</td></tr>`).join('')}
+        <tr style="border-top:2px solid var(--border)"><td style="font-weight:800;padding-top:.6rem">(=) Resultado do mês</td><td style="text-align:right;font-weight:800;padding-top:.6rem;color:${resultado>=0?'#38A169':'#E53E3E'}">${resultado>=0?'+':''}${fmtBRL(resultado)}</td></tr>
+        <tr><td style="color:var(--fg3);font-size:.75rem">Margem</td><td style="text-align:right;color:var(--fg3);font-size:.75rem">${margem}%</td></tr>
+      </tbody>
+    </table>
+  </div>`;
+}
+
+/* ═══════════════════════════════════════════════
+   FINANCEIRO — DFC (Fluxo de Caixa)
+   Regime de caixa — percorre os meses que já têm status registrado
+   (carSt/capSt, salvos por mês) e soma o que de fato foi marcado como
+   Recebido/Pago. Limitação honesta: despesas (cap) não são historizadas
+   por valor, então um mês passado usa o valor ATUAL de cada despesa —
+   só muda se o valor tiver sido alterado depois daquele mês.
+═══════════════════════════════════════════════ */
+function renderFinDFC(){
+  const allCarSt=load(CAR_KEY)||{};
+  const allCapSt=load(CAP_ST_KEY)||{};
+  const allCarExtra=load(CAR_EXTRA_KEY)||{};
+  const {cap}=loadFinData();
+  const keys=[...new Set([...Object.keys(allCarSt),...Object.keys(allCapSt)])].sort();
+  if(!keys.length) return `<div class="fin-card"><div style="padding:20px;color:var(--fg3);font-size:13px">Ainda não há meses com status registrado pra calcular o fluxo de caixa.</div></div>`;
+  let saldoAcum=0;
+  const rows=keys.map(fk=>{
+    const carSt=allCarSt[fk]||{};
+    const capSt=allCapSt[fk]||{};
+    const carExtra=allCarExtra[fk]||[];
+    const entradasClientes=clients.reduce((s,c)=>s+((carSt[String(c.id)]==='Recebido')?(Number(c.mensalidade)||0):0),0);
+    const entradasAvulsas=carExtra.reduce((s,r)=>s+((r.status==='Recebido')?Number(r.valor||0):0),0);
+    const entradas=entradasClientes+entradasAvulsas;
+    const saidas=cap.reduce((s,r,i)=>s+((capSt[i]==='Pago')?Number(r.valor||0):0),0);
+    const saldoMes=entradas-saidas;
+    saldoAcum+=saldoMes;
+    const [y,m]=fk.split('-');
+    const lbl=MONTHS_PT[parseInt(m,10)-1].slice(0,3)+'/'+y.slice(2);
+    return {fk,lbl,entradas,saidas,saldoMes,saldoAcum};
+  });
+  const totalEntradas=rows.reduce((s,r)=>s+r.entradas,0);
+  const totalSaidas=rows.reduce((s,r)=>s+r.saidas,0);
+  return `
+  <p style="font-size:11px;color:var(--fg3);margin:0 0 12px">Regime de caixa — só o que já foi marcado como Recebido/Pago em cada mês (Contas a Receber/Pagar). Despesas usam o valor atual cadastrado; se um valor mudou depois, meses antigos não refletem o valor de então.</p>
+  <div class="fin-card">
+    <div class="fin-card-hd"><h3>💵 Fluxo de Caixa</h3><span class="fin-card-total">Saldo acumulado: ${fmtBRL(saldoAcum)}</span></div>
+    <table class="fin-table">
+      <thead><tr><th>Mês</th><th style="text-align:right">Entradas</th><th style="text-align:right">Saídas</th><th style="text-align:right">Saldo do mês</th><th style="text-align:right">Saldo acumulado</th></tr></thead>
+      <tbody>
+        ${rows.map(r=>`<tr${r.fk===finKey()?' style="background:rgba(49,130,206,.08)"':''}>
+          <td style="font-weight:600">${r.lbl}</td>
+          <td style="text-align:right;color:#38A169">${fmtBRL(r.entradas)}</td>
+          <td style="text-align:right;color:#E53E3E">${fmtBRL(r.saidas)}</td>
+          <td style="text-align:right;font-weight:700;color:${r.saldoMes>=0?'#38A169':'#E53E3E'}">${r.saldoMes>=0?'+':''}${fmtBRL(r.saldoMes)}</td>
+          <td style="text-align:right;font-weight:700">${fmtBRL(r.saldoAcum)}</td>
+        </tr>`).join('')}
+      </tbody>
+      <tfoot>
+        <tr style="border-top:2px solid var(--border)">
+          <td style="font-weight:700">Total do período</td>
+          <td style="text-align:right;font-weight:700;color:#38A169">${fmtBRL(totalEntradas)}</td>
+          <td style="text-align:right;font-weight:700;color:#E53E3E">${fmtBRL(totalSaidas)}</td>
+          <td style="text-align:right;font-weight:800">${totalEntradas-totalSaidas>=0?'+':''}${fmtBRL(totalEntradas-totalSaidas)}</td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>`;
+}
 
 /* ═══════════════════════════════════════════════
    CLIENTES — CONFIGURAÇÕES
