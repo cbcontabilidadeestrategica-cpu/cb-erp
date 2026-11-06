@@ -1616,6 +1616,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
     <button class="btn-primary" onclick="openNewLeadModal()" style="padding:10px 18px;flex-shrink:0">+ Novo Lead</button>
   </div>
   <div id="funilKpiBar" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px"></div>
+  <div id="funilConversao"></div>
   <div class="kanban-board" id="kanbanBoard"></div>
 </section>
 
@@ -3591,6 +3592,23 @@ const LEAD_CHECKS = [
   { id:'followup', label:'Follow-up realizado' },
   { id:'decisao',  label:'Decisão confirmada' },
 ];
+// Prioridade de prospecção (A/B/C) — critério de fit + sinal, igual ao
+// "Preparar" do playbook comercial: A = bom fit e sinal atual (contato
+// prioritário), B = bom fit mas sinal fraco/timing incerto (nutrição),
+// C = fit duvidoso (enriquecer dado ou descartar).
+const LEAD_PRIORITY = {
+  A:{ label:'A · Prioritário', color:'var(--gold)' },
+  B:{ label:'B · Nutrição',    color:'var(--blue)' },
+  C:{ label:'C · Fit duvidoso', color:'var(--fg3)' },
+};
+// Motivo de perda categorizado — texto livre não vira relatório. O
+// detalhe (lostDetail) continua livre, mas a categoria (lostReason)
+// agora é fixa pra dar pra somar "perdemos X% por preço" de verdade.
+const LOST_REASONS = [
+  'Preço / honorário','Timing / não é prioridade agora','Sem orçamento',
+  'Ficou com o contador atual','Escolheu concorrente','Sem fit (porte/regime)',
+  'Parou de responder','Outro'
+];
 
 function normalizeLead(l, i){
   if(!l.id) l.id = 'l_'+Date.now()+'_'+i;
@@ -3602,6 +3620,12 @@ function normalizeLead(l, i){
   if(l.nextStep===undefined) l.nextStep='';
   if(l.followUpDate===undefined) l.followUpDate='';
   if(l.lostReason===undefined) l.lostReason='';
+  if(l.lostDetail===undefined) l.lostDetail='';
+  // leads perdidos antes desta versão não têm o estágio de origem
+  // registrado — assume o primeiro estágio ativo como aproximação
+  // conservadora (mostra o funil um pouco mais "vazado" no topo, nunca menos).
+  if(l.lostFromStage===undefined) l.lostFromStage = l.stage==='lost' ? 'prosp' : '';
+  if(l.priority===undefined) l.priority='';
   return l;
 }
 
@@ -3630,6 +3654,37 @@ function renderFunilKpis(){
     '<div class="stat-tile"><span class="stat-num navy">'+won.length+'</span><span class="stat-label">Fechados (total)</span></div>';
 }
 
+// Funil de conversão por etapa — snapshot de quantos leads já alcançaram
+// (ou passaram por) cada estágio, incluindo os perdidos a partir dali.
+// Diferente da taxa geral de fechamento (ganhos ÷ fechados), isso mostra
+// ONDE no funil os leads mais travam — é o que o playbook comercial chama
+// de "taxa de conversão por etapa" do Sales Model Canvas.
+function renderFunilConversao(){
+  const el = document.getElementById('funilConversao');
+  if(!el) return;
+  const flow = ['prosp','qual','prop','neg','won'];
+  const idx = s => STAGE_ORDER.indexOf(s);
+  function reached(stage){
+    return leads.filter(l=>{
+      if(l.stage==='lost') return idx(l.lostFromStage||'prosp') >= idx(stage);
+      return idx(l.stage) >= idx(stage);
+    }).length;
+  }
+  const counts = flow.map(s=>({ stage:s, label:STAGE_LABELS[s], count:reached(s) }));
+  if(!counts[0].count){ el.innerHTML=''; return; }
+  el.innerHTML = '<div class="section-label" style="margin:18px 0 8px">FUNIL DE CONVERSÃO POR ETAPA</div>'+
+    '<div class="card" style="display:flex;flex-wrap:wrap;gap:0;align-items:stretch">'+
+    counts.map((c,i)=>{
+      const pct = i===0 ? null : (counts[i-1].count ? Math.round(c.count/counts[i-1].count*100) : 0);
+      return '<div style="flex:1;min-width:110px;padding:8px 12px;'+(i>0?'border-left:1px solid var(--border)':'')+'">'+
+        (pct!==null?'<div style="font-size:11px;color:var(--fg3);margin-bottom:2px">↓ '+pct+'%</div>':'')+
+        '<div style="font-size:20px;font-weight:700">'+c.count+'</div>'+
+        '<div style="font-size:11px;color:var(--fg3)">'+c.label+'</div>'+
+      '</div>';
+    }).join('')+
+    '</div>';
+}
+
 let draggingLeadId = null;
 function dragLeadStart(ev, id){ draggingLeadId = id; try{ ev.dataTransfer.effectAllowed='move'; }catch(e){} }
 // Lógica de mudança de estágio compartilhada entre o drag-and-drop e o
@@ -3638,11 +3693,19 @@ function dragLeadStart(ev, id){ draggingLeadId = id; try{ ev.dataTransfer.effect
 function setLeadStage(l, stage){
   if(!l || l.stage===stage) return false;
   if(stage==='lost' && !l.lostReason){
-    const reason = (prompt('Motivo da perda deste lead:')||'').trim();
-    if(!reason) return false; // cancela sem motivo
-    l.lostReason = reason;
+    // motivo de perda agora é categorizado (vira relatório) — em vez do
+    // prompt() de texto livre, abre o modal já no estágio "Perdido" pra
+    // obrigar a escolha da categoria + detalhe opcional.
+    openLeadModal(l.id);
+    setTimeout(()=>{
+      const sel = document.getElementById('ml_stage');
+      if(sel){ sel.value='lost'; sel.dispatchEvent(new Event('change')); }
+      document.getElementById('ml_lr_cat')?.focus();
+    },0);
+    return false;
   }
   const prevStage = l.stage;
+  if(stage==='lost') l.lostFromStage = prevStage;
   l.stage = stage;
   l.stageChangedAt = new Date().toISOString();
   save('cb3_leads', leads);
@@ -3686,6 +3749,7 @@ function quickCheckLead(ev, id){
 function renderFunil(){
   leads = leads.map((l,i)=>normalizeLead(l,i));
   renderFunilKpis();
+  renderFunilConversao();
   const board = document.getElementById('kanbanBoard');
   if(!board) return;
   board.innerHTML = STAGE_ORDER.map(stage=>{
@@ -3700,9 +3764,11 @@ function renderFunil(){
       const fuOverdue = l.followUpDate && l.followUpDate < todayStr;
       const nextCheck = LEAD_CHECKS.find(c=>!(l.checklist&&l.checklist[c.id]));
       const canAdvance = STAGE_ORDER.indexOf(l.stage) < STAGE_ORDER.length-3;
+      const prio = LEAD_PRIORITY[l.priority];
       return '<div class="kanban-card" draggable="true" ondragstart="dragLeadStart(event,\''+escAttr(l.id)+'\')" onclick="openLeadModal(\''+escAttr(l.id)+'\')">'+
         '<div class="kanban-card-top">'+
           '<span class="kanban-dot" style="background:'+dot+'"></span>'+
+          (prio?'<span title="'+escAttr(prio.label)+'" style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:'+prio.color+';color:#fff;font-size:10px;font-weight:700;flex-shrink:0">'+l.priority+'</span>':'')+
           '<span class="kanban-name">'+escHtml(l.name)+'</span>'+
           (agingDays>0?'<span class="kanban-aging'+(agingClass?' '+agingClass:'')+'">'+agingDays+'d</span>':'')+
         '</div>'+
@@ -3764,9 +3830,18 @@ function buildLeadModal(l){
       '<label>Nome do lead</label>'+
       '<input class="modal-input" id="ml_name" placeholder="Nome da empresa ou pessoa" value="'+escAttr(l?l.name||'':'')+'">'+
     '</div>'+
-    '<div class="modal-field-group">'+
-      '<label>Etapa no funil</label>'+
-      '<select class="modal-input" id="ml_stage" onchange="document.getElementById(\'ml_lost_sec\').hidden=this.value!==\'lost\'">'+stageOpts+'</select>'+
+    '<div class="modal-2col">'+
+      '<div class="modal-field-group">'+
+        '<label>Etapa no funil</label>'+
+        '<select class="modal-input" id="ml_stage" onchange="document.getElementById(\'ml_lost_sec\').hidden=this.value!==\'lost\'">'+stageOpts+'</select>'+
+      '</div>'+
+      '<div class="modal-field-group">'+
+        '<label>Prioridade</label>'+
+        '<select class="modal-input" id="ml_prio">'+
+          '<option value="">— sem classificar —</option>'+
+          Object.keys(LEAD_PRIORITY).map(p=>'<option value="'+p+'"'+(l&&l.priority===p?' selected':'')+'>'+LEAD_PRIORITY[p].label+'</option>').join('')+
+        '</select>'+
+      '</div>'+
     '</div>'+
     '<div class="modal-2col">'+
       '<div class="modal-field-group">'+
@@ -3805,7 +3880,14 @@ function buildLeadModal(l){
     '<div id="ml_lost_sec"'+(isLost?'':' hidden')+'>'+
       '<div class="modal-field-group">'+
         '<label style="color:var(--red)">Motivo da perda <span style="font-size:10px;font-weight:400">(obrigatório)</span></label>'+
-        '<textarea class="modal-input modal-textarea" id="ml_lr" rows="2" placeholder="Por que este lead não fechou?">'+escHtml(l?l.lostReason||'':'')+'</textarea>'+
+        '<select class="modal-input" id="ml_lr_cat">'+
+          '<option value="">— selecione —</option>'+
+          LOST_REASONS.map(r=>'<option value="'+escAttr(r)+'"'+(l&&l.lostReason===r?' selected':'')+'>'+r+'</option>').join('')+
+        '</select>'+
+      '</div>'+
+      '<div class="modal-field-group">'+
+        '<label>Detalhe (opcional)</label>'+
+        '<textarea class="modal-input modal-textarea" id="ml_lr_det" rows="2" placeholder="Algo específico que valha registrar?">'+escHtml(l?l.lostDetail||'':'')+'</textarea>'+
       '</div>'+
     '</div>'+
     '<div class="modal-field-group">'+
@@ -3829,9 +3911,11 @@ function saveLeadModal(){
   const dor = (document.getElementById('ml_dor').value||'').trim();
   const nextStep = (document.getElementById('ml_ns').value||'').trim();
   const followUpDate = document.getElementById('ml_fu').value;
-  const lrEl = document.getElementById('ml_lr');
-  const lostReason = (lrEl?lrEl.value||'':'').trim();
-  if(stage==='lost'&&!lostReason){ lrEl&&lrEl.focus(); showToast('Informe o motivo da perda','err'); return; }
+  const priority = (document.getElementById('ml_prio').value||'').trim();
+  const lrCatEl = document.getElementById('ml_lr_cat');
+  const lostReason = (lrCatEl?lrCatEl.value||'':'').trim();
+  const lostDetail = (document.getElementById('ml_lr_det')?.value||'').trim();
+  if(stage==='lost'&&!lostReason){ lrCatEl&&lrCatEl.focus(); showToast('Selecione o motivo da perda','err'); return; }
   const checklist = {};
   LEAD_CHECKS.forEach(c=>{ const el=document.getElementById('mc_'+c.id); if(el&&el.checked) checklist[c.id]=true; });
   if(editingLeadId){
@@ -3839,13 +3923,15 @@ function saveLeadModal(){
     if(idx>-1){
       const prev = leads[idx];
       const stageChanged = prev.stage !== stage;
-      leads[idx] = { ...prev, name, stage, valor, origem, resp, firstContact, dor, nextStep, followUpDate, lostReason, checklist,
+      const lostFromStage = (stage==='lost' && prev.stage!=='lost') ? prev.stage : prev.lostFromStage;
+      leads[idx] = { ...prev, name, stage, valor, origem, resp, firstContact, dor, nextStep, followUpDate, priority, lostReason, lostDetail, lostFromStage, checklist,
         stageChangedAt: stageChanged ? new Date().toISOString() : (prev.stageChangedAt||prev.createdAt||new Date().toISOString())
       };
     }
   } else {
     const now = new Date().toISOString();
-    leads.unshift({ id:'l_'+Date.now(), name, stage, valor, origem, resp, firstContact, dor, nextStep, followUpDate, lostReason, checklist, createdAt:now, stageChangedAt:now });
+    const lostFromStage = stage==='lost' ? 'prosp' : '';
+    leads.unshift({ id:'l_'+Date.now(), name, stage, valor, origem, resp, firstContact, dor, nextStep, followUpDate, priority, lostReason, lostDetail, lostFromStage, checklist, createdAt:now, stageChangedAt:now });
   }
   save('cb3_leads', leads);
   // Automação: lead fechado → oferecer criar cliente (item 17)
