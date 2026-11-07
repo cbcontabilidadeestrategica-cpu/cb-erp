@@ -1111,26 +1111,33 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 }
 
 /* ── Operação — resumo, painel por setor, toolbar ── */
-.oper-summary-row{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
-.oper-summary-pct{display:flex;flex-direction:column;align-items:center;text-align:center;flex-shrink:0;padding-right:16px;border-right:1px solid var(--border)}
-.oper-summary-pct-num{font-size:26px;font-weight:900;color:var(--navy);line-height:1}
-.oper-summary-pct-label{font-size:10px;color:var(--fg3);line-height:1.3;margin-top:3px}
-.oper-summary-counts{display:flex;gap:14px;flex-wrap:wrap}
-.oper-count-chip{font-size:12px;display:flex;align-items:center;gap:4px}
-.oper-count-chip strong{font-size:15px}
+.oper-summary-row{display:flex;align-items:center;gap:22px;flex-wrap:wrap}
+.oper-summary-pct{display:flex;flex-direction:column;align-items:center;text-align:center;flex-shrink:0;padding-right:20px;border-right:1px solid var(--border)}
+.oper-summary-pct-ring{display:flex;align-items:center;justify-content:center;width:68px;height:68px;border-radius:50%;background:var(--bg3);border:4px solid var(--border);transition:border-color .2s}
+.oper-summary-pct-ring.pct-low{border-color:var(--red)}
+.oper-summary-pct-ring.pct-mid{border-color:var(--amber)}
+.oper-summary-pct-ring.pct-high{border-color:var(--green)}
+.oper-summary-pct-num{font-size:19px;font-weight:900;color:var(--navy);line-height:1}
+.oper-summary-pct-label{font-size:10px;color:var(--fg3);line-height:1.3;margin-top:7px;max-width:84px}
+.oper-summary-counts{display:flex;gap:16px;flex-wrap:wrap}
+.oper-count-chip{font-size:12px;display:flex;flex-direction:column;align-items:flex-start;gap:1px}
+.oper-count-chip strong{font-size:19px;font-variant-numeric:tabular-nums}
+.section-label::after{content:'';flex:1;height:1px;background:var(--border);margin-left:2px}
 .oper-setor-panel{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:16px}
-.oper-setor-chip{text-align:left;background:var(--bg2);border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;cursor:pointer;font-family:'Outfit',sans-serif;transition:.12s}
-.oper-setor-chip:hover{box-shadow:var(--shadow)}
-.oper-setor-chip.active{box-shadow:0 0 0 2px currentColor inset}
-.oper-setor-chip-name{font-size:12px;font-weight:800;margin-bottom:5px}
+.oper-setor-chip{position:relative;text-align:left;background:var(--bg2);border:1px solid var(--border);border-left:4px solid var(--border);border-radius:10px;padding:10px 12px 10px 14px;cursor:pointer;font-family:'Outfit',sans-serif;transition:transform .12s,box-shadow .12s}
+.oper-setor-chip:hover{box-shadow:var(--shadow);transform:translateY(-1px)}
+.oper-setor-chip.active{box-shadow:0 0 0 1.5px currentColor inset}
+.oper-setor-chip-name{font-size:12px;font-weight:800;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:6px}
+.oper-setor-chip-pct{font-size:11px;font-weight:900;font-variant-numeric:tabular-nums;opacity:.85}
 .oper-setor-chip-row{font-size:11px;color:var(--fg2);margin-bottom:2px}
 .oper-setor-chip-sub{color:var(--fg3);font-size:10px}
 .oper-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.oper-toolbar select{background:var(--bg2);color:var(--fg);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px;font-family:'Outfit',sans-serif}
+.oper-toolbar select{background:var(--bg2);color:var(--fg);border:1px solid var(--border);border-radius:999px;padding:6px 12px;font-size:12px;font-family:'Outfit',sans-serif}
 .oper-view-toggle{display:flex;gap:4px;background:var(--bg3);border-radius:8px;padding:3px}
 .oper-view-btn{background:transparent;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;color:var(--fg2);font-family:'Outfit',sans-serif}
 .oper-view-btn.active{background:var(--bg2);color:var(--navy);box-shadow:var(--shadow)}
-.oper-atraso-toggle{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--fg2);cursor:pointer;white-space:nowrap}
+.oper-atraso-toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--fg2);cursor:pointer;white-space:nowrap;background:var(--bg3);border-radius:999px;padding:6px 12px;transition:.12s}
+.oper-atraso-toggle:has(input:checked){background:var(--navy);color:#fff}
 .oper-atraso-cliente-badge{font-size:9px;font-weight:700;background:rgba(220,38,38,.12);color:var(--red);border-radius:999px;padding:1px 6px;white-space:nowrap}
 
 /* ── Encarte de detalhe + nuvem de comentário lateral ── */
@@ -1512,7 +1519,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 
   <div class="card" style="margin-bottom:14px">
     <div class="card-body oper-summary-row">
-      <div class="oper-summary-pct"><span class="oper-summary-pct-num" id="operOverallPct">0%</span><span class="oper-summary-pct-label">concluído<br>no filtro atual</span></div>
+      <div class="oper-summary-pct"><div class="oper-summary-pct-ring" id="operOverallPctRing"><span class="oper-summary-pct-num" id="operOverallPct">0%</span></div><span class="oper-summary-pct-label">concluído<br>no filtro atual</span></div>
       <div class="oper-summary-counts" id="operSummaryCounts"></div>
     </div>
   </div>
@@ -1552,7 +1559,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
       </div>
     </div>
     <div class="dem-form-actions">
-      <button class="btn-primary" onclick="addOperDemanda()">Adicionar</button>
+      <button class="btn-primary" id="operQaSubmitBtn" onclick="addOperDemanda()">Adicionar</button>
       <button class="btn-sm" onclick="toggleOperQuickAdd()">Cancelar</button>
     </div>
   </div>
@@ -1575,12 +1582,13 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
         <option value="demanda">Só demandas</option>
       </select>
       <select id="operFiltroStatus" onchange="onOperFilterChange()">
-        <option value="">Ocultar concluídas</option>
+        <option value="">Todos os status</option>
         <option value="pendente">Aguardando</option>
         <option value="em_andamento">Andamento</option>
         <option value="revisao">Revisão</option>
         <option value="concluido">Concluído</option>
       </select>
+      <label class="oper-atraso-toggle"><input type="checkbox" id="operFiltroOcultarConclChk" checked onchange="onOperFilterChange()"> 🙈 Ocultar concluídas</label>
       <label class="oper-atraso-toggle"><input type="checkbox" id="operFiltroAtrasoChk" onchange="onOperFilterChange()"> 🔴 Só atrasadas</label>
       <span id="operContador" style="margin-left:auto;font-size:12px;color:var(--fg2)"></span>
     </div>
@@ -2132,7 +2140,7 @@ async function setTarefaStatus(id, next) {
   paintOperacao();
   if (openOperTarefaId === id) buildOperModal(t);
   try {
-    const { error } = await sb.from('tarefa').update({ status: next }).eq('id', id);
+    const { error } = await withTimeout(sb.from('tarefa').update({ status: next }).eq('id', id), 8000, 'setTarefaStatus');
     if (error) throw error;
   } catch(e) {
     console.warn('Erro ao atualizar status da tarefa:', e);
@@ -2155,7 +2163,7 @@ async function setTarefaResp(id, resp) {
   if (t) t.responsavel = resp || null;
   paintOperacao();
   try {
-    const { error } = await sb.from('tarefa').update({ responsavel: resp || null }).eq('id', id);
+    const { error } = await withTimeout(sb.from('tarefa').update({ responsavel: resp || null }).eq('id', id), 8000, 'setTarefaResp');
     if (error) throw error;
   } catch(e) {
     console.warn('Erro ao atualizar responsável:', e);
@@ -2170,7 +2178,7 @@ async function setTarefaPrazo(id, prazo) {
   if (t) t.prazo = prazo || null;
   paintOperacao();
   try {
-    const { error } = await sb.from('tarefa').update({ prazo: prazo || null }).eq('id', id);
+    const { error } = await withTimeout(sb.from('tarefa').update({ prazo: prazo || null }).eq('id', id), 8000, 'setTarefaPrazo');
     if (error) throw error;
   } catch(e) {
     console.warn('Erro ao atualizar prazo:', e);
@@ -2185,7 +2193,7 @@ async function setTarefaSetor(id, setor) {
   if (t) t.setor = setor;
   paintOperacao();
   try {
-    const { error } = await sb.from('tarefa').update({ setor }).eq('id', id);
+    const { error } = await withTimeout(sb.from('tarefa').update({ setor }).eq('id', id), 8000, 'setTarefaSetor');
     if (error) throw error;
   } catch(e) {
     console.warn('Erro ao atualizar setor:', e);
@@ -2238,7 +2246,7 @@ async function deleteOperDemanda(id) {
   hojeTarefas = hojeTarefas.filter(x=>x.id!==id);
   closeOperModal();
   paintOperacao();
-  try { const { error } = await sb.from('tarefa').delete().eq('id', id); if (error) throw error; }
+  try { const { error } = await withTimeout(sb.from('tarefa').delete().eq('id', id), 8000, 'deleteOperDemanda'); if (error) throw error; }
   catch(e) { console.warn('Erro ao remover demanda:', e); showToast('⚠ Não foi possível remover no servidor — pode reaparecer ao atualizar.', 'err'); }
 }
 
@@ -2318,6 +2326,7 @@ function onOperFilterChange() {
   operFilterTipo = document.getElementById('operFiltroTipo').value;
   operFilterStatus = document.getElementById('operFiltroStatus').value;
   operFilterAtraso = document.getElementById('operFiltroAtrasoChk').checked;
+  operFilterOcultarConcl = document.getElementById('operFiltroOcultarConclChk').checked;
   paintOperacao();
 }
 function setSetorFilter(setor) {
@@ -2350,8 +2359,18 @@ async function addOperDemanda() {
     if (c) { cliente_id = c.id; cliente_nome = c.name; }
   }
   const row = { cliente_id, cliente_nome, setor, tipo:'demanda', titulo, descricao: desc, responsavel: resp, prazo, status:'pendente', origem:'avulsa_manual' };
+  // Bug real encontrado: esse insert não tinha timeout — se o Supabase
+  // travasse sem nunca responder (já visto noutras gravações do app, ver
+  // cb3_mrr_history), o botão ficava preso pra sempre sem erro nenhum, sem
+  // toast, nada — parecia simplesmente "não funciona". Agora sempre
+  // resolve, com feedback visual no botão enquanto espera.
+  const btn = document.getElementById('operQaSubmitBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Adicionando…'; }
   try {
-    const { data, error } = await sb.from('tarefa').insert(row).select('id,cliente_id,cliente_nome,legacy_id,setor,tipo,titulo,descricao,responsavel,prazo,status,valor,sop,created_at,cliente:cliente_id(nome,iniciais)').single();
+    const { data, error } = await withTimeout(
+      sb.from('tarefa').insert(row).select('id,cliente_id,cliente_nome,legacy_id,setor,tipo,titulo,descricao,responsavel,prazo,status,valor,sop,created_at,cliente:cliente_id(nome,iniciais)').single(),
+      10000, 'addOperDemanda'
+    );
     if (error) throw error;
     hojeTarefas.unshift(data);
     toggleOperQuickAdd();
@@ -2360,7 +2379,10 @@ async function addOperDemanda() {
     showToast('Demanda adicionada!', 'ok');
   } catch(e) {
     console.warn('Erro ao adicionar demanda:', e);
-    showToast('⚠ Não foi possível salvar a demanda no servidor.', 'err');
+    const isTimeout = String(e&&e.message).startsWith('timeout:');
+    showToast(isTimeout ? '⚠ O servidor demorou demais pra responder — tente de novo.' : '⚠ Não foi possível salvar a demanda no servidor.', 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Adicionar'; }
   }
 }
 
@@ -2389,11 +2411,11 @@ function renderSetorIndicators(base) {
     const pct = Math.round(done/items.length*100);
     const active = operFilterSetor===s;
     const cor = OPER_SETOR_COLOR[s] || '#64748b';
-    return '<button class="oper-setor-chip'+(active?' active':'')+'" style="border-color:'+cor+(active?';background:'+cor+'1a':'')+'" onclick="setSetorFilter(\''+(active?'':escAttr(s))+'\')">'+
-      '<div class="oper-setor-chip-name" style="color:'+cor+'">'+escHtml(s)+'</div>'+
+    return '<button class="oper-setor-chip'+(active?' active':'')+'" style="border-left-color:'+cor+';color:'+cor+(active?';background:'+cor+'1a':'')+'" onclick="setSetorFilter(\''+(active?'':escAttr(s))+'\')">'+
+      '<div class="oper-setor-chip-name"><span>'+escHtml(s)+'</span><span class="oper-setor-chip-pct">'+pct+'%</span></div>'+
       '<div class="oper-setor-chip-row"><strong style="color:var(--red)">'+atrasadas.length+'</strong> atrasada'+(atrasadas.length===1?'':'s')+(atrasadasCliente?' <span class="oper-setor-chip-sub">('+atrasadasCliente+' por conta do cliente)</span>':'')+'</div>'+
       '<div class="oper-setor-chip-row"><strong style="color:#8b5cf6">'+revisao+'</strong> em revisão</div>'+
-      '<div class="oper-setor-chip-row"><strong>'+pct+'%</strong> concluído · '+items.length+' no total</div>'+
+      '<div class="oper-setor-chip-row" style="color:var(--fg3)">'+items.length+' no total</div>'+
     '</button>';
   }).join('');
   el.innerHTML = html || '<p style="font-size:12px;color:var(--fg2);padding:4px">Nenhum item no filtro atual.</p>';
@@ -2408,7 +2430,11 @@ function renderOperItem(t) {
   const id = t.id;
   const tipoTag = t.tipo==='demanda' ? '<span class="hoje-source-tag src-demanda">📋 Demanda</span>' : '<span class="hoje-source-tag src-obrigacao">⚖️ Obrigação</span>';
   const atrasoClienteFlag = (t.sop&&t.sop.atraso_cliente) ? '<span class="oper-atraso-cliente-badge" title="Atraso por conta do cliente">👤 cliente</span>' : '';
-  return `<div class="hoje-item${atrasado?' is-atrasada':''}${isDone?' is-done':''}" onclick="openOperModal(${id})" style="cursor:pointer">
+  // Atrasada ganha a faixa vermelha (prioridade — é o que precisa de
+  // atenção imediata); fora isso, a faixa lateral usa a cor do próprio
+  // setor, pra dar pra escanear a lista por área sem ler texto nenhum.
+  const borderCor = atrasado ? 'var(--red)' : cor;
+  return `<div class="hoje-item${atrasado?' is-atrasada':''}${isDone?' is-done':''}" onclick="openOperModal(${id})" style="cursor:pointer;border-left:3px solid ${borderCor}">
     <span class="hoje-check${isDone?' checked':''}" onclick="event.stopPropagation();toggleTarefaConcluida(${id})" title="${isDone?'Reabrir':'Marcar como concluída'}">${isDone?'✓':''}</span>
     <div class="hoje-item-main">
       <div class="hoje-item-top">
@@ -2431,7 +2457,8 @@ function renderOperKanbanCard(t) {
   const pinfo = prazoInfo(t.prazo);
   const atrasado = isAtrasado(t);
   const tipoIcon = t.tipo==='demanda' ? '📋' : '⚖️';
-  return `<div class="dem-kan-card${atrasado?' overdue':''}" style="cursor:pointer" draggable="true" ondragstart="operDragStart(event,${t.id})" onclick="openOperModal(${t.id})">
+  const corBorda = atrasado ? '' : 'border-left:3px solid '+(OPER_SETOR_COLOR[t.setor]||'var(--border)')+';';
+  return `<div class="dem-kan-card${atrasado?' overdue':''}" style="cursor:pointer;${corBorda}" draggable="true" ondragstart="operDragStart(event,${t.id})" onclick="openOperModal(${t.id})">
     <div class="dem-kan-tipo">${tipoIcon} ${escHtml(t.titulo||'')}</div>
     <div class="dem-kan-client">${escHtml(clienteNomeDe(t))}</div>
     ${t.setor?'<div class="dem-kan-meta"><span class="dem-tag '+(OPER_SETOR_TAGCLASS[t.setor]||'outros')+'">'+escHtml(t.setor)+'</span></div>':''}
@@ -2481,6 +2508,8 @@ function paintOperacao() {
   const pct = totalBase ? Math.round(doneBase/totalBase*100) : 0;
   const pctEl = document.getElementById('operOverallPct');
   if (pctEl) pctEl.textContent = pct+'%';
+  const pctRingEl = document.getElementById('operOverallPctRing');
+  if (pctRingEl) pctRingEl.className = 'oper-summary-pct-ring ' + (pct>=70?'pct-high':pct>=35?'pct-mid':'pct-low');
   const countsEl = document.getElementById('operSummaryCounts');
   if (countsEl) {
     const atrasadasN = base.filter(isAtrasado).length;
@@ -2491,11 +2520,17 @@ function paintOperacao() {
   }
   renderSetorIndicators(base);
 
-  // Lista: agrupada por urgência, oculta concluídas por padrão (mesma
-  // lógica do Hoje antigo), mas agora SEM exigir prazo — demanda sem data
-  // ganha seu próprio grupo em vez de desaparecer (bug real do Hoje antigo,
-  // que escondia toda demanda avulsa sem prazo preenchido).
-  const listFiltradas = base.filter(t => operFilterStatus ? t.status===operFilterStatus : t.status!=='concluido');
+  // Lista: agrupada por urgência, SEM exigir prazo — demanda sem data ganha
+  // seu próprio grupo em vez de desaparecer (bug real do Hoje antigo, que
+  // escondia toda demanda avulsa sem prazo preenchido). "Ocultar concluídas"
+  // é um toggle à parte do filtro de status (antes estava escondido dentro
+  // do próprio select, como se escolher "" fosse a única forma de ocultar —
+  // confuso, e sem efeito nenhum no Kanban). Só não se aplica quando o
+  // usuário pediu status=concluído explicitamente: aí a intenção é ver.
+  const listFiltradas = base.filter(t => {
+    if (operFilterStatus) return t.status === operFilterStatus;
+    return !(operFilterOcultarConcl && t.status === 'concluido');
+  });
   const grupos = [
     { label:'🔴 Atrasadas',             test:t=>isAtrasado(t) },
     { label:'🟠 Hoje',                  test:t=>!isAtrasado(t)&&prazoInfo(t.prazo).dd===0 },
@@ -2511,15 +2546,22 @@ function paintOperacao() {
     </div>`
   ).join('') || '<p style="padding:16px;color:var(--fg2)">Nenhum item encontrado com esse filtro.</p>';
 
-  // Kanban: as 4 colunas de status reais — concluído aparece sempre aqui
-  // (é uma coluna), o filtro de status da barra não se aplica nele.
+  // Kanban: as 4 colunas de status reais. O filtro de status da barra não
+  // se aplica aqui (a coluna já É o status), mas "Ocultar concluídas" sim —
+  // a coluna continua visível (senão uma coluna some, o que destrói a leitura
+  // do quadro), só os cards dela somem, com um aviso explicando o porquê em
+  // vez de aparentar que o Concluído simplesmente ficou vazio.
   const kanbanEl = document.getElementById('operKanbanWrap');
   if (kanbanEl) {
     kanbanEl.innerHTML = OPER_STATUS_ORDER.map(key => {
       const items = base.filter(t=>t.status===key);
-      return '<div class="dem-kan-col">'+
-        '<div class="dem-kan-header"><span class="dem-kan-title">'+OPER_STATUS_LABEL[key]+'</span><span class="dem-kan-count" style="color:'+OPER_STATUS_COLOR[key]+'">'+items.length+'</span></div>'+
-        '<div class="dem-kan-cards" ondragover="event.preventDefault()" ondrop="operDropOnCol(event,\''+key+'\')">'+(items.map(renderOperKanbanCard).join('')||'<div class="dem-kan-empty">Vazio</div>')+'</div>'+
+      const hiddenHere = key === 'concluido' && operFilterOcultarConcl;
+      const cardsHtml = hiddenHere
+        ? '<div class="dem-kan-empty">🙈 '+items.length+' oculta'+(items.length===1?'':'s')+' — desmarque "Ocultar concluídas" pra ver</div>'
+        : (items.map(renderOperKanbanCard).join('')||'<div class="dem-kan-empty">Vazio</div>');
+      return '<div class="dem-kan-col" style="border-top:3px solid '+OPER_STATUS_COLOR[key]+'">'+
+        '<div class="dem-kan-header"><span class="dem-kan-title" style="color:'+OPER_STATUS_COLOR[key]+'">'+OPER_STATUS_LABEL[key]+'</span><span class="dem-kan-count" style="color:'+OPER_STATUS_COLOR[key]+'">'+items.length+'</span></div>'+
+        '<div class="dem-kan-cards" ondragover="event.preventDefault()" ondrop="operDropOnCol(event,\''+key+'\')">'+cardsHtml+'</div>'+
       '</div>';
     }).join('');
   }
@@ -2719,7 +2761,7 @@ let fecYear, fecMonth, igYear, igMonth, igSelectedDate = null, igView = 'cal';
 // Aba Operação (unifica obrigações + demandas avulsas, tudo em `tarefa`):
 // modo de visualização, filtros e item aberto no momento.
 let operView = 'lista'; // 'lista' | 'kanban'
-let operFilterSetor = '', operFilterResp = '', operFilterStatus = '', operFilterTipo = '', operFilterAtraso = false;
+let operFilterSetor = '', operFilterResp = '', operFilterStatus = '', operFilterTipo = '', operFilterAtraso = false, operFilterOcultarConcl = true;
 let openOperTarefaId = null;
 let editingIgEventId = null, igWeekStart = null;
 let finYear, finMonth;
