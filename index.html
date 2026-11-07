@@ -2248,7 +2248,12 @@ async function materializeObligations(targetYear, targetMonth) {
     });
     for (let i = 0; i < rows.length; i += 200) {
       const chunk = rows.slice(i, i+200);
-      const { error } = await sb.from('tarefa').upsert(chunk, { onConflict: 'legacy_id', ignoreDuplicates: true });
+      // Sem timeout aqui, uma trava nessa chamada prende renderOperacao()
+      // inteiro pra sempre (ela dá await nisso antes de buscar/pintar
+      // qualquer coisa) — a aba Operação inteira ficaria em branco, sem
+      // erro, sem nada. Mesma causa-raiz do bug já corrigido em
+      // addOperDemanda, só que bem mais grave por travar a aba toda.
+      const { error } = await withTimeout(sb.from('tarefa').upsert(chunk, { onConflict: 'legacy_id', ignoreDuplicates: true }), 10000, 'materializeObligations');
       if (error) console.warn('materializeObligations erro:', error);
     }
   } catch(e) { console.warn('materializeObligations falhou:', e); }
@@ -2358,7 +2363,7 @@ async function patchTarefaSop(id, patch) {
   if (!t) return;
   t.sop = { ...(t.sop||{}), ...patch };
   try {
-    const { error } = await sb.from('tarefa').update({ sop: t.sop }).eq('id', id);
+    const { error } = await withTimeout(sb.from('tarefa').update({ sop: t.sop }).eq('id', id), 8000, 'patchTarefaSop');
     if (error) throw error;
   } catch(e) { console.warn('Erro ao salvar sop da tarefa:', e); }
 }
