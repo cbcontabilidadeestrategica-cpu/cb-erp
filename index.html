@@ -1100,6 +1100,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .hoje-prazo-chip.pr-normal{background:var(--bg3);color:var(--fg3)}
 .hoje-source-tag{font-size:10px;font-weight:700;padding:1px 7px;border-radius:999px;white-space:nowrap;margin-right:6px}
 .hoje-source-tag.src-demanda{background:var(--gold-lt);color:var(--gold2)}
+.hoje-source-tag.src-obrigacao{background:var(--blue-lt);color:var(--blue)}
 .hoje-source-tag.src-reuniao{background:rgba(220,38,38,.1);color:var(--red)}
 .hoje-item-actions{display:flex;align-items:center;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;margin-left:auto}
 .hoje-mini-select{background:var(--bg3);color:var(--fg2);border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:11px;max-width:96px;font-family:'Outfit',sans-serif}
@@ -1107,6 +1108,42 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 @media(max-width:560px){
   .hoje-item{flex-wrap:wrap}
   .hoje-item-actions{margin-left:30px;width:100%}
+}
+
+/* ── Operação — resumo, painel por setor, toolbar ── */
+.oper-summary-row{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.oper-summary-pct{display:flex;flex-direction:column;align-items:center;text-align:center;flex-shrink:0;padding-right:16px;border-right:1px solid var(--border)}
+.oper-summary-pct-num{font-size:26px;font-weight:900;color:var(--navy);line-height:1}
+.oper-summary-pct-label{font-size:10px;color:var(--fg3);line-height:1.3;margin-top:3px}
+.oper-summary-counts{display:flex;gap:14px;flex-wrap:wrap}
+.oper-count-chip{font-size:12px;display:flex;align-items:center;gap:4px}
+.oper-count-chip strong{font-size:15px}
+.oper-setor-panel{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:16px}
+.oper-setor-chip{text-align:left;background:var(--bg2);border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;cursor:pointer;font-family:'Outfit',sans-serif;transition:.12s}
+.oper-setor-chip:hover{box-shadow:var(--shadow)}
+.oper-setor-chip.active{box-shadow:0 0 0 2px currentColor inset}
+.oper-setor-chip-name{font-size:12px;font-weight:800;margin-bottom:5px}
+.oper-setor-chip-row{font-size:11px;color:var(--fg2);margin-bottom:2px}
+.oper-setor-chip-sub{color:var(--fg3);font-size:10px}
+.oper-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.oper-toolbar select{background:var(--bg2);color:var(--fg);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px;font-family:'Outfit',sans-serif}
+.oper-view-toggle{display:flex;gap:4px;background:var(--bg3);border-radius:8px;padding:3px}
+.oper-view-btn{background:transparent;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;color:var(--fg2);font-family:'Outfit',sans-serif}
+.oper-view-btn.active{background:var(--bg2);color:var(--navy);box-shadow:var(--shadow)}
+.oper-atraso-toggle{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--fg2);cursor:pointer;white-space:nowrap}
+.oper-atraso-cliente-badge{font-size:9px;font-weight:700;background:rgba(220,38,38,.12);color:var(--red);border-radius:999px;padding:1px 6px;white-space:nowrap}
+
+/* ── Encarte de detalhe + nuvem de comentário lateral ── */
+.oper-modal-wrap{display:flex;gap:14px;align-items:flex-start;max-width:900px;width:100%}
+.oper-modal-wrap .modal-card{flex:1;min-width:0}
+.oper-comment-cloud{width:260px;flex-shrink:0;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px;max-height:520px;display:flex;flex-direction:column;position:relative;box-shadow:var(--shadow)}
+.oper-comment-cloud::before{content:'';position:absolute;left:-7px;top:28px;width:14px;height:14px;background:var(--bg2);border-left:1px solid var(--border);border-bottom:1px solid var(--border);transform:rotate(45deg)}
+.oper-comment-cloud-hd{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--fg3);margin-bottom:8px;flex-shrink:0}
+.oper-comment-cloud-list{overflow-y:auto;display:flex;flex-direction:column;gap:6px;flex:1;margin-bottom:8px}
+@media(max-width:860px){
+  .oper-modal-wrap{flex-direction:column;max-width:560px}
+  .oper-comment-cloud{width:100%;max-height:220px}
+  .oper-comment-cloud::before{display:none}
 }
 
 /* ── Client notes ── */
@@ -1367,13 +1404,11 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
       <button class="sidebar-nav-btn" onclick="switchTab('clientes',this)" data-tab="clientes"><span class="nav-icon">👥</span><span class="nav-label"> Clientes</span></button>
 
       <div class="sidebar-nav-group-label">Operacional</div>
-      <button class="sidebar-nav-btn" onclick="switchTab('hoje',this)" data-tab="hoje"><span class="nav-icon">🎯</span><span class="nav-label"> Hoje</span></button>
-      <button class="sidebar-nav-btn" onclick="switchTab('fechamento',this)" data-tab="fechamento"><span class="nav-icon">✅</span><span class="nav-label"> Obrigações</span></button>
-      <button class="sidebar-nav-btn" onclick="switchTab('demandas',this)" data-tab="demandas"><span class="nav-icon">📋</span><span class="nav-label"> Demandas Pontuais</span></button>
+      <button class="sidebar-nav-btn" onclick="switchTab('hoje',this)" data-tab="hoje"><span class="nav-icon">⚙️</span><span class="nav-label"> Operação</span></button>
 
       <div class="sidebar-nav-group-label">Comercial &amp; Marketing</div>
       <button class="sidebar-nav-btn" onclick="switchTab('funil',this)" data-tab="funil"><span class="nav-icon">🎯</span><span class="nav-label"> CRM</span></button>
-      <button class="sidebar-nav-btn" onclick="switchTab('instagram',this)" data-tab="instagram"><span class="nav-icon">📅</span><span class="nav-label"> Agenda</span></button>
+      <button class="sidebar-nav-btn" onclick="switchTab('instagram',this)" data-tab="instagram"><span class="nav-icon">📣</span><span class="nav-label"> Planejamento de Marketing</span></button>
 
       <div class="sidebar-nav-group-label">Financeiro</div>
       <button class="sidebar-nav-btn" onclick="switchTab('financeiro',this)" data-tab="financeiro"><span class="nav-icon">💰</span><span class="nav-label"> Financeiro</span></button>
@@ -1465,169 +1500,112 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
   <div class="card"><div style="padding:0 16px" id="radarDemandasList"></div></div>
 </section>
 
-<!-- ═══ HOJE — visão cruzada de todos os setores ═══ -->
+<!-- ═══ OPERAÇÃO — obrigações + demandas avulsas, visão única ═══ -->
 <section id="tab-hoje" class="tab-panel">
-  <div class="section-label">🎯 CURTO PRAZO — VENCENDO EM ATÉ 10 DIAS (TODOS OS SETORES)</div>
-  <div class="card" style="margin-bottom:14px">
-    <div class="card-body" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <select id="hojeFiltroSetor" onchange="renderHoje()" style="background:var(--bg2);color:var(--fg);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px">
-        <option value="">Todos os setores</option>
-      </select>
-      <select id="hojeFiltroResp" onchange="renderHoje()" style="background:var(--bg2);color:var(--fg);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px">
-        <option value="">Todos os responsáveis</option>
-      </select>
-      <select id="hojeFiltroStatus" onchange="renderHoje()" style="background:var(--bg2);color:var(--fg);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px">
-        <option value="">Todos os status</option>
-        <option value="pendente">Pendente</option>
-        <option value="em_andamento">Em andamento</option>
-        <option value="concluido">Concluído</option>
-      </select>
-      <span id="hojeContador" style="margin-left:auto;font-size:12px;color:var(--fg2)"></span>
-    </div>
-  </div>
-  <div class="card"><div style="padding:0 16px" id="hojeLista"></div></div>
-</section>
-
-<!-- ═══ FECHAMENTO ═══ -->
-<section id="tab-fechamento" class="tab-panel">
-  <p class="page-title">✅ Obrigações Mensais</p>
-  <p class="page-sub">Checklist de fechamento por cliente — clique no card para abrir as etapas</p>
-  <div class="month-selector">
-    <button class="month-nav-btn" onclick="fecChangeMonth(-1)">‹</button>
-    <div class="month-current">
-      <span class="month-current-name" id="fecMonthName"></span>
-      <span class="month-current-year" id="fecMonthYear"></span>
-    </div>
-    <div class="month-overall">
-      <span class="month-overall-pct" id="fecOverallPct">0%</span>
-      <span class="month-overall-label">concluído</span>
-    </div>
-    <button class="month-nav-btn" onclick="fecChangeMonth(1)">›</button>
-  </div>
-  <div id="fecCompetenciaNote" style="font-size:12px;color:var(--fg2);margin:-4px 0 12px;padding:0 2px"></div>
-  <div id="closingCards"></div>
-</section>
-
-<!-- ═══ INSTAGRAM ═══ -->
-<section id="tab-instagram" class="tab-panel">
-  <div class="ig-header-row">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
     <div>
-      <p class="page-title" style="margin-bottom:2px">Agenda da Empresa</p>
-      <p class="page-sub" style="margin-bottom:0">Calendário editorial e de entregas — posts, gravações, obrigações</p>
+      <p class="page-title" style="margin-bottom:2px">Operação</p>
+      <p class="page-sub" style="margin-bottom:0">Obrigações recorrentes e demandas avulsas, num só lugar — lista ou kanban</p>
     </div>
-    <div class="ig-month-nav">
-      <button onclick="igChangeMonth(-1)">‹</button>
-      <span class="ig-month-label" id="igMonthLabel"></span>
-      <span class="ig-done-count" id="igEventCount"></span>
-      <button onclick="igChangeMonth(1)">›</button>
-    </div>
+    <button class="dem-add-btn" onclick="toggleOperQuickAdd()">+ Nova demanda</button>
   </div>
 
-  <div class="ig-stats-strip" id="igStatsStrip"></div>
-
-  <div class="ig-view-toggle">
-    <button class="ig-view-btn active" id="igBtnCal" onclick="setIgView('cal')">📅 Mês</button>
-    <button class="ig-view-btn" id="igBtnWeek" onclick="setIgView('week')">🗓️ Semana</button>
-    <button class="ig-view-btn" id="igBtnDay" onclick="setIgView('day')">📆 Dia</button>
-    <button class="ig-view-btn" id="igBtnPlan" onclick="setIgView('plan')">📋 Planejamento</button>
-  </div>
-
-  <div id="igCalView">
-    <div class="ev-type-legend">
-      <span class="ev-legend-chip ev-post">📸 Post</span>
-      <span class="ev-legend-chip ev-gravacao">🎬 Gravação</span>
-      <span class="ev-legend-chip ev-edicao">✂️ Edição</span>
-      <span class="ev-legend-chip ev-demanda">📋 Demanda</span>
-      <span class="ev-legend-chip ev-entrega">📦 Entrega</span>
-      <span class="ev-legend-chip ev-obrigacao">⚖️ Obrigação</span>
-      <span class="ev-legend-chip ev-reuniao">🗣️ Reunião</span>
-      <span class="ev-legend-chip ev-comercial">💼 Comercial</span>
-    </div>
-    <div class="ig-cal-wrap">
-      <div class="ig-cal-grid" id="igCalGrid"></div>
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-body oper-summary-row">
+      <div class="oper-summary-pct"><span class="oper-summary-pct-num" id="operOverallPct">0%</span><span class="oper-summary-pct-label">concluído<br>no filtro atual</span></div>
+      <div class="oper-summary-counts" id="operSummaryCounts"></div>
     </div>
   </div>
 
-  <div id="igWeekView" style="display:none">
-    <div class="ig-week-nav">
-      <button onclick="igChangeWeek(-1)">‹ Semana anterior</button>
-      <span class="ig-week-label" id="igWeekLabel"></span>
-      <button onclick="igChangeWeek(1)">Próxima semana ›</button>
-    </div>
-    <div class="ig-week-grid" id="igWeekGrid"></div>
-  </div>
+  <div class="section-label">📊 POR SETOR</div>
+  <div class="oper-setor-panel" id="operSetorPanel"></div>
 
-  <!-- Visão Dia — pra dias cheios de item, onde o painel espremido embaixo
-       do grid do mês fica apertado. Reaproveita o mesmo #igDayPanel (já
-       tem Obrigações/Demandas/Comercial/Eventos do dia), só dá a ele o
-       espaço principal da tela + navegação dia-a-dia. -->
-  <div id="igDayView" style="display:none">
-    <div class="ig-week-nav">
-      <button onclick="igChangeDay(-1)">‹ Dia anterior</button>
-      <span class="ig-week-label" id="igDayViewLabel"></span>
-      <button onclick="igChangeDay(1)">Próximo dia ›</button>
-    </div>
-  </div>
-
-  <div id="igPlanView" class="ig-plan-section" style="display:none">
-    <div class="ig-plan-grid" id="igPlanGrid"></div>
-  </div>
-
-  <div class="ig-day-panel hidden" id="igDayPanel">
-    <div class="ig-panel-header">
-      <div>
-        <span class="ig-panel-date" id="igPanelDate"></span>
-        <span class="ig-panel-count" id="igPanelCount"></span>
+  <div class="dem-form-card" id="operQuickAdd" style="display:none">
+    <div class="dem-form-grid">
+      <div class="form-group">
+        <label>Cliente</label>
+        <select id="operQaCliente"><option value="">— selecione —</option></select>
       </div>
-      <button class="ig-panel-close" onclick="closeIgPanel()">×</button>
-    </div>
-
-    <div class="ig-panel-section-hd">⚖️ Obrigações do dia</div>
-    <div class="ig-event-list" id="igObrigList"></div>
-
-    <div class="ig-panel-section-hd">📋 Demandas do dia</div>
-    <div class="ig-event-list" id="igDemandaList"></div>
-
-    <div class="ig-panel-section-hd">💼 Comercial do dia</div>
-    <div class="ig-event-list" id="igComercialList"></div>
-
-    <div class="ig-panel-section-hd">📅 Eventos da agenda</div>
-    <div class="ig-event-list" id="igEventList"></div>
-
-    <div class="ig-add-form">
-      <div class="form-group" style="flex:2;min-width:120px">
-        <label>Tipo</label>
-        <select id="igEvType" title="Demandas, obrigações e follow-ups comerciais aparecem aqui sozinhos — cadastre-os nas abas Demandas Pontuais, Obrigações ou CRM. Use este formulário só para marketing, entregas e reuniões.">
-          <option value="post">📸 Post</option>
-          <option value="gravacao">🎬 Gravação</option>
-          <option value="edicao">✂️ Edição</option>
-          <option value="entrega">📦 Entrega a cliente</option>
-          <option value="reuniao">🗣️ Reunião</option>
-        </select>
+      <div class="form-group">
+        <label>Setor</label>
+        <select id="operQaSetor"></select>
       </div>
-      <div class="form-group" style="flex:1;min-width:95px">
-        <label>Data</label>
-        <input type="date" id="igEvDate">
+      <div class="form-group" style="min-width:160px">
+        <label>Título</label>
+        <input type="text" id="operQaTitulo" placeholder="Ex: Implantação do Bling">
       </div>
-      <div class="form-group" style="flex:1;min-width:80px">
-        <label>Horário</label>
-        <input type="time" id="igEvTime">
+      <div class="form-group" style="min-width:200px">
+        <label>Descrição</label>
+        <input type="text" id="operQaDesc" placeholder="Descreva a demanda">
       </div>
-      <div class="form-group" style="flex:1;min-width:100px">
+      <div class="form-group">
         <label>Responsável</label>
-        <select id="igEvResp">
+        <select id="operQaResp">
           <option value="Nathan">Nathan</option>
           <option value="Yuri">Yuri</option>
           <option value="Equipe">Equipe</option>
         </select>
       </div>
-      <div class="form-group" style="flex:3;min-width:140px">
-        <label>Descrição</label>
-        <input type="text" id="igEvDesc" placeholder="Ex: Dica sobre DAS, Entrega GM Joias...">
+      <div class="form-group">
+        <label>Prazo (opcional)</label>
+        <input type="date" id="operQaPrazo">
       </div>
-      <button class="btn-primary" id="igEvSubmitBtn" onclick="addIgEvent()" style="align-self:flex-end;padding:9px 14px;white-space:nowrap">+ Adicionar</button>
-      <button class="btn-sm" id="igEvCancelBtn" onclick="cancelIgEventEdit()" style="align-self:flex-end;display:none">Cancelar edição</button>
     </div>
+    <div class="dem-form-actions">
+      <button class="btn-primary" onclick="addOperDemanda()">Adicionar</button>
+      <button class="btn-sm" onclick="toggleOperQuickAdd()">Cancelar</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-body oper-toolbar">
+      <div class="oper-view-toggle">
+        <button class="oper-view-btn active" id="operBtnLista" onclick="setOperView('lista')">📋 Lista</button>
+        <button class="oper-view-btn" id="operBtnKanban" onclick="setOperView('kanban')">🗂️ Kanban</button>
+      </div>
+      <select id="operFiltroSetor" onchange="onOperFilterChange()">
+        <option value="">Todos os setores</option>
+      </select>
+      <select id="operFiltroResp" onchange="onOperFilterChange()">
+        <option value="">Todos os responsáveis</option>
+      </select>
+      <select id="operFiltroTipo" onchange="onOperFilterChange()">
+        <option value="">Obrigações + Demandas</option>
+        <option value="obrigacao">Só obrigações</option>
+        <option value="demanda">Só demandas</option>
+      </select>
+      <select id="operFiltroStatus" onchange="onOperFilterChange()">
+        <option value="">Ocultar concluídas</option>
+        <option value="pendente">Aguardando</option>
+        <option value="em_andamento">Andamento</option>
+        <option value="revisao">Revisão</option>
+        <option value="concluido">Concluído</option>
+      </select>
+      <label class="oper-atraso-toggle"><input type="checkbox" id="operFiltroAtrasoChk" onchange="onOperFilterChange()"> 🔴 Só atrasadas</label>
+      <span id="operContador" style="margin-left:auto;font-size:12px;color:var(--fg2)"></span>
+    </div>
+  </div>
+
+  <div id="operListaWrap"><div class="card"><div style="padding:0 16px" id="operLista"></div></div></div>
+  <div id="operKanbanWrap" class="dem-kanban" style="display:none"></div>
+</section>
+
+<!-- ═══ PLANEJAMENTO DE MARKETING ═══ -->
+<section id="tab-instagram" class="tab-panel">
+  <p class="page-title" style="margin-bottom:2px">Planejamento de Marketing</p>
+  <p class="page-sub" style="margin-bottom:16px">Calendário editorial — conteúdo, datas e campanhas</p>
+  <div class="card">
+    <div class="card-body" style="display:flex;flex-direction:column;gap:14px;align-items:center;text-align:center;padding:36px 20px">
+      <div style="font-size:40px">📣</div>
+      <div>
+        <p style="font-weight:700;font-size:15px;margin-bottom:4px">Calendário CB — 2026 · 2027</p>
+        <p style="font-size:13px;color:var(--fg2);max-width:420px;margin:0 auto">O planejamento de marketing vive no artefato abaixo. Abra pra ver ou editar o calendário completo.</p>
+      </div>
+      <a class="btn-primary" style="padding:10px 20px;text-decoration:none" href="https://claude.ai/artifact/F12Ax238BZara1WsJF9vbP" target="_blank" rel="noopener">Abrir Calendário CB ↗</a>
+    </div>
+  </div>
+  <div class="card" style="margin-top:14px;overflow:hidden">
+    <iframe src="https://claude.ai/artifact/F12Ax238BZara1WsJF9vbP" style="width:100%;height:720px;border:0;display:block" loading="lazy" title="Calendário CB"></iframe>
   </div>
 </section>
 
@@ -1670,82 +1648,6 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
   <div class="defaults-card" id="obligationTemplatesCard"></div>
 </section>
 
-<!-- ═══ DEMANDAS ═══ -->
-<section id="tab-demandas" class="tab-panel">
-  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px">
-    <div>
-      <p class="page-title" style="margin-bottom:2px">Demandas Pontuais</p>
-      <p class="page-sub" style="margin-bottom:0">Serviços avulsos, implantações e solicitações específicas dos clientes</p>
-    </div>
-    <button class="dem-add-btn" onclick="toggleDemForm()">+ Nova demanda</button>
-  </div>
-
-  <div class="dem-form-card" id="demForm">
-    <div class="dem-form-grid">
-      <div class="form-group">
-        <label>Data Solicitação</label>
-        <input type="date" id="demData">
-      </div>
-      <div class="form-group">
-        <label>Cliente</label>
-        <select id="demCliente">
-          <option value="">— selecione —</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Setor</label>
-        <select id="demSetor">
-          <option value="fiscal">Fiscal</option>
-          <option value="contabil">Contábil</option>
-          <option value="dp">DP</option>
-          <option value="societario">Societário</option>
-          <option value="financeiro">Financeiro</option>
-          <option value="outros">Outros</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Tipo de Serviço</label>
-        <input type="text" id="demTipo" placeholder="Ex: Certidão, Implantação...">
-      </div>
-      <div class="form-group" style="min-width:200px">
-        <label>Descrição</label>
-        <input type="text" id="demDesc" placeholder="Descreva a demanda">
-      </div>
-      <div class="form-group">
-        <label>Responsável</label>
-        <select id="demResp">
-          <option value="Nathan">Nathan</option>
-          <option value="Yuri">Yuri</option>
-          <option value="Equipe">Equipe</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Prazo</label>
-        <input type="date" id="demPrazo">
-      </div>
-      <div class="form-group">
-        <label>Valor (R$)</label>
-        <input type="text" id="demValor" placeholder="0,00">
-      </div>
-      <div class="form-group">
-        <label>Status inicial</label>
-        <select id="demStatus">
-          <option value="pendente">Aguardando retorno</option>
-          <option value="em_andamento">Em andamento</option>
-          <option value="concluido">Concluído</option>
-          <option value="cancelado">Cancelado</option>
-        </select>
-      </div>
-    </div>
-    <div class="dem-form-actions">
-      <button class="btn-primary" onclick="addDemanda()">Salvar demanda</button>
-      <button class="btn-secondary" onclick="toggleDemForm()">Cancelar</button>
-    </div>
-  </div>
-
-  <div class="dem-kanban" id="demKanban"></div>
-</section>
-
 <!-- ═══ FINANCEIRO ═══ -->
 <section id="tab-financeiro" class="tab-panel">
   <p class="page-title">💰 Financeiro</p>
@@ -1768,6 +1670,21 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
       <button class="btn-secondary" onclick="closeLeadModal()">Cancelar</button>
       <button class="btn-primary" onclick="saveLeadModal()">Salvar</button>
     </div>
+  </div>
+</div>
+
+<!-- OPERAÇÃO MODAL — encarte de detalhe de obrigação/demanda, com o
+     comentário como nuvem lateral (fora do card, sempre visível) -->
+<div class="modal-overlay hidden" id="operModal" onclick="if(event.target===this)closeOperModal()">
+  <div class="oper-modal-wrap">
+    <div class="modal-card">
+      <div class="modal-header">
+        <span class="modal-title" id="modalOperTitle">Item</span>
+        <button class="modal-close" onclick="closeOperModal()">×</button>
+      </div>
+      <div class="modal-body" id="modalOperBody"></div>
+    </div>
+    <div class="oper-comment-cloud" id="operCommentCloud"></div>
   </div>
 </div>
 
@@ -1845,29 +1762,19 @@ async function showApp(user) {
   const renders = [
     ['initState',initState],['initTheme',initTheme],['initSidebar',initSidebar],
     ['renderMetaBanner',renderMetaBanner],['renderRadar',renderRadar],['renderRadarDemandas',renderRadarDemandas],
-    ['renderFechamento',renderFechamento],['renderIgCal',renderIgCal],['renderFunil',renderFunil],['renderFinanceiro',renderFinanceiro],
-    ['renderClientes',renderClientes],['renderClientDefaults',renderClientDefaults],['renderObligationTemplates',renderObligationTemplates],['renderDemandas',renderDemandas],
+    ['renderFunil',renderFunil],['renderFinanceiro',renderFinanceiro],
+    ['renderClientes',renderClientes],['renderClientDefaults',renderClientDefaults],['renderObligationTemplates',renderObligationTemplates],
   ];
   renders.forEach(([name,fn])=>{ try{ fn(); } catch(e){ console.error('Falha ao renderizar '+name+':', e); } });
-  // Início/Obrigações/Clientes leem o status real das obrigações da mesma
-  // tabela que Hoje usa (hojeTarefas) — como essa busca é assíncrona, a
-  // primeira pintura acima roda antes dela chegar. Repinta os três assim
-  // que os dados reais estiverem disponíveis.
-  materializeObligations().then(renderHoje).then(()=>{
-    const now = new Date(); materializedMonths.add(now.getFullYear()+'-'+now.getMonth());
+  // Início/Clientes leem o status real de obrigações+demandas da mesma
+  // tabela que a Operação usa (hojeTarefas) — como essa busca é assíncrona,
+  // a primeira pintura acima roda antes dela chegar. Repinta assim que os
+  // dados reais estiverem disponíveis.
+  renderOperacao().then(()=>{
     try{ renderRadar(); }catch(e){ console.error('Falha ao repintar Início:', e); }
-    try{ renderFechamento(); }catch(e){ console.error('Falha ao repintar Obrigações:', e); }
+    try{ renderRadarDemandas(); }catch(e){ console.error('Falha ao repintar demandas do Início:', e); }
     try{ renderClientes(); }catch(e){ console.error('Falha ao repintar Clientes:', e); }
-    // Agenda também depende de hojeTarefas (obrigações reais por cliente) —
-    // sem repintar aqui, o painel do dia ficava "vazio" se o clique
-    // acontecesse antes dessa busca assíncrona terminar (bug reportado:
-    // dia clicado sem obrigação/demanda/comercial mesmo já existindo).
-    try{
-      renderIgCalGrid();
-      if(igSelectedDate) renderIgDayPanel(igSelectedDate);
-      if(igView==='week') renderIgWeek();
-    }catch(e){ console.error('Falha ao repintar Agenda:', e); }
-  }).catch(e=>console.error('Falha ao materializar obrigações:', e));
+  }).catch(e=>console.error('Falha ao carregar Operação:', e));
 }
 
 // ───── Controle de chaves "sujas" (gravadas localmente mas ainda não
@@ -2015,10 +1922,9 @@ async function mirrorToRelational(k, v) {
     }));
     if (rows.length) await sb.from('lead').upsert(rows, { onConflict: 'id' });
   }
-  // Nota: demandas pontuais NÃO são mais espelhadas na tabela `tarefa` —
-  // ficavam órfãs lá quando excluídas no kanban (upsert nunca via delete),
-  // e o merge do Hoje agora lê o array `demandas` direto, sem precisar
-  // disso. Ver paintHoje().
+  // Nota (atualizada): demandas pontuais agora SÃO a própria tabela
+  // `tarefa` (tipo:'demanda') — não há mais um array `demandas` separado
+  // nem espelhamento entre dois lugares. Ver renderOperacao()/paintOperacao().
 }
 
 async function logout() {
@@ -2126,12 +2032,24 @@ let obligationTemplates = [
   { id:'conf_mei',   label:'Confirmação de pagamento',       desc:'Registrar comprovante e arquivar no Drive do cliente',      setor:'Fiscal',         prazoDia:22, urg:'amber', regimes:['MEI'], requiresEmployees:false },
 ];
 
-// Aplica as regras de regime/funcionários de `obligationTemplates` a um
-// cliente, sem considerar ainda as exceções específicas dele (ver getSteps).
+// Serviço contratado (catálogo curto, ex. "DP") → setor real da obrigação
+// (ex. "Depto. Pessoal"). Só "DP" diverge; os demais são o mesmo texto.
+const SERVICE_TO_SETOR = { 'DP': 'Depto. Pessoal' };
+
+// Aplica as regras de regime/funcionários/serviços contratados de
+// `obligationTemplates` a um cliente, sem considerar ainda as exceções
+// específicas dele (ver getSteps). Regime+serviços+obrigações precisam
+// "conversar": uma obrigação só aparece se o setor dela estiver entre os
+// serviços contratados pelo cliente — sem isso, selecionar só "Fiscal"
+// ainda trazia obrigação de Contábil, por exemplo, soltas uma da outra.
+// Cliente sem `services` definido (dado antigo) não é filtrado por isso,
+// pra não sumir obrigação de quem nunca passou por essa tela.
 function computeBaseSteps(client, templates) {
   templates = templates || obligationTemplates;
   const regime = client.regime;
   const isMei = regime === 'MEI';
+  const svc = client.services;
+  const svcSetores = (svc && svc.length) ? new Set(svc.map(s => SERVICE_TO_SETOR[s] || s)) : null;
   return templates.filter(t => {
     const regimes = t.regimes || ['all'];
     const isMeiOnly = regimes.includes('MEI') && !regimes.includes('all');
@@ -2140,6 +2058,7 @@ function computeBaseSteps(client, templates) {
     const appliesByRegime = regimes.includes('all') || regimes.includes(regime);
     if (!appliesByRegime) return false;
     if (t.requiresEmployees && !client.hasEmployees) return false;
+    if (svcSetores && !svcSetores.has(t.setor || 'Fiscal')) return false;
     return true;
   }).map(t => ({ id:t.id, label:t.label, desc:t.desc||'', prazoDia:t.prazoDia, urg:t.urg||'amber', setor:t.setor||'Fiscal' }));
 }
@@ -2194,24 +2113,33 @@ async function materializeObligations(targetYear, targetMonth) {
 }
 
 let hojeTarefas = [];
-const HOJE_STATUS_ORDER = ['pendente','em_andamento','concluido'];
-const HOJE_STATUS_LABEL = { pendente:'Pendente', em_andamento:'Em andamento', concluido:'✓ Concluído' };
-const HOJE_STATUS_COLOR = { pendente:'var(--fg2)', em_andamento:'var(--amber)', concluido:'var(--green)' };
-const HOJE_STATUS_BG = { pendente:'rgba(100,116,139,.15)', em_andamento:'rgba(234,179,8,.18)', concluido:'rgba(16,185,129,.18)' };
-const HOJE_STATUS_BORDER = { pendente:'rgba(100,116,139,.35)', em_andamento:'rgba(234,179,8,.4)', concluido:'rgba(16,185,129,.4)' };
+// Operação unifica obrigações recorrentes e demandas avulsas — ambas são
+// linhas de `tarefa` (tipo 'obrigacao'/'demanda'). "Atraso" NÃO é um status
+// próprio: é um destaque automático por prazo vencido, por cima de qualquer
+// um dos 4 status reais (ver isAtrasado). "Cancelado" deixou de existir —
+// demanda que não vai mais acontecer se remove (ver deleteOperDemanda).
+const OPER_STATUS_ORDER = ['pendente','em_andamento','revisao','concluido'];
+const OPER_STATUS_LABEL = { pendente:'Aguardando', em_andamento:'Andamento', revisao:'Revisão', concluido:'Concluído' };
+const OPER_STATUS_COLOR = { pendente:'var(--fg2)', em_andamento:'var(--amber)', revisao:'#8b5cf6', concluido:'var(--green)' };
+const OPER_STATUS_BG = { pendente:'rgba(100,116,139,.15)', em_andamento:'rgba(234,179,8,.18)', revisao:'rgba(139,92,246,.18)', concluido:'rgba(16,185,129,.18)' };
+const OPER_STATUS_BORDER = { pendente:'rgba(100,116,139,.35)', em_andamento:'rgba(234,179,8,.4)', revisao:'rgba(139,92,246,.4)', concluido:'rgba(16,185,129,.4)' };
+const OPER_SETOR_COLOR = { 'Fiscal':'#ef4444','Depto. Pessoal':'#eab308','Contábil':'#10b981','Societário':'#6366f1','Financeiro':'#22c55e','Sucesso do Cliente':'#ec4899' };
+const OPER_SETOR_TAGCLASS = { 'Fiscal':'fiscal','Contábil':'contabil','Depto. Pessoal':'dp','Societário':'societario','Financeiro':'financeiro','Sucesso do Cliente':'outros' };
+const OPER_CHECKLIST_DEFAULT = ['Documentos recebidos','Conferência realizada','Enviado ao cliente/órgão','Cliente notificado'];
 
 async function setTarefaStatus(id, next) {
   const t = hojeTarefas.find(x=>x.id===id);
   const current = t ? t.status : null;
   if (t) t.status = next; // feedback imediato, sem esperar o round-trip nem re-buscar do servidor
-  paintHoje();
+  paintOperacao();
+  if (openOperTarefaId === id) buildOperModal(t);
   try {
     const { error } = await sb.from('tarefa').update({ status: next }).eq('id', id);
     if (error) throw error;
   } catch(e) {
     console.warn('Erro ao atualizar status da tarefa:', e);
     if (t) t.status = current;
-    paintHoje();
+    paintOperacao();
   }
 }
 
@@ -2227,13 +2155,14 @@ async function setTarefaResp(id, resp) {
   const t = hojeTarefas.find(x=>x.id===id);
   const prev = t ? t.responsavel : null;
   if (t) t.responsavel = resp || null;
+  paintOperacao();
   try {
     const { error } = await sb.from('tarefa').update({ responsavel: resp || null }).eq('id', id);
     if (error) throw error;
   } catch(e) {
     console.warn('Erro ao atualizar responsável:', e);
     if (t) t.responsavel = prev;
-    paintHoje();
+    paintOperacao();
   }
 }
 
@@ -2241,47 +2170,118 @@ async function setTarefaPrazo(id, prazo) {
   const t = hojeTarefas.find(x=>x.id===id);
   const prev = t ? t.prazo : null;
   if (t) t.prazo = prazo || null;
+  paintOperacao();
   try {
     const { error } = await sb.from('tarefa').update({ prazo: prazo || null }).eq('id', id);
     if (error) throw error;
   } catch(e) {
     console.warn('Erro ao atualizar prazo:', e);
     if (t) t.prazo = prev;
-    paintHoje();
+    paintOperacao();
   }
 }
 
-async function renderHoje() {
-  const lista = document.getElementById('hojeLista');
+async function setTarefaSetor(id, setor) {
+  const t = hojeTarefas.find(x=>x.id===id);
+  const prev = t ? t.setor : null;
+  if (t) t.setor = setor;
+  paintOperacao();
+  try {
+    const { error } = await sb.from('tarefa').update({ setor }).eq('id', id);
+    if (error) throw error;
+  } catch(e) {
+    console.warn('Erro ao atualizar setor:', e);
+    if (t) t.setor = prev;
+    paintOperacao();
+  }
+}
+
+function setTarefaTitulo(id, titulo) {
+  const t = hojeTarefas.find(x=>x.id===id);
+  if (t) t.titulo = titulo;
+  sb.from('tarefa').update({ titulo }).eq('id', id).then(({error})=>{ if(error) console.warn('Erro ao salvar título:', error); });
+}
+
+function setTarefaDescricao(id, descricao) {
+  const t = hojeTarefas.find(x=>x.id===id);
+  if (t) t.descricao = descricao;
+  sb.from('tarefa').update({ descricao }).eq('id', id).then(({error})=>{ if(error) console.warn('Erro ao salvar descrição:', error); });
+}
+
+// `sop` carrega o que não é coluna própria: checklist operacional marcado,
+// data/observação de conclusão e o motivo quando o atraso é por conta do
+// cliente. Sempre mescla (nunca sobrescreve o jsonb inteiro).
+async function patchTarefaSop(id, patch) {
+  const t = hojeTarefas.find(x=>x.id===id);
+  if (!t) return;
+  t.sop = { ...(t.sop||{}), ...patch };
+  try {
+    const { error } = await sb.from('tarefa').update({ sop: t.sop }).eq('id', id);
+    if (error) throw error;
+  } catch(e) { console.warn('Erro ao salvar sop da tarefa:', e); }
+}
+function toggleTarefaChecklistItem(id, itemId) {
+  const t = hojeTarefas.find(x=>x.id===id);
+  if (!t) return;
+  const checklist = { ...((t.sop&&t.sop.checklist)||{}) };
+  checklist[itemId] = !checklist[itemId];
+  patchTarefaSop(id, { checklist });
+}
+function setTarefaAtrasoCliente(id, on) { patchTarefaSop(id, { atraso_cliente: on }); }
+function setTarefaAtrasoObs(id, obs) { patchTarefaSop(id, { atraso_obs: obs }); }
+function setTarefaConclObs(id, obs) { patchTarefaSop(id, { obs }); }
+
+// Só demandas avulsas podem ser removidas — obrigação é gerada
+// automaticamente todo mês pela regra do regime, não se apaga uma linha só.
+async function deleteOperDemanda(id) {
+  const t = hojeTarefas.find(x=>x.id===id);
+  if (!t || t.tipo !== 'demanda') return;
+  if (!confirm('Remover esta demanda? Esta ação não pode ser desfeita.')) return;
+  hojeTarefas = hojeTarefas.filter(x=>x.id!==id);
+  closeOperModal();
+  paintOperacao();
+  try { const { error } = await sb.from('tarefa').delete().eq('id', id); if (error) throw error; }
+  catch(e) { console.warn('Erro ao remover demanda:', e); showToast('⚠ Não foi possível remover no servidor — pode reaparecer ao atualizar.', 'err'); }
+}
+
+async function renderOperacao() {
+  const lista = document.getElementById('operLista');
   if (!lista) return;
   if (!sbUser) { lista.innerHTML = '<p style="padding:16px;color:var(--fg2)">Faça login para ver as tarefas.</p>'; return; }
+  // Sem a aba Obrigações/Agenda de antes, não existe mais nenhum lugar que
+  // force a materialização do mês seguinte — então a própria Operação cobre
+  // o mês atual + o próximo a cada vez que é aberta (upsert idempotente,
+  // barato de repetir), pra nunca faltar obrigação quando o mês virar.
+  try {
+    const now = new Date();
+    let ny = now.getFullYear(), nm = now.getMonth()+1;
+    if (nm > 11) { nm = 0; ny++; }
+    await materializeObligations();
+    await materializeObligations(ny, nm);
+  } catch(e) { console.warn('materializeObligations (Operação) falhou:', e); }
   try {
     const { data, error } = await withTimeout(
       sb.from('tarefa')
-        .select('id,cliente_id,legacy_id,setor,tipo,titulo,descricao,responsavel,prazo,status,sop,cliente:cliente_id(nome,iniciais)')
+        .select('id,cliente_id,cliente_nome,legacy_id,setor,tipo,titulo,descricao,responsavel,prazo,status,valor,sop,created_at,cliente:cliente_id(nome,iniciais)')
         .order('prazo', { ascending: true, nullsFirst: false })
-        .limit(500),
-      10000, 'renderHoje'
+        .limit(1000),
+      10000, 'renderOperacao'
     );
     if (error) throw error;
     hojeTarefas = data || [];
   } catch(e) {
-    console.warn('renderHoje erro:', e);
+    console.warn('renderOperacao erro:', e);
     // Bug real encontrado: antes disso, uma falha aqui (inclusive travar sem
-    // nunca responder) saía sem chamar paintHoje() — então trocar de aba ou
-    // mexer no filtro não atualizava NADA, nem as demandas pontuais (que já
-    // estão em memória e não dependem dessa consulta). Agora sempre repinta
-    // com o que tem, e só avisa que as obrigações podem estar desatualizadas.
-    showToast('⚠ Não foi possível atualizar as obrigações agora — mostrando os dados mais recentes disponíveis.', 'err', 5000);
+    // nunca responder) saía sem repintar — trocar de aba ou mexer no filtro
+    // não atualizava NADA. Agora sempre repinta com o que tem, e só avisa
+    // que os dados podem estar desatualizados.
+    showToast('⚠ Não foi possível atualizar a Operação agora — mostrando os dados mais recentes disponíveis.', 'err', 5000);
   }
-  paintHoje();
+  paintOperacao();
 }
 
-// Repinta a lista a partir do cache local (hojeTarefas), sem ida ao servidor —
-// usada pelas ações (status/responsável/prazo) para resposta instantânea.
 // Urgência de um prazo (ISO yyyy-mm-dd) em relação a hoje. Compartilhada
-// pelo Hoje e pelo kanban de Demandas Pontuais — mesma régua visual nos
-// dois lugares.
+// pela lista e pelo kanban de Operação — mesma régua visual nos dois.
 function prazoInfo(prazoISO) {
   if (!prazoISO) return { dd: null, label: 'Sem prazo', cls: 'pr-normal' };
   const hojeD = new Date(); hojeD.setHours(0,0,0,0);
@@ -2293,191 +2293,330 @@ function prazoInfo(prazoISO) {
   if (dd <= 3)  return { dd, label: 'Em '+dd+'d',          cls: 'pr-em-breve' };
   return { dd, label: prazoBr, cls: 'pr-normal' };
 }
+// Atraso é sempre calculado pela data, nunca armazenado como status — um
+// item "Em andamento" com prazo vencido continua "Em andamento", só que
+// destacado em vermelho em qualquer uma das visões.
+function isAtrasado(t) {
+  if (!t.prazo || t.status === 'concluido') return false;
+  const dd = prazoInfo(t.prazo).dd;
+  return dd !== null && dd < 0;
+}
+function clienteNomeDe(t) { return (t.cliente && t.cliente.nome) || t.cliente_nome || '—'; }
+function getChecklistItemsFor(t) { return OPER_CHECKLIST_DEFAULT; }
 
-const HOJE_SOURCE_TAG = {
-  demanda: '<span class="hoje-source-tag src-demanda">📋 Demanda</span>',
-  reuniao: '<span class="hoje-source-tag src-reuniao">🗣️ Reunião</span>',
-};
-
-// Dispatchers genéricos das ações do Hoje — cada item carrega sua origem
-// (tarefa = obrigação recorrente / demanda = kanban de avulsos / reuniao =
-// evento da Agenda) e a ação é roteada pra onde o dado de fato mora, em vez
-// de forçar tudo pela tabela `tarefa`.
-function toggleHojeItemDone(source, id) {
-  if (source === 'tarefa') { toggleTarefaConcluida(Number(id)); return; }
-  if (source === 'demanda') {
-    const d = demandas.find(x=>x.id===id); if(!d) return;
-    d.status = d.status==='concluido' ? 'pendente' : 'concluido';
-    save('cb3_demandas', demandas); paintHoje(); renderDemandas(); renderRadarDemandas();
-    return;
-  }
-  if (source === 'reuniao') {
-    const e = igEvents.find(x=>x.id===id); if(!e) return;
-    e.status = (e.status==='concluido') ? 'pendente' : 'concluido';
-    save('cb3_ig_events', igEvents); paintHoje(); renderIgCal();
-    return;
-  }
+function setOperView(v) {
+  operView = v;
+  const btnL = document.getElementById('operBtnLista'), btnK = document.getElementById('operBtnKanban');
+  if (btnL) btnL.classList.toggle('active', v==='lista');
+  if (btnK) btnK.classList.toggle('active', v==='kanban');
+  const wrapL = document.getElementById('operListaWrap'), wrapK = document.getElementById('operKanbanWrap');
+  if (wrapL) wrapL.style.display = v==='lista' ? '' : 'none';
+  if (wrapK) wrapK.style.display = v==='kanban' ? '' : 'none';
+  paintOperacao();
 }
-function setHojeItemResp(source, id, val) {
-  if (source === 'tarefa') { setTarefaResp(Number(id), val); return; }
-  if (source === 'demanda') {
-    const d = demandas.find(x=>x.id===id); if(!d) return;
-    d.resp = val || ''; save('cb3_demandas', demandas); paintHoje(); renderDemandas();
-    return;
-  }
-  if (source === 'reuniao') {
-    const e = igEvents.find(x=>x.id===id); if(!e) return;
-    e.resp = val || ''; save('cb3_ig_events', igEvents); paintHoje();
-    return;
-  }
+function onOperFilterChange() {
+  operFilterSetor = document.getElementById('operFiltroSetor').value;
+  operFilterResp = document.getElementById('operFiltroResp').value;
+  operFilterTipo = document.getElementById('operFiltroTipo').value;
+  operFilterStatus = document.getElementById('operFiltroStatus').value;
+  operFilterAtraso = document.getElementById('operFiltroAtrasoChk').checked;
+  paintOperacao();
 }
-function setHojeItemPrazo(source, id, val) {
-  if (source === 'tarefa') { setTarefaPrazo(Number(id), val); return; }
-  if (source === 'demanda') {
-    const d = demandas.find(x=>x.id===id); if(!d) return;
-    d.prazo = val || ''; save('cb3_demandas', demandas); paintHoje(); renderDemandas(); renderRadarDemandas();
-    return;
-  }
-  if (source === 'reuniao') {
-    const e = igEvents.find(x=>x.id===id); if(!e) return;
-    e.date = val || e.date; save('cb3_ig_events', igEvents); paintHoje(); renderIgCal();
-    return;
-  }
-}
-function setHojeItemStatus(source, id, val) {
-  if (source === 'tarefa') { setTarefaStatus(Number(id), val); return; }
-  if (source === 'demanda') {
-    const d = demandas.find(x=>x.id===id); if(!d) return;
-    d.status = val; save('cb3_demandas', demandas); paintHoje(); renderDemandas(); renderRadarDemandas();
-    return;
-  }
-  if (source === 'reuniao') {
-    const e = igEvents.find(x=>x.id===id); if(!e) return;
-    e.status = val; save('cb3_ig_events', igEvents); paintHoje(); renderIgCal();
-    return;
-  }
+function setSetorFilter(setor) {
+  operFilterSetor = setor;
+  const sel = document.getElementById('operFiltroSetor');
+  if (sel) sel.value = setor;
+  paintOperacao();
 }
 
-function paintHoje() {
-  const lista = document.getElementById('hojeLista');
-  const contador = document.getElementById('hojeContador');
-  if (!lista || !sbUser) return;
+function toggleOperQuickAdd() {
+  const el = document.getElementById('operQuickAdd');
+  if (!el) return;
+  const show = el.style.display === 'none';
+  el.style.display = show ? '' : 'none';
+}
 
-  // Unifica as 3 fontes do dia a dia num só modelo de item: obrigações
-  // recorrentes (tarefa), demandas pontuais do kanban e reuniões cadastradas
-  // na Agenda. Antes só obrigações apareciam aqui — demandas e reuniões só
-  // em suas próprias abas, fácil de esquecer um prazo de serviço avulso.
-  const obrigacaoItems = hojeTarefas.filter(t=>t.tipo==='obrigacao').map(t => ({
-    source: 'tarefa', id: t.id, titulo: t.titulo, descricao: t.descricao,
-    setor: t.setor, responsavel: t.responsavel, prazo: t.prazo, status: t.status || 'pendente',
-    clienteNome: t.cliente ? t.cliente.nome : '—',
-  }));
-  const demandaItems = demandas.map(d => ({
-    source: 'demanda', id: d.id, titulo: d.tipo || d.desc || 'Demanda', descricao: d.desc || '',
-    setor: d.setor || '', responsavel: d.resp || '', prazo: d.prazo || '', status: d.status || 'pendente',
-    clienteNome: d.cliente || '—',
-  }));
-  const reuniaoItems = igEvents.filter(e=>e.type==='reuniao').map(e => ({
-    source: 'reuniao', id: e.id, titulo: 'Reunião', descricao: e.desc || '',
-    setor: '', responsavel: e.resp || '', prazo: e.date || '', status: e.status || 'pendente',
-    clienteNome: '—',
-  }));
-  const todosItens = [...obrigacaoItems, ...demandaItems, ...reuniaoItems];
+async function addOperDemanda() {
+  const clienteSel = document.getElementById('operQaCliente');
+  const clienteVal = clienteSel.value;
+  const tituloEl = document.getElementById('operQaTitulo');
+  const titulo = (tituloEl.value||'').trim();
+  if (!titulo) { tituloEl.focus(); return; }
+  const setor = document.getElementById('operQaSetor').value;
+  const desc = (document.getElementById('operQaDesc').value||'').trim();
+  const resp = document.getElementById('operQaResp').value;
+  const prazo = document.getElementById('operQaPrazo').value || null;
+  let cliente_id = null, cliente_nome = 'Externo / Avulso';
+  if (clienteVal && clienteVal !== '__externo') {
+    const c = clients.find(x=>String(x.id)===clienteVal);
+    if (c) { cliente_id = c.id; cliente_nome = c.name; }
+  }
+  const row = { cliente_id, cliente_nome, setor, tipo:'demanda', titulo, descricao: desc, responsavel: resp, prazo, status:'pendente', origem:'avulsa_manual' };
+  try {
+    const { data, error } = await sb.from('tarefa').insert(row).select('id,cliente_id,cliente_nome,legacy_id,setor,tipo,titulo,descricao,responsavel,prazo,status,valor,sop,created_at,cliente:cliente_id(nome,iniciais)').single();
+    if (error) throw error;
+    hojeTarefas.unshift(data);
+    toggleOperQuickAdd();
+    tituloEl.value=''; document.getElementById('operQaDesc').value=''; document.getElementById('operQaPrazo').value='';
+    paintOperacao();
+    showToast('Demanda adicionada!', 'ok');
+  } catch(e) {
+    console.warn('Erro ao adicionar demanda:', e);
+    showToast('⚠ Não foi possível salvar a demanda no servidor.', 'err');
+  }
+}
 
-  // popula filtros uma vez (a partir do conjunto unificado, não só obrigações)
-  const selSetor = document.getElementById('hojeFiltroSetor');
-  const selResp = document.getElementById('hojeFiltroResp');
+function operDragStart(ev, id) { ev.dataTransfer.setData('text/plain', String(id)); }
+function operDropOnCol(ev, statusKey) {
+  ev.preventDefault();
+  const id = Number(ev.dataTransfer.getData('text/plain'));
+  if (id) setTarefaStatus(id, statusKey);
+}
+
+// Painel "por setor" — quantitativo de atrasadas (com a quebra de quantas
+// são por conta do cliente), em revisão e % de fechamento, calculado sobre
+// o filtro atual (setor/responsável/tipo/atraso), sem o filtro de status —
+// cada chip já mostra o próprio recorte de status por dentro. Clicar num
+// setor aplica ele como filtro; clicar de novo limpa.
+function renderSetorIndicators(base) {
+  const el = document.getElementById('operSetorPanel');
+  if (!el) return;
+  const html = OBLIG_SETORES.map(s => {
+    const items = base.filter(t=>t.setor===s);
+    if (!items.length) return '';
+    const atrasadas = items.filter(isAtrasado);
+    const atrasadasCliente = atrasadas.filter(t=>t.sop&&t.sop.atraso_cliente).length;
+    const revisao = items.filter(t=>t.status==='revisao').length;
+    const done = items.filter(t=>t.status==='concluido').length;
+    const pct = Math.round(done/items.length*100);
+    const active = operFilterSetor===s;
+    const cor = OPER_SETOR_COLOR[s] || '#64748b';
+    return '<button class="oper-setor-chip'+(active?' active':'')+'" style="border-color:'+cor+(active?';background:'+cor+'1a':'')+'" onclick="setSetorFilter(\''+(active?'':escAttr(s))+'\')">'+
+      '<div class="oper-setor-chip-name" style="color:'+cor+'">'+escHtml(s)+'</div>'+
+      '<div class="oper-setor-chip-row"><strong style="color:var(--red)">'+atrasadas.length+'</strong> atrasada'+(atrasadas.length===1?'':'s')+(atrasadasCliente?' <span class="oper-setor-chip-sub">('+atrasadasCliente+' por conta do cliente)</span>':'')+'</div>'+
+      '<div class="oper-setor-chip-row"><strong style="color:#8b5cf6">'+revisao+'</strong> em revisão</div>'+
+      '<div class="oper-setor-chip-row"><strong>'+pct+'%</strong> concluído · '+items.length+' no total</div>'+
+    '</button>';
+  }).join('');
+  el.innerHTML = html || '<p style="font-size:12px;color:var(--fg2);padding:4px">Nenhum item no filtro atual.</p>';
+}
+
+function renderOperItem(t) {
+  const pinfo = prazoInfo(t.prazo);
+  const atrasado = isAtrasado(t);
+  const cor = OPER_SETOR_COLOR[t.setor] || '#64748b';
+  const isDone = t.status === 'concluido';
+  const stKey = t.status || 'pendente';
+  const id = t.id;
+  const tipoTag = t.tipo==='demanda' ? '<span class="hoje-source-tag src-demanda">📋 Demanda</span>' : '<span class="hoje-source-tag src-obrigacao">⚖️ Obrigação</span>';
+  const atrasoClienteFlag = (t.sop&&t.sop.atraso_cliente) ? '<span class="oper-atraso-cliente-badge" title="Atraso por conta do cliente">👤 cliente</span>' : '';
+  return `<div class="hoje-item${atrasado?' is-atrasada':''}${isDone?' is-done':''}" onclick="openOperModal(${id})" style="cursor:pointer">
+    <span class="hoje-check${isDone?' checked':''}" onclick="event.stopPropagation();toggleTarefaConcluida(${id})" title="${isDone?'Reabrir':'Marcar como concluída'}">${isDone?'✓':''}</span>
+    <div class="hoje-item-main">
+      <div class="hoje-item-top">
+        ${tipoTag}
+        <span class="hoje-item-title${isDone?' done':''}">${escHtml(t.titulo||'')}</span>
+        <span class="hoje-prazo-chip ${atrasado?'pr-atrasada':pinfo.cls}">${pinfo.label}</span>
+        ${atrasoClienteFlag}
+      </div>
+      <div class="hoje-item-meta">${t.setor?'<span class="hoje-sector-dot" style="background:'+cor+'"></span>':''}${escHtml(clienteNomeDe(t))} ${t.setor?'· '+escHtml(t.setor):''}${t.descricao ? ' · '+escHtml(t.descricao) : ''}</div>
+    </div>
+    <div class="hoje-item-actions" onclick="event.stopPropagation()">
+      <select class="hoje-status-pill" onchange="setTarefaStatus(${id},this.value)" title="Situação" style="background:${OPER_STATUS_BG[stKey]};color:${OPER_STATUS_COLOR[stKey]};border-color:${OPER_STATUS_BORDER[stKey]}">
+        ${OPER_STATUS_ORDER.map(k=>'<option value="'+k+'"'+(stKey===k?' selected':'')+'>'+OPER_STATUS_LABEL[k]+'</option>').join('')}
+      </select>
+    </div>
+  </div>`;
+}
+
+function renderOperKanbanCard(t) {
+  const pinfo = prazoInfo(t.prazo);
+  const atrasado = isAtrasado(t);
+  const tipoIcon = t.tipo==='demanda' ? '📋' : '⚖️';
+  return `<div class="dem-kan-card${atrasado?' overdue':''}" style="cursor:pointer" draggable="true" ondragstart="operDragStart(event,${t.id})" onclick="openOperModal(${t.id})">
+    <div class="dem-kan-tipo">${tipoIcon} ${escHtml(t.titulo||'')}</div>
+    <div class="dem-kan-client">${escHtml(clienteNomeDe(t))}</div>
+    ${t.setor?'<div class="dem-kan-meta"><span class="dem-tag '+(OPER_SETOR_TAGCLASS[t.setor]||'outros')+'">'+escHtml(t.setor)+'</span></div>':''}
+    ${t.prazo?'<div class="dem-kan-meta">📅 <span class="hoje-prazo-chip '+(atrasado?'pr-atrasada':pinfo.cls)+'">'+pinfo.label+'</span></div>':''}
+  </div>`;
+}
+
+function paintOperacao() {
+  const listaEl = document.getElementById('operLista');
+  if (!listaEl || !sbUser) return;
+
+  const todosItens = hojeTarefas;
+
+  // popula os selects de filtro/quick-add uma vez
+  const selSetor = document.getElementById('operFiltroSetor');
+  const qaSetor = document.getElementById('operQaSetor');
+  const qaCliente = document.getElementById('operQaCliente');
   if (selSetor && selSetor.options.length === 1) {
-    [...new Set(todosItens.map(t=>t.setor).filter(Boolean))].sort().forEach(s => {
-      const o = document.createElement('option'); o.value = s; o.textContent = s; selSetor.appendChild(o);
-    });
+    OBLIG_SETORES.forEach(s => { const o=document.createElement('option'); o.value=s; o.textContent=s; selSetor.appendChild(o); });
   }
+  if (qaSetor && !qaSetor.options.length) {
+    OBLIG_SETORES.forEach(s => { const o=document.createElement('option'); o.value=s; o.textContent=s; qaSetor.appendChild(o); });
+  }
+  if (qaCliente && qaCliente.options.length === 1) {
+    clients.forEach(c => { const o=document.createElement('option'); o.value=String(c.id); o.textContent=c.name; qaCliente.appendChild(o); });
+    const ext = document.createElement('option'); ext.value='__externo'; ext.textContent='Externo / Avulso'; qaCliente.appendChild(ext);
+  }
+  const selResp = document.getElementById('operFiltroResp');
   if (selResp && selResp.options.length === 1) {
     [...new Set(todosItens.map(t=>t.responsavel).filter(Boolean))].sort().forEach(r => {
       const o = document.createElement('option'); o.value = r; o.textContent = r; selResp.appendChild(o);
     });
   }
 
-  const fSetor = selSetor ? selSetor.value : '';
-  const fResp = selResp ? selResp.value : '';
-  const fStatus = document.getElementById('hojeFiltroStatus') ? document.getElementById('hojeFiltroStatus').value : '';
-  // Curto prazo: só entra na lista quem tem prazo definido e vencendo em até
-  // 10 dias (atrasada conta também, já que vencido é ainda mais urgente que
-  // "dentro de 10 dias"). Sem isso a aba Hoje ficava com todas as tarefas do
-  // mês inteiro misturadas, difícil de usar no dia a dia. 'cancelado' nunca
-  // entra — não é mais acionável em lugar nenhum.
-  const limite = new Date(); limite.setDate(limite.getDate()+10);
-  const limiteISO = limite.toISOString().slice(0,10);
-  const filtradas = todosItens.filter(t =>
-    (!fSetor || t.setor === fSetor) && (!fResp || t.responsavel === fResp) &&
-    t.status !== 'cancelado' &&
-    (fStatus ? t.status === fStatus : t.status !== 'concluido') &&
-    (!!t.prazo && t.prazo <= limiteISO)
+  // `base` = tudo que passa nos filtros de setor/responsável/tipo/atraso —
+  // é sobre esse recorte que os indicadores de % e o painel por setor
+  // trabalham (sem o filtro de status, que só vale pra visão em lista).
+  const base = todosItens.filter(t =>
+    (!operFilterSetor || t.setor === operFilterSetor) &&
+    (!operFilterResp || t.responsavel === operFilterResp) &&
+    (!operFilterTipo || t.tipo === operFilterTipo) &&
+    (!operFilterAtraso || isAtrasado(t))
   );
 
-  const sectorColor = { 'Fiscal':'#ef4444','Depto. Pessoal':'#eab308','Contábil':'#10b981','Societário':'#6366f1','Financeiro':'#22c55e','Sucesso do Cliente':'#ec4899' };
-  const respOptions = [...new Set(todosItens.map(t=>t.responsavel).filter(Boolean))].sort();
-
-  function renderHojeItem(t){
-    const pinfo = prazoInfo(t.prazo);
-    const dd = pinfo.dd;
-    const cor = sectorColor[t.setor] || '#64748b';
-    const isDone = t.status === 'concluido';
-    const stKey = t.status || 'pendente';
-    const stColor = HOJE_STATUS_COLOR[stKey] || 'var(--fg2)';
-    const stBg = HOJE_STATUS_BG[stKey] || HOJE_STATUS_BG.pendente;
-    const stBorder = HOJE_STATUS_BORDER[stKey] || HOJE_STATUS_BORDER.pendente;
-    const srcTag = HOJE_SOURCE_TAG[t.source] || '';
-    const idAttr = escAttr(String(t.id));
-    const statusOpts = `<option value="pendente"${stKey==='pendente'?' selected':''}>Pendente</option>
-          <option value="em_andamento"${stKey==='em_andamento'?' selected':''}>Em andamento</option>
-          <option value="concluido"${stKey==='concluido'?' selected':''}>Concluído</option>`
-      + (t.source==='demanda' ? `<option value="cancelado"${stKey==='cancelado'?' selected':''}>Cancelado</option>` : '');
-    return `<div class="hoje-item${dd!==null&&dd<0&&!isDone?' is-atrasada':''}${isDone?' is-done':''}">
-      <span class="hoje-check${isDone?' checked':''}" onclick="toggleHojeItemDone('${t.source}','${idAttr}')" title="${isDone?'Reabrir':'Marcar como concluída'}">${isDone?'✓':''}</span>
-      <div class="hoje-item-main">
-        <div class="hoje-item-top">
-          ${srcTag}
-          <span class="hoje-item-title${isDone?' done':''}">${escHtml(t.titulo||'')}</span>
-          <span class="hoje-prazo-chip ${pinfo.cls}">${pinfo.label}</span>
-        </div>
-        <div class="hoje-item-meta">${t.setor?'<span class="hoje-sector-dot" style="background:'+cor+'"></span>':''}${escHtml(t.clienteNome)} ${t.setor?'· '+escHtml(t.setor):''}${t.descricao ? ' · '+escHtml(t.descricao) : ''}</div>
-      </div>
-      <div class="hoje-item-actions">
-        <select class="hoje-mini-select" onchange="setHojeItemResp('${t.source}','${idAttr}',this.value)" title="Responsável">
-          <option value="">Sem resp.</option>
-          ${respOptions.map(r=>`<option value="${escHtml(r)}"${t.responsavel===r?' selected':''}>${escHtml(r)}</option>`).join('')}
-        </select>
-        <input type="date" class="hoje-mini-select" value="${t.prazo||''}" onchange="setHojeItemPrazo('${t.source}','${idAttr}',this.value)" title="Prazo" style="max-width:118px">
-        <select class="hoje-status-pill" onchange="setHojeItemStatus('${t.source}','${idAttr}',this.value)" title="Situação" style="background:${stBg};color:${stColor};border-color:${stBorder}">
-          ${statusOpts}
-        </select>
-      </div>
-    </div>`;
+  const totalBase = base.length;
+  const doneBase = base.filter(t=>t.status==='concluido').length;
+  const pct = totalBase ? Math.round(doneBase/totalBase*100) : 0;
+  const pctEl = document.getElementById('operOverallPct');
+  if (pctEl) pctEl.textContent = pct+'%';
+  const countsEl = document.getElementById('operSummaryCounts');
+  if (countsEl) {
+    const atrasadasN = base.filter(isAtrasado).length;
+    countsEl.innerHTML = OPER_STATUS_ORDER.map(k=>{
+      const n = base.filter(t=>t.status===k).length;
+      return '<div class="oper-count-chip" style="color:'+OPER_STATUS_COLOR[k]+'"><strong>'+n+'</strong> '+OPER_STATUS_LABEL[k]+'</div>';
+    }).join('') + '<div class="oper-count-chip" style="color:var(--red)"><strong>'+atrasadasN+'</strong> 🔴 Atrasadas</div>';
   }
+  renderSetorIndicators(base);
 
-  // Agrupa por urgência — muito mais rápido de escanear do que uma lista
-  // plana de 20+ itens misturados.
+  // Lista: agrupada por urgência, oculta concluídas por padrão (mesma
+  // lógica do Hoje antigo), mas agora SEM exigir prazo — demanda sem data
+  // ganha seu próprio grupo em vez de desaparecer (bug real do Hoje antigo,
+  // que escondia toda demanda avulsa sem prazo preenchido).
+  const listFiltradas = base.filter(t => operFilterStatus ? t.status===operFilterStatus : t.status!=='concluido');
   const grupos = [
-    { key:'atrasada', label:'🔴 Atrasadas',        test:dd=>dd!==null&&dd<0 },
-    { key:'hoje',     label:'🟠 Hoje',              test:dd=>dd===0 },
-    { key:'semana',   label:'🟡 Próximos 7 dias',   test:dd=>dd!==null&&dd>=1&&dd<=7 },
-    { key:'adiante',  label:'⚪ Em até 10 dias',     test:dd=>dd===null||dd>=8 },
+    { label:'🔴 Atrasadas',             test:t=>isAtrasado(t) },
+    { label:'🟠 Hoje',                  test:t=>!isAtrasado(t)&&prazoInfo(t.prazo).dd===0 },
+    { label:'🟡 Próximos 7 dias',       test:t=>!isAtrasado(t)&&prazoInfo(t.prazo).dd>=1&&prazoInfo(t.prazo).dd<=7 },
+    { label:'⚪ Mais adiante',          test:t=>!isAtrasado(t)&&!!t.prazo&&prazoInfo(t.prazo).dd>=8 },
+    { label:'⚫ Sem prazo definido',    test:t=>!t.prazo },
   ];
-  const buckets = grupos.map(g => ({ ...g, items: filtradas.filter(t=>g.test(prazoInfo(t.prazo).dd)) }));
-
-  lista.innerHTML = buckets.filter(b=>b.items.length).map(b =>
+  const buckets = grupos.map(g => ({ ...g, items: listFiltradas.filter(g.test) }));
+  listaEl.innerHTML = buckets.filter(b=>b.items.length).map(b =>
     `<div class="hoje-group">
       <div class="hoje-group-hd"><span class="hoje-group-label">${b.label}</span><span class="hoje-group-count">${b.items.length}</span></div>
-      ${b.items.map(renderHojeItem).join('')}
+      ${b.items.map(renderOperItem).join('')}
     </div>`
-  ).join('') || '<p style="padding:16px;color:var(--fg2)">Nenhuma tarefa encontrada com esse filtro.</p>';
+  ).join('') || '<p style="padding:16px;color:var(--fg2)">Nenhum item encontrado com esse filtro.</p>';
 
-  if (contador) {
-    const foraDoPrazo = todosItens.filter(t => t.status !== 'concluido' && t.status !== 'cancelado' && (!t.prazo || t.prazo > limiteISO)).length;
-    contador.textContent = filtradas.length + ' tarefa' + (filtradas.length===1?'':'s') + ' em até 10 dias'
-      + (foraDoPrazo ? ' · +'+foraDoPrazo+' mais adiante (ver Obrigações/Demandas)' : '');
+  // Kanban: as 4 colunas de status reais — concluído aparece sempre aqui
+  // (é uma coluna), o filtro de status da barra não se aplica nele.
+  const kanbanEl = document.getElementById('operKanbanWrap');
+  if (kanbanEl) {
+    kanbanEl.innerHTML = OPER_STATUS_ORDER.map(key => {
+      const items = base.filter(t=>t.status===key);
+      return '<div class="dem-kan-col">'+
+        '<div class="dem-kan-header"><span class="dem-kan-title">'+OPER_STATUS_LABEL[key]+'</span><span class="dem-kan-count" style="color:'+OPER_STATUS_COLOR[key]+'">'+items.length+'</span></div>'+
+        '<div class="dem-kan-cards" ondragover="event.preventDefault()" ondrop="operDropOnCol(event,\''+key+'\')">'+(items.map(renderOperKanbanCard).join('')||'<div class="dem-kan-empty">Vazio</div>')+'</div>'+
+      '</div>';
+    }).join('');
   }
+
+  const contador = document.getElementById('operContador');
+  if (contador) contador.textContent = listFiltradas.length + ' item' + (listFiltradas.length===1?'':'ns') + ' na lista · ' + totalBase + ' no filtro atual';
+}
+
+/* ═══ ENCARTE DE DETALHE (obrigação/demanda) — mesma lógica dos cards do
+   CRM (buildLeadModal): campos de contexto + checklist operacional, mas
+   com o comentário aparecendo como uma nuvem na lateral, visível de
+   imediato ao abrir — não escondido num toggle no rodapé do card. ═══ */
+function openOperModal(id) {
+  const t = hojeTarefas.find(x=>x.id===id);
+  if (!t) return;
+  openOperTarefaId = id;
+  buildOperModal(t);
+  document.getElementById('operModal').classList.remove('hidden');
+}
+function closeOperModal() {
+  openOperTarefaId = null;
+  document.getElementById('operModal').classList.add('hidden');
+}
+function buildOperModal(t) {
+  if (!t) return;
+  const atrasado = isAtrasado(t);
+  const checklistItems = getChecklistItemsFor(t);
+  const checklistState = (t.sop && t.sop.checklist) || {};
+  const checklistHtml = checklistItems.map((label,i)=>{
+    const iid = 'ci'+i;
+    const done = !!checklistState[iid];
+    return '<label class="modal-check-item"><input type="checkbox"'+(done?' checked':'')+' onchange="toggleTarefaChecklistItem('+t.id+',\''+iid+'\')"><span>'+escHtml(label)+'</span></label>';
+  }).join('');
+  const titleEl = document.getElementById('modalOperTitle');
+  if (titleEl) titleEl.textContent = (t.tipo==='demanda'?'📋 Demanda · ':'⚖️ Obrigação · ')+clienteNomeDe(t);
+  document.getElementById('modalOperBody').innerHTML =
+    '<div class="modal-field-group"><label>Título</label>'+
+      (t.tipo==='demanda'
+        ? '<input class="modal-input" value="'+escAttr(t.titulo||'')+'" onchange="setTarefaTitulo('+t.id+',this.value)">'
+        : '<div class="modal-input" style="background:var(--bg3);color:var(--fg2)">'+escHtml(t.titulo||'')+'</div>')+
+    '</div>'+
+    '<div class="modal-2col">'+
+      '<div class="modal-field-group"><label>Setor</label><select class="modal-input" onchange="setTarefaSetor('+t.id+',this.value)">'+OBLIG_SETORES.map(s=>'<option value="'+escAttr(s)+'"'+(t.setor===s?' selected':'')+'>'+escHtml(s)+'</option>').join('')+'</select></div>'+
+      '<div class="modal-field-group"><label>Responsável</label><input class="modal-input" value="'+escAttr(t.responsavel||'')+'" onchange="setTarefaResp('+t.id+',this.value)"></div>'+
+    '</div>'+
+    '<div class="modal-2col">'+
+      '<div class="modal-field-group"><label>Prazo</label><input class="modal-input" type="date" value="'+(t.prazo||'')+'" onchange="setTarefaPrazo('+t.id+',this.value)"></div>'+
+      '<div class="modal-field-group"><label>Status</label><select class="modal-input" onchange="setTarefaStatus('+t.id+',this.value)">'+OPER_STATUS_ORDER.map(k=>'<option value="'+k+'"'+(t.status===k?' selected':'')+'>'+OPER_STATUS_LABEL[k]+'</option>').join('')+'</select></div>'+
+    '</div>'+
+    '<div class="modal-field-group"><label>Descrição</label><textarea class="modal-input modal-textarea" rows="2" onchange="setTarefaDescricao('+t.id+',this.value)">'+escHtml(t.descricao||'')+'</textarea></div>'+
+    (atrasado ?
+      '<div class="modal-field-group" style="background:rgba(220,38,38,.08);border-radius:8px;padding:10px">'+
+        '<label style="color:var(--red)">🔴 Atrasada — motivo</label>'+
+        '<label class="modal-check-item"><input type="checkbox"'+((t.sop&&t.sop.atraso_cliente)?' checked':'')+' onchange="setTarefaAtrasoCliente('+t.id+',this.checked)"><span>Atraso por conta do cliente</span></label>'+
+        '<input class="modal-input" placeholder="Observação sobre o atraso (opcional)" value="'+escAttr((t.sop&&t.sop.atraso_obs)||'')+'" onchange="setTarefaAtrasoObs('+t.id+',this.value)">'+
+      '</div>' : '')+
+    '<div class="modal-field-group"><label>Checklist operacional</label><div class="modal-checklist">'+checklistHtml+'</div></div>'+
+    '<div class="modal-2col">'+
+      '<div class="modal-field-group"><label>Data de conclusão</label><input class="modal-input" type="date" value="'+((t.sop&&t.sop.data_conclusao)||'')+'" onchange="patchTarefaSop('+t.id+',{data_conclusao:this.value})"></div>'+
+      '<div class="modal-field-group"><label>Observação final</label><input class="modal-input" value="'+escAttr((t.sop&&t.sop.obs)||'')+'" onchange="setTarefaConclObs('+t.id+',this.value)"></div>'+
+    '</div>'+
+    (t.tipo==='demanda' ? '<div class="modal-danger-zone"><button class="btn-danger" onclick="deleteOperDemanda('+t.id+')">🗑 Remover esta demanda</button></div>' : '');
+  buildOperComments(t.id);
+}
+
+// Comentário como "nuvem" fora do card, na lateral — visível de imediato ao
+// abrir o encarte, sem precisar de outro clique pra revelar (era um toggle
+// escondido no rodapé do card do kanban de Demandas; agora é lateral e
+// sempre aberto enquanto o encarte estiver aberto).
+function buildOperComments(id) {
+  const wrap = document.getElementById('operCommentCloud');
+  if (!wrap) return;
+  const list = commentsData[String(id)] || [];
+  wrap.innerHTML =
+    '<div class="oper-comment-cloud-hd">💬 Comentários'+(list.length?' · '+list.length:'')+'</div>'+
+    '<div class="oper-comment-cloud-list">'+
+      (list.length ? list.map(c=>
+        '<div class="dem-comment-item"><div>'+escHtml(c.text)+'</div><div class="dem-comment-meta">'+escHtml(c.author)+' · '+new Date(c.ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+'</div></div>'
+      ).join('') : '<p style="font-size:12px;color:var(--fg3);padding:4px 0">Nenhum comentário ainda.</p>')+
+    '</div>'+
+    '<div class="dem-comment-input-row">'+
+      '<input class="dem-comment-input" id="operCommentInput" placeholder="Escrever um comentário..." onkeydown="if(event.key===\'Enter\')addOperComment('+id+')">'+
+      '<button class="dem-comment-send" onclick="addOperComment('+id+')">➤</button>'+
+    '</div>';
+}
+function addOperComment(id) {
+  const input = document.getElementById('operCommentInput');
+  const text = (input.value||'').trim();
+  if (!text) return;
+  const key = String(id);
+  if (!commentsData[key]) commentsData[key] = [];
+  commentsData[key].push({ id:'c_'+Date.now(), ts:new Date().toISOString(), text, author:'Nathan' });
+  save('cb3_comments', commentsData);
+  input.value = '';
+  buildOperComments(id);
 }
 
 // Checkpoints de processo do escritório — não são obrigação de nenhum
@@ -2551,7 +2690,7 @@ const IG_TEMPLATES = {
 /* ═══════════════════════════════════════════════
    STATE
 ═══════════════════════════════════════════════ */
-let leads = [], igEvents = [], closingData = {}, clientDrives = {}, revenues = {}, demandas = [];
+let leads = [], igEvents = [], closingData = {}, clientDrives = {}, revenues = {};
 let onboarding = {}, csData = {}, acessosData = [], commentsData = {};
 
 const ACESSOS_COLS = [
@@ -2579,10 +2718,11 @@ const ACESSOS_SEED_ROWS = [
   { cliente:'MEI Rodrigo Araújo',    cnpj:'69.041.180/0001-56', cpf:'', nasc:'', inscMun:'',        inscEst:'',             portalNacional:'', loginUvtPJ:'',               loginUvtPF:'',          senhaUvt:'', senhaDirecta:'', senhaEsocial:'' },
 ];
 let fecYear, fecMonth, igYear, igMonth, igSelectedDate = null, igView = 'cal';
-// Filtros reais do kanban de Demandas Pontuais — por responsável e setor,
-// numa linha acima das colunas (substituem o demFilter/setDemFilter antigos,
-// que eram de uma versão em lista do kanban e nunca tinham UI de verdade).
-let demFilterResp = 'all', demFilterSetor = 'all';
+// Aba Operação (unifica obrigações + demandas avulsas, tudo em `tarefa`):
+// modo de visualização, filtros e item aberto no momento.
+let operView = 'lista'; // 'lista' | 'kanban'
+let operFilterSetor = '', operFilterResp = '', operFilterStatus = '', operFilterTipo = '', operFilterAtraso = false;
+let openOperTarefaId = null;
 let editingIgEventId = null, igWeekStart = null;
 let finYear, finMonth;
 let finView = 'operacional'; // 'operacional' | 'dre' | 'dfc' | 'config'
@@ -2639,19 +2779,6 @@ function initState() {
     closingData  = JSON.parse(localStorage.getItem('cb3_close')    || '{}');
     clientDrives = JSON.parse(localStorage.getItem('cb3_drives')   || '{}');
     revenues     = JSON.parse(localStorage.getItem('cb3_rev')      || '{}');
-    demandas     = seedV ? JSON.parse(localStorage.getItem('cb3_demandas') || '[]') : [];
-    // Migração de vocabulário: unifica os status das demandas com os mesmos
-    // nomes usados em `tarefa` (pendente/em_andamento/concluido/cancelado),
-    // que antes usava 'aguardando'/'em-andamento' — duas grafias pro mesmo
-    // conceito espalhadas pelo app.
-    { const DEM_STATUS_MIGRATE = { 'aguardando':'pendente', 'em-andamento':'em_andamento' };
-      let demMigrated = false;
-      demandas = demandas.map(d => {
-        if (DEM_STATUS_MIGRATE[d.status]) { demMigrated = true; return {...d, status: DEM_STATUS_MIGRATE[d.status]}; }
-        return d;
-      });
-      if (demMigrated) save('cb3_demandas', demandas);
-    }
     try { const sd=JSON.parse(localStorage.getItem('cb3_defaults')||'null'); if(sd) clientDefaults=sd; } catch(e){}
     // Obrigações padrão por regime — se a equipe já editou/criou alguma,
     // usa a versão salva; senão fica com o seed de obligationTemplates.
@@ -2670,40 +2797,6 @@ function initState() {
       // sincronizar com a equipe assim que carrega pela 1ª vez em qualquer navegador
       if(!saved) save('cb3_acessos', acessosData);
     } catch(e){ acessosData=ACESSOS_SEED_ROWS.map(r=>({...r})); }
-
-    // Seed demandas da planilha "Demandas Pontuais" — reseed se versão < 7
-    if(!demandas.length || parseInt(seedV||'0') < 7) {
-      demandas = [
-        { id:'d01', data:'2026-09-24', cliente:'Cozinha Caseira',   setor:'Financeiro',          tipo:'Implantação do Saipos',       desc:'Cadastrar recorrências, mapear contas a receber e gerar relatórios',                                 resp:'Nathan', prazo:'2026-10-10', valor:'',     status:'em_andamento' },
-        { id:'d02', data:'2026-09-17', cliente:'Cozinha Caseira',   setor:'Sucesso do Cliente',  tipo:'Verificar empréstimo',        desc:'Verificar com Lauanna se vai fazer o empréstimo com a manicure como fiadora',                        resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
-        { id:'d03', data:'2026-09-24', cliente:'Cozinha Caseira',   setor:'Fiscal',              tipo:'Levantamento de débitos',     desc:'Fazer levantamento de débitos para apurar situação financeira do Bacana',                             resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
-        { id:'d04', data:'2026-10-07', cliente:'Cozinha Caseira',   setor:'Financeiro',          tipo:'Gerar cobranças',             desc:'Criar cobranças no banco CORA para clientes com recorrências',                                       resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
-        { id:'d05', data:'2026-09-17', cliente:'Cozinha Caseira',   setor:'Fiscal',              tipo:'Regularizar bloqueio CNPJ',   desc:'Retirar bloqueio no CNPJ na UVT para compras (MEI antigo)',                                          resp:'Yuri',   prazo:'',           valor:'',     status:'em_andamento' },
-        { id:'d06', data:'2026-09-17', cliente:'GM Joias',          setor:'Financeiro',          tipo:'Implantação Bling',           desc:'Cobrar contratação do Bling para implantação de rotina financeira',                                   resp:'Nathan', prazo:'',           valor:'',     status:'em_andamento' },
-        { id:'d07', data:'2026-09-24', cliente:'GM Joias',          setor:'Financeiro',          tipo:'Implantação da planilha',     desc:'Cadastrar recorrências, mapear contas a receber e gerar relatórios',                                 resp:'Nathan', prazo:'2026-10-10', valor:'',     status:'em_andamento' },
-        { id:'d08', data:'2026-09-17', cliente:'GM Joias',          setor:'Fiscal',              tipo:'Acesso portal UVT',           desc:'Criar acesso PF na UVT',                                                                             resp:'Yuri',   prazo:'',           valor:'',     status:'em_andamento' },
-        { id:'d09', data:'2026-09-17', cliente:'GM Joias',          setor:'Societário',          tipo:'Abertura de MEI',             desc:'Abrir MEIs para as esposas',                                                                         resp:'Yuri',   prazo:'',           valor:'',     status:'em_andamento' },
-        { id:'d10', data:'2026-10-07', cliente:'GM Joias',          setor:'Financeiro',          tipo:'Gerar cobranças',             desc:'Criar cobranças no banco CORA para clientes com recorrências',                                       resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
-        { id:'d11', data:'2026-09-17', cliente:'GM Joias',          setor:'Sucesso do Cliente',  tipo:'Aquisição de Empréstimo',     desc:'Solicitar para Rodrigo o empréstimo do Desenvolve RN',                                               resp:'Nathan', prazo:'',           valor:'',     status:'pendente'   },
-        { id:'d12', data:'2026-09-17', cliente:'Jurema',            setor:'Depto. Pessoal',      tipo:'Emissão de Guia',             desc:'CND do FGTS',                                                                                        resp:'Nathan', prazo:'',           valor:'',     status:'concluido'    },
-        { id:'d13', data:'2026-09-17', cliente:'Jurema',            setor:'Societário',          tipo:'Regularização',               desc:'Enviar guias para cliente pagar',                                                                     resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
-        { id:'d14', data:'2026-10-07', cliente:'Jurema',            setor:'Financeiro',          tipo:'Gerar cobranças',             desc:'Criar cobranças no banco CORA para clientes com recorrências',                                       resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
-        { id:'d15', data:'2026-09-17', cliente:'Jurema',            setor:'Societário',          tipo:'Cadastro no município',       desc:'Cadastro do município de Natal — requerimento indeferido; relançado',                                 resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
-        { id:'d16', data:'2026-09-17', cliente:'Kitanda Paraíso',   setor:'Depto. Pessoal',      tipo:'Admissão de funcionários',    desc:'Cobrar documentos para registro e incluir na folha',                                                 resp:'Nathan', prazo:'',           valor:'',     status:'pendente'   },
-        { id:'d17', data:'2026-09-24', cliente:'Kitanda Paraíso',   setor:'Financeiro',          tipo:'Implantação da planilha',     desc:'Cadastrar recorrências, mapear contas a receber e gerar relatórios',                                 resp:'Nathan', prazo:'2026-10-10', valor:'',     status:'em_andamento' },
-        { id:'d18', data:'2026-09-17', cliente:'Kitanda Paraíso',   setor:'Societário',          tipo:'Regularização CNPJ',          desc:'Regularizar o CNPJ do Pai de Wilson',                                                                resp:'Yuri',   prazo:'',           valor:'750',  status:'concluido'    },
-        { id:'d19', data:'2026-10-07', cliente:'Kitanda Paraíso',   setor:'Financeiro',          tipo:'Gerar cobranças',             desc:'Criar cobranças no banco CORA para clientes com recorrências',                                       resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
-        { id:'d20', data:'2026-10-08', cliente:'Kitanda Paraíso',   setor:'Fiscal',              tipo:'Declarar SEFIP',              desc:'Fazer declaração da SEFIP de Janeiro',                                                               resp:'Nathan', prazo:'',           valor:'',     status:'pendente'   },
-        { id:'d21', data:'2026-09-17', cliente:'Lidera Planejados', setor:'Depto. Pessoal',      tipo:'Admissão de funcionários',    desc:'Cobrar documentos para registro e incluir na folha',                                                 resp:'Nathan', prazo:'',           valor:'',     status:'pendente'   },
-        { id:'d22', data:'2026-09-24', cliente:'Lidera Planejados', setor:'Financeiro',          tipo:'Implantação da planilha',     desc:'Cadastrar recorrências, mapear contas a receber e gerar relatórios',                                 resp:'Nathan', prazo:'2026-10-10', valor:'',     status:'em_andamento' },
-        { id:'d23', data:'2026-09-17', cliente:'Lidera Planejados', setor:'Societário',          tipo:'Acesso portal nacional',      desc:'Criar usuário no portal nacional',                                                                    resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
-        { id:'d24', data:'2026-09-17', cliente:'Lidera Planejados', setor:'Sucesso do Cliente',  tipo:'Retorno com o banco',         desc:'Enviar documentos para o banco',                                                                     resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
-        { id:'d25', data:'2026-09-17', cliente:'Lidera Planejados', setor:'Societário',          tipo:'Acesso portal UVT',           desc:'Criar usuário PF na UVT',                                                                            resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
-        { id:'d26', data:'2026-10-07', cliente:'Lidera Planejados', setor:'Financeiro',          tipo:'Gerar cobranças',             desc:'Criar cobranças no banco CORA para clientes com recorrências',                                       resp:'Yuri',   prazo:'',           valor:'',     status:'concluido'    },
-        { id:'d27', data:'2026-10-02', cliente:'CB Interna',        setor:'Financeiro',          tipo:'Abrir conta bancária da CB',  desc:'Estudar melhor banco para a CB Contabilidade',                                                       resp:'Yuri',   prazo:'2026-10-07', valor:'',     status:'concluido'    },
-      ];
-      save('cb3_demandas', demandas);
-    }
 
     // Seed igEvents (agenda) — posts Instagram + entregas e obrigações do escritório
     const needsIgSeed = !igEvents.length || parseInt(seedV||'0') < 4;
@@ -2772,14 +2865,14 @@ function switchTab(name, btn) {
   document.querySelectorAll('.sidebar-nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   document.querySelectorAll('[data-tab="'+name+'"]').forEach(b => b.classList.add('active'));
-  const tabLabels = {radar:'Início',hoje:'Hoje',fechamento:'Obrigações',instagram:'Agenda',funil:'CRM',clientes:'Clientes',demandas:'Demandas Pontuais',financeiro:'Financeiro'};
+  const tabLabels = {radar:'Início',hoje:'Operação',instagram:'Planejamento de Marketing',funil:'CRM',clientes:'Clientes',financeiro:'Financeiro'};
   const ind = document.getElementById('headerTabIndicator');
   if(ind){ ind.textContent = tabLabels[name]||name; }
-  if (name === 'hoje') renderHoje();
-  // Obrigações/Início/Clientes agora leem o status real da tarefa (mesma
-  // fonte do Hoje), então reabrir a aba repinta com o que houver de mais
-  // recente em vez de ficar com o snapshot do carregamento inicial.
-  if (name === 'fechamento') renderFechamento();
+  // Operação/Início/Clientes leem o status real da tarefa (obrigações +
+  // demandas avulsas, tudo na mesma tabela), então reabrir a aba repinta
+  // com o que houver de mais recente em vez de ficar com o snapshot do
+  // carregamento inicial.
+  if (name === 'hoje') renderOperacao();
   if (name === 'radar') renderRadar();
   if (name === 'clientes') renderClientes();
   window.scrollTo(0,0);
@@ -2857,19 +2950,12 @@ function renderRadar() {
   const msPerDay = 86400000;
   const pendentesObrig = hojeTarefas.filter(t => t.tipo === 'obrigacao' && t.status !== 'concluido');
   const urgent48Obs = pendentesObrig.filter(t => { const dd = prazoInfo(t.prazo).dd; return dd !== null && dd >= -1 && dd <= 2; }).length;
-  const urgent48Dem = demandas.filter(d => {
-    if(['concluido','cancelado'].includes(d.status)||!d.prazo) return false;
-    const diff = (new Date(d.prazo) - now) / msPerDay;
-    return diff >= -1 && diff <= 2;
-  }).length;
+  const pendentesDem = hojeTarefas.filter(t => t.tipo === 'demanda' && t.status !== 'concluido');
+  const urgent48Dem = pendentesDem.filter(t => { const dd = prazoInfo(t.prazo).dd; return dd !== null && dd >= -1 && dd <= 2; }).length;
   const urgent48 = urgent48Obs + urgent48Dem;
 
   const week7Obs = pendentesObrig.filter(t => { const dd = prazoInfo(t.prazo).dd; return dd !== null && dd >= -1 && dd <= 7; }).length;
-  const week7Dem = demandas.filter(d => {
-    if(['concluido','cancelado'].includes(d.status)||!d.prazo) return false;
-    const diff = (new Date(d.prazo) - now) / msPerDay;
-    return diff >= -1 && diff <= 7;
-  }).length;
+  const week7Dem = pendentesDem.filter(t => { const dd = prazoInfo(t.prazo).dd; return dd !== null && dd >= -1 && dd <= 7; }).length;
   const week7 = week7Obs + week7Dem;
 
   // Agrupa as obrigações pendentes reais por etapa (mesmo rótulo = mesma
@@ -3012,7 +3098,7 @@ async function ensureMonthMaterialized(year, month) {
   if (materializedMonths.has(k)) return;
   materializedMonths.add(k);
   await materializeObligations(year, month);
-  await renderHoje();
+  await renderOperacao();
 }
 // Estado de uma etapa (concluída?, data, obs), vindo da tarefa (mês atual/futuro)
 // ou do checklist legado (mês passado).
@@ -3031,631 +3117,26 @@ function getStepState(clientId, stepId, year, month) {
   return { done:isDone, date:entry.date||'', obs:entry.obs||'', tarefaId:null };
 }
 
-async function renderFechamento() {
-  document.getElementById('fecMonthName').textContent = MONTHS_PT[fecMonth];
-  document.getElementById('fecMonthYear').textContent = fecYear;
-  const noteEl = document.getElementById('fecCompetenciaNote');
-  if (noteEl) noteEl.textContent = '📎 Vencimento em ' + MONTHS_PT[fecMonth] + ' — competência (dados de referência): ' + competenciaLabel(fecYear, fecMonth);
-  if (!isPastMonth(fecYear, fecMonth)) {
-    try { await ensureMonthMaterialized(fecYear, fecMonth); } catch(e) { console.warn('ensureMonthMaterialized falhou:', e); }
-  }
-  let totalSteps = 0, doneSteps = 0;
-  const cards = clients.map(c => {
-    const steps = getSteps(c);
-    const states = steps.map(s => getStepState(c.id, s.id, fecYear, fecMonth));
-    const clientDone = states.filter(st => st.done).length;
-    totalSteps += steps.length; doneSteps += clientDone;
-    const pct = steps.length ? Math.round(clientDone/steps.length*100) : 0;
-    const barColor = pct === 100 ? 'green' : pct > 50 ? 'amber' : 'gold';
-    return '<div class="closing-card" id="cc-'+c.id+'">'+
-      '<div class="closing-card-header" onclick="toggleClosing('+c.id+')">'+
-        '<div class="closing-client-avatar">'+c.initials+'</div>'+
-        '<div class="closing-client-info">'+
-          '<div class="closing-client-name">'+c.name+'</div>'+
-          '<div class="closing-client-regime">'+c.regime+' · '+c.services.join(', ')+'</div>'+
-        '</div>'+
-        '<div class="closing-progress-wrap">'+
-          '<div class="closing-mini-bar"><div class="closing-mini-fill '+barColor+'" style="width:'+pct+'%"></div></div>'+
-          '<span class="closing-pct">'+pct+'%</span>'+
-        '</div>'+
-        '<span class="closing-chevron">▾</span>'+
-      '</div>'+
-      '<div class="closing-steps">'+
-        steps.map((s,i) => {
-          const st = states[i];
-          const isDone = st.done;
-          const dayNow = new Date().getDate();
-          const daysLeft = s.prazoDia - dayNow;
-          const prazoClass = daysLeft < 0 ? 'red' : daysLeft <= 2 ? 'red' : daysLeft <= 5 ? 'amber' : 'navy';
-          const prazoLabel = (fecYear===new Date().getFullYear()&&fecMonth===new Date().getMonth())
-            ? (daysLeft<0?'Venceu dia '+s.prazoDia:'Dia '+s.prazoDia) : 'Dia '+s.prazoDia;
-          return '<div class="step-item">'+
-            '<div class="step-check'+(isDone?' done':'')+'" onclick="toggleStep('+c.id+',\''+s.id+'\')"></div>'+
-            '<div class="step-info"><div class="step-name'+(isDone?' done-text':'')+'">'+s.label+'</div>'+
-            (s.desc?'<div class="step-desc">'+s.desc+'</div>':'')+
-            (isDone?'<div class="step-extras">'+
-              '<input type="date" class="step-date-input" title="Data de conclusão" value="'+(st.date||'')+'" onchange="setStepDate('+c.id+',\''+s.id+'\',this.value)">'+
-              '<input type="text" class="step-obs-input" placeholder="Observação..." value="'+escHtml(st.obs||'')+'" onchange="setStepObs('+c.id+',\''+s.id+'\',this.value)">'+
-            '</div>':'')+
-            '</div>'+
-            '<div class="step-prazo '+(isDone?'navy':prazoClass)+'">'+(isDone?'✓':prazoLabel)+'</div>'+
-          '</div>';
-        }).join('')+
-      '</div>'+
-    '</div>';
-  });
-  document.getElementById('closingCards').innerHTML = cards.join('');
-  const overall = totalSteps ? Math.round(doneSteps/totalSteps*100) : 0;
-  document.getElementById('fecOverallPct').textContent = overall+'%';
-}
-
-function toggleClosing(id) { document.getElementById('cc-'+id).classList.toggle('open') }
-
-async function toggleStep(clientId, stepId) {
-  const card = document.getElementById('cc-'+clientId);
-  if(card) card.classList.add('open');
-  if (isPastMonth(fecYear, fecMonth)) {
-    // Mês passado — mantém o checklist legado como histórico, sem tentar migrar.
-    const key = fecKey();
-    if(!closingData[key]) closingData[key] = {};
-    const k = clientId+'_'+stepId;
-    const cur=closingData[key][k];
-    const isDone=cur===true||(cur&&cur.done);
-    if(isDone){ delete closingData[key][k]; }
-    else { const today=new Date().toISOString().slice(0,10); closingData[key][k]={done:true,date:today,obs:''}; }
-    save('cb3_close', closingData);
-    renderFechamento();
-    return;
-  }
-  const st = getStepState(clientId, stepId, fecYear, fecMonth);
-  await setObligDone(clientId, stepId, !st.done);
-}
-
-// Atualiza o status da linha real na tabela `tarefa` (mesma usada por Hoje/Agenda).
-async function setObligDone(clientId, stepId, done) {
-  await ensureMonthMaterialized(fecYear, fecMonth);
-  const lid = obligLegacyId(clientId, stepId, fecYear, fecMonth);
-  const t = hojeTarefas.find(x => x.legacy_id === lid);
-  if (!t) { console.warn('Obrigação não encontrada para', lid); return; }
-  const prevStatus = t.status, prevSop = t.sop;
-  t.status = done ? 'concluido' : 'pendente';
-  if (done) t.sop = { ...(t.sop||{}), data_conclusao: new Date().toISOString().slice(0,10) };
-  renderFechamento(); renderRadar();
-  try {
-    const { error } = await sb.from('tarefa').update({ status: t.status, sop: t.sop }).eq('id', t.id);
-    if (error) throw error;
-  } catch(e) {
-    console.warn('Erro ao atualizar obrigação:', e);
-    t.status = prevStatus; t.sop = prevSop;
-    renderFechamento(); renderRadar();
-  }
-}
-
-async function setStepDate(clientId, stepId, date) {
-  if (isPastMonth(fecYear, fecMonth)) {
-    const key=fecKey();
-    if(!closingData[key]) closingData[key]={};
-    const k=clientId+'_'+stepId;
-    const cur=closingData[key][k];
-    const entry=(cur&&typeof cur==='object')?{...cur}:{done:true,date:'',obs:''};
-    entry.date=date;
-    closingData[key][k]=entry;
-    save('cb3_close',closingData);
-    return;
-  }
-  const lid = obligLegacyId(clientId, stepId, fecYear, fecMonth);
-  const t = hojeTarefas.find(x => x.legacy_id === lid);
-  if (!t) return;
-  t.sop = { ...(t.sop||{}), data_conclusao: date };
-  try { await sb.from('tarefa').update({ sop: t.sop }).eq('id', t.id); }
-  catch(e) { console.warn('Erro ao salvar data da obrigação:', e); }
-}
-async function setStepObs(clientId, stepId, obs) {
-  if (isPastMonth(fecYear, fecMonth)) {
-    const key=fecKey();
-    if(!closingData[key]) closingData[key]={};
-    const k=clientId+'_'+stepId;
-    const cur=closingData[key][k];
-    const entry=(cur&&typeof cur==='object')?{...cur}:{done:true,date:'',obs:''};
-    entry.obs=obs;
-    closingData[key][k]=entry;
-    save('cb3_close',closingData);
-    return;
-  }
-  const lid = obligLegacyId(clientId, stepId, fecYear, fecMonth);
-  const t = hojeTarefas.find(x => x.legacy_id === lid);
-  if (!t) return;
-  t.sop = { ...(t.sop||{}), obs: obs };
-  try { await sb.from('tarefa').update({ sop: t.sop }).eq('id', t.id); }
-  catch(e) { console.warn('Erro ao salvar observação da obrigação:', e); }
-}
-
-function fecChangeMonth(d) {
-  fecMonth += d;
-  if(fecMonth < 0){fecMonth=11;fecYear--} if(fecMonth > 11){fecMonth=0;fecYear++}
-  renderFechamento();
-}
+// A antiga aba Obrigações (com seu checklist mês-a-mês navegável) saiu —
+// virou o painel por setor + indicadores da Operação. getStepState acima
+// continua valendo: é usado pelo % de fechamento do Início e dos cards de
+// Clientes, sempre para o mês atual (fecYear/fecMonth não mudam mais).
 
 /* ═══════════════════════════════════════════════
-   INSTAGRAM — AGENDA EMPRESA
+   (ex-"INSTAGRAM — AGENDA EMPRESA": calendário/kanban de posts, reuniões e
+   eventos manuais. A aba Agenda saiu — ver D10 — e virou o link/iframe do
+   "Planejamento de Marketing" na aba Instagram; todo o código de render do
+   calendário (EV_TYPES, renderIgCal/renderIgCalGrid/renderIgDayPanel/
+   renderIgWeek/renderIgPlan e funções de CRUD de evento) foi removido por
+   estar morto — os elementos de DOM que ele desenhava não existem mais e
+   nenhuma tela chama mais essas funções. escHtml/escAttr abaixo seguem
+   em uso em todo o app e foram mantidas.)
 ═══════════════════════════════════════════════ */
-const EV_TYPES = {
-  post:     { label:'📸 Post',     cls:'ev-post' },
-  gravacao: { label:'🎬 Gravação', cls:'ev-gravacao' },
-  edicao:   { label:'✂️ Edição',   cls:'ev-edicao' },
-  demanda:  { label:'📋 Demanda',  cls:'ev-demanda' },
-  entrega:  { label:'📦 Entrega',  cls:'ev-entrega' },
-  obrigacao:{ label:'⚖️ Obrigação',cls:'ev-obrigacao'},
-  reuniao:  { label:'🗣️ Reunião', cls:'ev-reuniao' },
-  comercial:{ label:'💼 Comercial',cls:'ev-comercial'},
-};
 
 function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 function escAttr(s){ return escHtml(s) }
 // (Edição direta de honorário por aqui foi removida — mensalidade agora só
 // se edita no cadastro do cliente, ver nota em getTotal().)
-
-function renderIgStats(){
-  const now = new Date();
-  const yr = igYear, mo = igMonth;
-  const monthEvs = igEvents.filter(e=>{ const p=e.date.split('-'); return parseInt(p[0])===yr&&parseInt(p[1])-1===mo; });
-  const posts = monthEvs.filter(e=>e.type==='post');
-  const publicados = posts.filter(e=>e.status==='publicado').length;
-  const agendados  = posts.filter(e=>e.status==='agendado').length;
-  const planejados = posts.filter(e=>!e.status||e.status==='planejado').length;
-  const today = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
-  const proximos = igEvents.filter(e=>e.date>=today).length;
-  // A faixa só contava posts — a Agenda passou a mostrar obrigações e
-  // reuniões reais também, então os indicadores agora cobrem os dois.
-  const el = document.getElementById('igStatsStrip');
-  if(!el) return;
-  el.innerHTML =
-    '<div class="ig-stat-box"><div class="ig-stat-num">'+posts.length+'</div><div class="ig-stat-label">Posts '+MONTHS_PT[mo].slice(0,3)+'</div></div>'+
-    '<div class="ig-stat-box"><div class="ig-stat-num" style="color:var(--green)">'+publicados+'</div><div class="ig-stat-label">Publicados</div></div>'+
-    '<div class="ig-stat-box"><div class="ig-stat-num" style="color:var(--blue)">'+agendados+'</div><div class="ig-stat-label">Agendados</div></div>'+
-    '<div class="ig-stat-box" title="Reuniões cadastradas manualmente na Agenda neste mês"><div class="ig-stat-num" style="color:#6366f1">'+reuniaoCountMes(yr,mo)+'</div><div class="ig-stat-label">Reuniões '+MONTHS_PT[mo].slice(0,3)+'</div></div>'+
-    '<div class="ig-stat-box" title="Obrigações reais por cliente (fiscal, pessoal, contábil) com prazo neste mês e ainda não concluídas"><div class="ig-stat-num" style="color:#ef4444">'+obrigacoesPendentesMes(yr,mo)+'</div><div class="ig-stat-label">Obrig. pendentes</div></div>'+
-    '<div class="ig-stat-box" title="Todos os eventos da Agenda (posts, gravações, reuniões, entregas) com data a partir de hoje"><div class="ig-stat-num" style="color:var(--amber)">'+proximos+'</div><div class="ig-stat-label">Próximos eventos</div></div>';
-}
-
-// Conta reuniões/obrigações do mês mostrado na Agenda — mesma lógica usada
-// no painel do dia e no Hoje, só que somada pro mês inteiro.
-function reuniaoCountMes(yr, mo){
-  return (typeof igEvents!=='undefined'?igEvents:[]).filter(e=>{
-    if(e.type!=='reuniao'||!e.date) return false;
-    const p=e.date.split('-'); return parseInt(p[0])===yr&&parseInt(p[1])-1===mo;
-  }).length;
-}
-function obrigacoesPendentesMes(yr, mo){
-  return (typeof hojeTarefas!=='undefined'?hojeTarefas:[]).filter(t=>{
-    if(t.tipo!=='obrigacao'||t.status==='concluido'||!t.prazo) return false;
-    const p=t.prazo.split('-'); return parseInt(p[0])===yr&&parseInt(p[1])-1===mo;
-  }).length;
-}
-
-// Garante que as obrigações reais do mês mostrado já existam em `tarefa`
-// antes de pintar a grade — mesmo padrão que o renderFechamento já usa pro
-// mês dele (fecYear/fecMonth). Sem isso, navegar a Agenda pra um mês ainda
-// não materializado (ex.: mês seguinte) deixava os dias "vazios" mesmo
-// tendo cronograma recorrente previsto — bug reportado pelo Nathan.
-async function renderIgCal(){
-  renderIgCalGrid();
-  if(!isPastMonth(igYear, igMonth)){
-    try {
-      await ensureMonthMaterialized(igYear, igMonth);
-      renderIgCalGrid();
-      if(igSelectedDate) renderIgDayPanel(igSelectedDate);
-      if(igView==='week') renderIgWeek();
-    } catch(e){ console.warn('ensureMonthMaterialized falhou (Agenda):', e); }
-  }
-}
-
-function renderIgCalGrid(){
-  document.getElementById('igMonthLabel').textContent = MONTHS_PT[igMonth]+' '+igYear;
-  const now = new Date();
-  const todayD = (now.getFullYear()===igYear && now.getMonth()===igMonth) ? now.getDate() : -1;
-  const first = new Date(igYear,igMonth,1).getDay();
-  const dim = new Date(igYear,igMonth+1,0).getDate();
-  const heads = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
-  let html = heads.map(h=>'<div class="ig-head">'+h+'</div>').join('');
-  for(let i=0;i<first;i++) html+='<div class="ig-cell"></div>';
-  for(let d=1;d<=dim;d++){
-    const ds = igYear+'-'+String(igMonth+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
-    const evs = igEvents.filter(e=>e.date===ds);
-    const obrigs = hojeTarefas.filter(t=>t.tipo==='obrigacao' && t.prazo===ds && t.status!=='concluido');
-    const dems = demandas.filter(dm=>dm.prazo===ds && dm.status!=='concluido' && dm.status!=='cancelado');
-    const checkpointsDodia = OFFICE_CHECKPOINTS.filter(o=>o.day===d);
-    const comercialDodia = leads.filter(l=>l.followUpDate===ds && l.stage!=='won' && l.stage!=='lost');
-    // Itens combinados — eventos da agenda, obrigações reais (por cliente),
-    // checkpoints internos do escritório, demandas pontuais e follow-ups
-    // comerciais — pra o calendário mostrar tudo que acontece no dia, não
-    // só posts. OFFICE_CHECKPOINTS é a mesma fonte usada no Início
-    // (renderRadar), então não duplica com um seed próprio da Agenda.
-    const items = [
-      // evId só existe nos eventos reais da Agenda (igEvents) — é o que
-      // diferencia um chip que pode ser arrastado pra outro dia dos chips
-      // de obrigação/demanda/comercial, que pertencem a outras telas e não
-      // fazem sentido "mover" por aqui.
-      ...evs.map(e=>({ type:e.type, desc:(e.time?e.time+' ':'')+(e.desc||''), evId:e.id })),
-      ...obrigs.map(t=>({ type:'obrigacao', desc:(t.cliente&&t.cliente.nome)||t.titulo })),
-      ...checkpointsDodia.map(o=>({ type:'obrigacao', desc:o.titulo })),
-      ...dems.map(dm=>({ type:'demanda', desc:dm.cliente })),
-      ...comercialDodia.map(l=>({ type:'comercial', desc:l.name })),
-    ];
-    const isToday = d===todayD;
-    const isSel = igSelectedDate===ds;
-    // Show up to 2 labeled chips in the cell
-    const chips = items.slice(0,2).map(it=>{
-      const t = EV_TYPES[it.type]||{cls:'',label:it.type};
-      const short = it.desc ? String(it.desc).slice(0,14)+(String(it.desc).length>14?'…':'') : t.label.replace(/\p{Emoji}/gu,'').trim();
-      const dragAttrs = it.evId ? ' draggable="true" ondragstart="event.stopPropagation();dragIgEventStart(event,\''+escAttr(it.evId)+'\')" title="Arraste pra outro dia"' : '';
-      return '<span class="ig-cell-evlabel '+t.cls+'"'+dragAttrs+'>'+short+'</span>';
-    }).join('');
-    const more = items.length>2?'<span class="ev-more" style="font-size:7px;color:var(--fg4);margin-top:1px">+'+( items.length-2)+'</span>':'';
-    html += '<div class="ig-cell ig-cell-event'+(isToday?' is-today':'')+(isSel?' is-selected':'')+(items.length?' has-post':'')+'" onclick="igSelectDay(\''+ds+'\')" ondragover="event.preventDefault()" ondrop="dropIgEventOnDay(event,\''+ds+'\')">'+
-      '<span class="ig-cell-num">'+d+'</span>'+
-      chips+more+
-    '</div>';
-  }
-  document.getElementById('igCalGrid').innerHTML = html;
-  const total = igEvents.filter(e=>{ const p=e.date.split('-'); return parseInt(p[0])===igYear&&parseInt(p[1])-1===igMonth }).length;
-  document.getElementById('igEventCount').textContent = total ? total+' evento'+(total>1?'s':'') : '';
-  renderIgStats();
-}
-
-function igSelectDay(ds){
-  igSelectedDate = (igSelectedDate===ds) ? null : ds;
-  renderIgCal();
-  if(igView==='week') renderIgWeek();
-  if(!igSelectedDate){ closeIgPanel(); return; }
-  renderIgDayPanel(ds);
-}
-
-function renderIgDayPanel(ds){
-  const parts = ds.split('-');
-  const label = parseInt(parts[2])+' de '+MONTHS_PT[parseInt(parts[1])-1]+' '+parts[0];
-  document.getElementById('igPanelDate').textContent = label;
-  // Pré-preenche a data do formulário com o dia selecionado — mas só se não
-  // tiver uma edição em andamento (senão trocaria a data do evento sendo editado).
-  if(!editingIgEventId) document.getElementById('igEvDate').value = ds;
-
-  // Obrigações do dia — vencimentos fiscais/contábeis reais, materializados
-  // na tabela tarefa (origem obrigacao_auto), a mesma fonte das abas Hoje e
-  // Obrigações, + checkpoints internos do escritório (mesma fonte do Início).
-  const obrigList = document.getElementById('igObrigList');
-  const obrigsDodia = hojeTarefas.filter(t => t.tipo === 'obrigacao' && t.prazo === ds && t.status !== 'concluido');
-  const diaNum = parseInt(ds.split('-')[2], 10);
-  const checkpointsDodia = OFFICE_CHECKPOINTS.filter(o => o.day === diaNum);
-  if(obrigsDodia.length || checkpointsDodia.length){
-    obrigList.innerHTML = obrigsDodia.map(t =>
-      '<div class="ig-ev-item">'+
-        '<span class="ig-ev-chip ev-obrigacao">⚖️ Obrigação</span>'+
-        '<span class="ig-ev-desc"><strong>'+escHtml((t.cliente&&t.cliente.nome)||'')+'</strong> — '+escHtml(t.titulo||'')+'</span>'+
-        '<span class="ig-ev-resp">'+escHtml(t.responsavel||'')+'</span>'+
-      '</div>'
-    ).join('') + checkpointsDodia.map(o =>
-      '<div class="ig-ev-item">'+
-        '<span class="ig-ev-chip ev-obrigacao">⚖️ Interno</span>'+
-        '<span class="ig-ev-desc">'+escHtml(o.titulo)+'</span>'+
-        '<span class="ig-ev-resp">'+escHtml(o.setor||'')+'</span>'+
-      '</div>'
-    ).join('');
-  } else {
-    obrigList.innerHTML = '<p class="ig-empty-day">Sem obrigações neste dia.</p>';
-  }
-
-  // Demandas do dia — demandas pontuais (kanban) com prazo nessa data.
-  const demandaList = document.getElementById('igDemandaList');
-  const demandasDodia = demandas.filter(d => d.prazo === ds && d.status !== 'concluido' && d.status !== 'cancelado');
-  if(demandaList){
-    if(demandasDodia.length){
-      demandaList.innerHTML = demandasDodia.map(d =>
-        '<div class="ig-ev-item">'+
-          '<span class="ig-ev-chip ev-demanda">📋 Demanda</span>'+
-          '<span class="ig-ev-desc"><strong>'+escHtml(d.cliente)+'</strong> — '+escHtml(d.tipo)+'</span>'+
-          '<span class="ig-ev-resp">'+escHtml(d.resp||'')+'</span>'+
-        '</div>'
-      ).join('');
-    } else {
-      demandaList.innerHTML = '<p class="ig-empty-day">Sem demandas neste dia.</p>';
-    }
-  }
-
-  // Comercial do dia — follow-ups de leads do Funil com data marcada nesse dia
-  // (antes só apareciam como alerta de atraso no Início, nunca na Agenda).
-  const comercialList = document.getElementById('igComercialList');
-  const comercialDodia = leads.filter(l => l.followUpDate === ds && l.stage !== 'won' && l.stage !== 'lost');
-  if(comercialList){
-    if(comercialDodia.length){
-      comercialList.innerHTML = comercialDodia.map(l =>
-        '<div class="ig-ev-item">'+
-          '<span class="ig-ev-chip ev-comercial">💼 Comercial</span>'+
-          '<span class="ig-ev-desc"><strong>'+escHtml(l.name)+'</strong> — follow-up'+(l.dor?': '+escHtml(l.dor):'')+'</span>'+
-          '<span class="ig-ev-resp">'+escHtml(l.resp||'')+'</span>'+
-        '</div>'
-      ).join('');
-    } else {
-      comercialList.innerHTML = '<p class="ig-empty-day">Sem follow-ups comerciais neste dia.</p>';
-    }
-  }
-
-  // Eventos agendados
-  const evs = igEvents.filter(e=>e.date===ds);
-  const count = evs.length + obrigsDodia.length + checkpointsDodia.length + demandasDodia.length + comercialDodia.length;
-  document.getElementById('igPanelCount').textContent = count ? '· '+count+' item'+(count>1?'s':'') : '';
-
-  document.getElementById('igEventList').innerHTML = evs.length
-    ? evs.slice().sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99')).map(e=>{
-        const t = EV_TYPES[e.type]||{label:e.type,cls:''};
-        const isPost = e.type==='post';
-        const status = e.status||'planejado';
-        const nextStatus = status==='planejado'?'agendado':status==='agendado'?'publicado':'planejado';
-        const statusLabel = status==='publicado'?'✅ Publicado':status==='agendado'?'📌 Agendado':'📝 Planejado';
-        return '<div class="ig-ev-item ig-ev-editable" onclick="startEditIgEvent(\''+escAttr(e.id)+'\')" title="Clique para editar">'+
-          (e.time?'<span class="ig-ev-time">'+escHtml(e.time)+'</span>':'')+
-          '<span class="ig-ev-chip '+t.cls+'">'+t.label+'</span>'+
-          (e.resp?'<span class="ig-ev-resp">'+escHtml(e.resp)+'</span>':'')+
-          '<span class="ig-ev-desc">'+escHtml(e.desc||'')+'</span>'+
-          (isPost?'<span class="ig-status-chip '+status+'" onclick="event.stopPropagation();cycleIgStatus(\''+escAttr(e.id)+'\',\''+nextStatus+'\')" title="Clique para mudar status">'+statusLabel+'</span>':'')+
-          '<button class="ig-ev-del" onclick="event.stopPropagation();removeIgEvent(\''+escAttr(e.id)+'\')">×</button>'+
-        '</div>';
-      }).join('')
-    : '<p class="ig-empty-day">Nenhum evento agendado.</p>';
-  document.getElementById('igDayPanel').classList.remove('hidden');
-}
-
-// editingIgEventId: null = criando um evento novo; um id = editando um
-// evento existente (o formulário é o mesmo, só muda o que o botão faz).
-function addIgEvent(){
-  const date = document.getElementById('igEvDate').value || igSelectedDate;
-  if(!date) return;
-  const type = document.getElementById('igEvType').value;
-  const time = document.getElementById('igEvTime').value || '';
-  const resp = document.getElementById('igEvResp').value;
-  const desc = document.getElementById('igEvDesc').value.trim();
-  if(editingIgEventId){
-    const idx = igEvents.findIndex(e=>e.id===editingIgEventId);
-    if(idx>-1) igEvents[idx] = {...igEvents[idx], date, type, time, resp, desc};
-    cancelIgEventEdit();
-  } else {
-    const id = 'ev_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
-    igEvents.push({ id, date, type, time, resp, desc });
-    clearIgEventForm();
-  }
-  save('cb3_ig_events', igEvents);
-  if(igSelectedDate) renderIgDayPanel(igSelectedDate);
-  renderIgCal();
-  renderIgPlan();
-  if(igView==='week') renderIgWeek();
-}
-
-function clearIgEventForm(){
-  document.getElementById('igEvDesc').value = '';
-  document.getElementById('igEvTime').value = '';
-  if(igSelectedDate) document.getElementById('igEvDate').value = igSelectedDate;
-}
-
-// Carrega um evento existente no formulário pra edição, em vez de só
-// permitir excluir e recriar do zero — inclusive dá pra mudar a data,
-// ou seja, "mover" o evento pra outro dia sem precisar de drag-and-drop.
-// Drag-and-drop pra mover um evento da Agenda pra outro dia direto na
-// grade — mesmo padrão já usado no kanban do Funil (dragLeadStart) e das
-// Demandas Pontuais (dragDemandaStart). Só eventos reais (igEvents) são
-// arrastáveis; obrigação/demanda/comercial seguem só editáveis na tela de
-// origem. Continua funcionando a edição manual da data (sem drag) também.
-let draggingIgEventId = null;
-function dragIgEventStart(ev, id){ draggingIgEventId = id; try{ ev.dataTransfer.effectAllowed='move'; }catch(e){} }
-function dropIgEventOnDay(ev, ds){
-  ev.preventDefault();
-  const id = draggingIgEventId;
-  draggingIgEventId = null;
-  if(!id) return;
-  const idx = igEvents.findIndex(e=>e.id===id);
-  if(idx<0 || igEvents[idx].date===ds) return;
-  igEvents[idx] = {...igEvents[idx], date: ds};
-  save('cb3_ig_events', igEvents);
-  renderIgCalGrid();
-  if(igSelectedDate) renderIgDayPanel(igSelectedDate);
-  if(igView==='week') renderIgWeek();
-  renderIgPlan();
-  showToast('Evento movido para '+ds.split('-').reverse().join('/'), 'ok');
-}
-
-function startEditIgEvent(id){
-  const e = igEvents.find(x=>x.id===id);
-  if(!e) return;
-  editingIgEventId = id;
-  document.getElementById('igEvType').value = e.type;
-  document.getElementById('igEvDate').value = e.date;
-  document.getElementById('igEvTime').value = e.time||'';
-  document.getElementById('igEvResp').value = e.resp||'Nathan';
-  document.getElementById('igEvDesc').value = e.desc||'';
-  document.getElementById('igEvSubmitBtn').textContent = '💾 Salvar edição';
-  document.getElementById('igEvCancelBtn').style.display = '';
-  document.getElementById('igEvDesc').scrollIntoView({behavior:'smooth',block:'nearest'});
-}
-
-function cancelIgEventEdit(){
-  editingIgEventId = null;
-  document.getElementById('igEvSubmitBtn').textContent = '+ Adicionar';
-  document.getElementById('igEvCancelBtn').style.display = 'none';
-  clearIgEventForm();
-}
-
-function removeIgEvent(id){
-  igEvents = igEvents.filter(e=>e.id!==id);
-  if(editingIgEventId===id) cancelIgEventEdit();
-  save('cb3_ig_events', igEvents);
-  if(igSelectedDate) renderIgDayPanel(igSelectedDate);
-  renderIgCal();
-  renderIgPlan();
-  if(igView==='week') renderIgWeek();
-}
-
-function cycleIgStatus(id, newStatus){
-  const idx = igEvents.findIndex(e=>e.id===id);
-  if(idx>-1){ igEvents[idx].status=newStatus; save('cb3_ig_events',igEvents); }
-  if(igSelectedDate) renderIgDayPanel(igSelectedDate);
-  renderIgCal();
-  renderIgPlan();
-  if(igView==='week') renderIgWeek();
-}
-
-function closeIgPanel(){
-  // Na visão Dia o painel É a tela principal — fechar não pode deixar uma
-  // tela em branco (Mês/Semana/Planejamento ficam escondidos nessa visão).
-  // Volta pro Mês em vez disso.
-  if(igView==='day'){ setIgView('cal'); return; }
-  igSelectedDate = null;
-  document.getElementById('igDayPanel').classList.add('hidden');
-  renderIgCal();
-  if(igView==='week') renderIgWeek();
-}
-
-function igChangeMonth(d){
-  igSelectedDate = null;
-  document.getElementById('igDayPanel').classList.add('hidden');
-  igMonth += d;
-  if(igMonth<0){igMonth=11;igYear--}
-  if(igMonth>11){igMonth=0;igYear++}
-  renderIgCal();
-  renderIgPlan();
-}
-
-function setIgView(v){
-  igView=v;
-  document.getElementById('igCalView').style.display=v==='cal'?'':'none';
-  document.getElementById('igWeekView').style.display=v==='week'?'':'none';
-  document.getElementById('igPlanView').style.display=v==='plan'?'':'none';
-  document.getElementById('igDayView').style.display=v==='day'?'':'none';
-  document.getElementById('igBtnCal').classList.toggle('active',v==='cal');
-  document.getElementById('igBtnWeek').classList.toggle('active',v==='week');
-  document.getElementById('igBtnPlan').classList.toggle('active',v==='plan');
-  document.getElementById('igBtnDay').classList.toggle('active',v==='day');
-  if(v==='plan') renderIgPlan();
-  if(v==='week') renderIgWeek();
-  if(v==='day'){
-    if(!igSelectedDate){
-      const now=new Date(), pad=n=>String(n).padStart(2,'0');
-      igSelectedDate = now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate());
-    }
-    renderIgDayViewLabel();
-    renderIgDayPanel(igSelectedDate);
-    document.getElementById('igDayPanel').classList.remove('hidden');
-  }
-}
-
-function igChangeWeek(delta){
-  const d = new Date(igWeekStart);
-  d.setDate(d.getDate() + delta*7);
-  igWeekStart = d;
-  renderIgWeek();
-}
-
-function renderIgDayViewLabel(){
-  const el = document.getElementById('igDayViewLabel');
-  if(!el || !igSelectedDate) return;
-  const d = new Date(igSelectedDate+'T00:00:00');
-  const lbl = d.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'});
-  el.textContent = lbl.charAt(0).toUpperCase()+lbl.slice(1);
-}
-
-// Navegação dia-a-dia da visão Dia — mantém mês e semana sincronizados
-// pra, se o usuário voltar pro Mês/Semana, já estar olhando o período certo.
-function igChangeDay(delta){
-  const cur = igSelectedDate ? new Date(igSelectedDate+'T00:00:00') : new Date();
-  cur.setDate(cur.getDate()+delta);
-  const pad = n=>String(n).padStart(2,'0');
-  igSelectedDate = cur.getFullYear()+'-'+pad(cur.getMonth()+1)+'-'+pad(cur.getDate());
-  igYear = cur.getFullYear(); igMonth = cur.getMonth();
-  { const d=new Date(cur); d.setDate(d.getDate()-d.getDay()); d.setHours(0,0,0,0); igWeekStart=d; }
-  renderIgDayViewLabel();
-  renderIgDayPanel(igSelectedDate);
-}
-
-// Visão semana — zoom de 7 dias sobre os mesmos dados do mês (obrigações
-// reais, demandas, comercial, checkpoints e eventos da agenda), pra dar a
-// granularidade que faltava sem precisar reconstruir tudo numa grade de
-// horário. Clicar num dia abre o mesmo painel de baixo que o mês usa.
-function renderIgWeek(){
-  const grid = document.getElementById('igWeekGrid');
-  if(!grid) return;
-  const start = new Date(igWeekStart);
-  const end = new Date(start); end.setDate(end.getDate()+6);
-  const fmtLbl = dt => dt.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'});
-  document.getElementById('igWeekLabel').textContent = fmtLbl(start)+' – '+fmtLbl(end);
-
-  const todayStr = new Date().toISOString().slice(0,10);
-  const pad = n => String(n).padStart(2,'0');
-  const dayNames = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
-
-  let html = '';
-  for(let i=0;i<7;i++){
-    const dt = new Date(start); dt.setDate(dt.getDate()+i);
-    const ds = dt.getFullYear()+'-'+pad(dt.getMonth()+1)+'-'+pad(dt.getDate());
-    const diaNum = dt.getDate();
-    const evs = igEvents.filter(e=>e.date===ds);
-    const obrigs = hojeTarefas.filter(t=>t.tipo==='obrigacao' && t.prazo===ds && t.status!=='concluido');
-    const checkpoints = OFFICE_CHECKPOINTS.filter(o=>o.day===diaNum);
-    const dems = demandas.filter(dm=>dm.prazo===ds && dm.status!=='concluido' && dm.status!=='cancelado');
-    const comercial = leads.filter(l=>l.followUpDate===ds && l.stage!=='won' && l.stage!=='lost');
-    const items = [
-      ...evs.map(e=>({ type:e.type, label:(e.time?e.time+' ':'')+(e.desc||EV_TYPES[e.type]?.label||e.type), evId:e.id })),
-      ...obrigs.map(t=>({ type:'obrigacao', label:(t.cliente&&t.cliente.nome)||t.titulo })),
-      ...checkpoints.map(o=>({ type:'obrigacao', label:o.titulo })),
-      ...dems.map(dm=>({ type:'demanda', label:dm.cliente })),
-      ...comercial.map(l=>({ type:'comercial', label:l.name })),
-    ];
-    const isToday = ds===todayStr;
-    const isSel = igSelectedDate===ds;
-    html += '<div class="ig-week-col'+(isToday?' is-today':'')+(isSel?' is-selected':'')+'">'+
-      '<div class="ig-week-col-hd" onclick="igSelectDay(\''+ds+'\')">'+dayNames[dt.getDay()]+' <span>'+diaNum+'</span></div>'+
-      '<div class="ig-week-col-body" onclick="igSelectDay(\''+ds+'\')" ondragover="event.preventDefault()" ondrop="dropIgEventOnDay(event,\''+ds+'\')">'+
-        (items.length ? items.map(it=>{
-          const t = EV_TYPES[it.type]||{cls:'',label:it.type};
-          const dragAttrs = it.evId ? ' draggable="true" ondragstart="event.stopPropagation();dragIgEventStart(event,\''+escAttr(it.evId)+'\')" title="Arraste pra outro dia"' : '';
-          return '<div class="ig-week-item '+t.cls+'"'+dragAttrs+'>'+escHtml(it.label)+'</div>';
-        }).join('') : '<div class="ig-week-empty">—</div>')+
-      '</div>'+
-    '</div>';
-  }
-  grid.innerHTML = html;
-}
-
-function renderIgPlan(){
-  const el = document.getElementById('igPlanGrid');
-  if(!el) return;
-  const now = new Date();
-  const today = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
-  // Show events from today onwards, sorted by date
-  const upcoming = igEvents.filter(e=>e.date>=today).sort((a,b)=>a.date.localeCompare(b.date));
-  if(!upcoming.length){
-    el.innerHTML='<div class="ig-plan-empty">📭 Nenhum evento futuro agendado.<br><span style="font-size:12px;color:var(--fg4)">Clique em um dia no calendário para adicionar eventos.</span></div>';
-    return;
-  }
-  el.innerHTML = upcoming.map(e=>{
-    const t = EV_TYPES[e.type]||{label:e.type,cls:''};
-    const parts = e.date.split('-');
-    const dd = parts[2], mm = MONTHS_PT[parseInt(parts[1])-1].slice(0,3).toUpperCase();
-    const status = e.status||'planejado';
-    const statusLabel = status==='publicado'?'✅ Publicado':status==='agendado'?'📌 Agendado':'📝 Planejado';
-    const nextStatus = status==='planejado'?'agendado':status==='agendado'?'publicado':'planejado';
-    const isPost = e.type==='post';
-    const borderCls = e.type==='gravacao'?'ev-gravacao-border':e.type==='edicao'?'ev-edicao-border':e.type==='entrega'?'ev-entrega-border':'';
-    return '<div class="ig-plan-card '+borderCls+'">'+
-      '<div class="ig-plan-date-block"><div class="ig-plan-date-d">'+dd+'</div><div class="ig-plan-date-m">'+mm+'</div></div>'+
-      '<div class="ig-plan-content">'+
-        '<div class="ig-plan-title">'+escHtml(e.desc||t.label)+'</div>'+
-        '<div class="ig-plan-meta">'+
-          '<span class="ig-ev-chip '+t.cls+'" style="font-size:9px">'+t.label+'</span>'+
-          (e.resp?'<span class="ig-ev-resp">'+escHtml(e.resp)+'</span>':'')+
-          (isPost?'<span class="ig-status-chip '+status+'" onclick="cycleIgStatus(\''+escAttr(e.id)+'\',\''+nextStatus+'\')" title="Clique para mudar status">'+statusLabel+'</span>':'')+
-        '</div>'+
-      '</div>'+
-      '<button class="ig-plan-del" onclick="removeIgEvent(\''+escAttr(e.id)+'\')" title="Remover">×</button>'+
-    '</div>';
-  }).join('');
-}
 
 /* ═══════════════════════════════════════════════
    FUNIL — KANBAN
@@ -4205,9 +3686,7 @@ function calcHealthScore(c){
   const cs=csData[c.id]||{};
   const nps=cs.nps!=null?cs.nps:-1;
   const daysSince=cs.lastContact?Math.floor((new Date()-new Date(cs.lastContact))/86400000):null;
-  // Nota: comparava com d.client, campo que não existe em demandas (o campo
-  // real é d.cliente) — essa penalidade nunca disparava. Corrigido.
-  const overdueDem=demandas.filter(d=>d.cliente===c.name&&d.status!=='concluido'&&d.status!=='cancelado'&&d.prazo&&new Date(d.prazo)<new Date()).length;
+  const overdueDem=hojeTarefas.filter(t=>t.tipo==='demanda'&&t.cliente_id===c.id&&isAtrasado(t)).length;
   // Situação financeira do mês atual (Contas a Receber) — antes o Health
   // Score não sabia se o cliente estava inadimplente, então um cliente
   // vencido há meses podia aparecer 💚 verde.
@@ -5208,7 +4687,7 @@ function buildClientModal(c){
   const effSvcs=c?c.services:clientDefaults.services;
   const svcChecks=svcList.map(s=>{
     const checked=effSvcs&&effSvcs.includes(s);
-    return '<label class="modal-check-item"><input type="checkbox" class="mc_svc" value="'+escAttr(s)+'"'+(checked?' checked':'')+'>'+escHtml(s)+'</label>';
+    return '<label class="modal-check-item"><input type="checkbox" class="mc_svc" value="'+escAttr(s)+'"'+(checked?' checked':'')+' onchange="renderClientObligationsSection()">'+escHtml(s)+'</label>';
   }).join('');
   const regOpts=regimes.map(r=>'<option value="'+escAttr(r)+'"'+(effRegime===r?' selected':'')+'>'+escHtml(r)+'</option>').join('');
   document.getElementById('modalClientBody').innerHTML=
@@ -5274,7 +4753,8 @@ function renderClientObligationsSection(){
   const regimeSel = document.getElementById('mc_regime');
   const empChk = document.getElementById('mc_employees');
   if(!wrap || !regimeSel || !empChk) return;
-  const pseudoClient = { regime: regimeSel.value, hasEmployees: empChk.checked };
+  const services = Array.from(document.querySelectorAll('.mc_svc:checked')).map(el=>el.value);
+  const pseudoClient = { regime: regimeSel.value, hasEmployees: empChk.checked, services };
   const base = computeBaseSteps(pseudoClient);
   const baseHtml = base.map(s=>{
     const isOff = modalObligDisabled.has(s.id);
@@ -5292,7 +4772,7 @@ function renderClientObligationsSection(){
   const catalogOpts = obligationTemplates.filter(t=>!usedIds.has(t.id)).map(t=>'<option value="'+escAttr(t.id)+'">'+escHtml(t.label)+'</option>').join('');
   wrap.innerHTML =
     '<label>Obrigações deste cliente</label>'+
-    '<p style="font-size:11px;color:var(--fg3);margin:-2px 0 8px">Geradas pelo regime e funcionários selecionados acima. Desmarque o que não se aplica a este cliente, ou adicione uma exclusiva dele.</p>'+
+    '<p style="font-size:11px;color:var(--fg3);margin:-2px 0 8px">Geradas pelo regime, funcionários e serviços contratados marcados acima — só aparece obrigação de um setor contratado. Desmarque o que não se aplica a este cliente, ou adicione uma exclusiva dele.</p>'+
     baseHtml + extraHtml +
     '<div class="oblig-add-form">'+
       '<select id="mc_oblig_pick" class="modal-input" onchange="onObligPickChange()">'+
@@ -5366,9 +4846,8 @@ function saveClientModal(){
   save('cb3_clients',clients);
   closeClientModal();
   renderClientes();
-  renderFechamento();
+  renderOperacao();
   renderFinanceiro();
-  renderDemandas();
   renderMetaBanner();
   showToast(isNew ? 'Cliente adicionado com sucesso!' : 'Cliente atualizado com sucesso!', 'ok');
 }
@@ -5381,9 +4860,8 @@ function removeClientFromModal(){
   save('cb3_clients',clients);
   closeClientModal();
   renderClientes();
-  renderFechamento();
+  renderOperacao();
   renderFinanceiro();
-  renderDemandas();
   renderMetaBanner();
   showToast('Cliente excluído com sucesso.', 'ok');
 }
@@ -5504,277 +4982,32 @@ function removeObligationTemplate(id){
 }
 
 /* ═══════════════════════════════════════════════
-   DEMANDAS — KANBAN
-═══════════════════════════════════════════════ */
-const DEM_COLUMNS=[
-  {key:'pendente',     label:'Aguardando',   color:'var(--amber)'},
-  {key:'em_andamento', label:'Em Andamento',  color:'var(--blue)'},
-  {key:'concluido',    label:'Concluído',     color:'var(--green)'},
-  {key:'cancelado',    label:'Cancelado',     color:'var(--fg4)'},
-];
-const STATUS_OPTS=[
-  {v:'pendente',l:'Aguardando'},
-  {v:'em_andamento',l:'Em andamento'},
-  {v:'concluido',l:'Concluído'},
-  {v:'cancelado',l:'Cancelado'},
-];
-
-function renderDemandas(){
-  // Atualizar select de clientes no form
-  const sel=document.getElementById('demCliente');
-  if(sel){
-    const cur=sel.value;
-    sel.innerHTML='<option value="">— selecione —</option>'+
-      clients.map(c=>'<option value="'+escAttr(c.name)+'"'+(cur===c.name?' selected':'')+'>'+escHtml(c.name)+'</option>').join('')+
-      '<option value="Externo / Avulso">Externo / Avulso</option>';
-  }
-
-  const now=new Date();
-  const kanban=document.getElementById('demKanban');
-  if(!kanban) return;
-
-  /* Quick-add strip no início */
-  const qaClientOpts='<option value="">Cliente...</option>'+
-    clients.map(c=>'<option value="'+escAttr(c.name)+'">'+escHtml(c.name)+'</option>').join('')+
-    '<option value="Externo / Avulso">Externo / Avulso</option>';
-  const qaStrip='<div class="dem-quickadd-strip">'+
-    '<select class="qa-input" id="qa-cliente" style="min-width:120px">'+qaClientOpts+'</select>'+
-    '<input class="qa-input" id="qa-tipo" placeholder="Tipo / descrição" style="flex:2">'+
-    '<input class="qa-input" id="qa-prazo" type="date" title="Prazo (opcional)">'+
-    '<button class="qa-btn" onclick="quickAddDemanda()">+ Adicionar</button>'+
-  '</div>';
-
-  // Filtros de verdade (responsável/setor) numa linha acima das colunas —
-  // antes só existia a barra de adição rápida; nenhum filtro funcional
-  // existia de fato (o demFilter antigo nunca tinha UI nem era aplicado
-  // no kanban).
-  const respsEmUso = [...new Set(demandas.map(d=>d.resp).filter(Boolean))];
-  const setoresEmUso = [...new Set(demandas.map(d=>d.setor).filter(Boolean))];
-  const filterBar = '<div class="dem-filter-bar">'+
-    '<span class="dem-filter-label">Filtrar:</span>'+
-    '<select class="qa-input dem-filter-select" onchange="setDemFilterResp(this.value)">'+
-      '<option value="all"'+(demFilterResp==='all'?' selected':'')+'>👤 Todos responsáveis</option>'+
-      respsEmUso.map(r=>'<option value="'+escAttr(r)+'"'+(demFilterResp===r?' selected':'')+'>'+escHtml(r)+'</option>').join('')+
-    '</select>'+
-    '<select class="qa-input dem-filter-select" onchange="setDemFilterSetor(this.value)">'+
-      '<option value="all"'+(demFilterSetor==='all'?' selected':'')+'>🏷️ Todos setores</option>'+
-      setoresEmUso.map(s=>'<option value="'+escAttr(s)+'"'+(demFilterSetor===s?' selected':'')+'>'+escHtml(s)+'</option>').join('')+
-    '</select>'+
-    ((demFilterResp!=='all'||demFilterSetor!=='all')?'<button class="qa-btn" style="background:var(--fg4)" onclick="clearDemFilters()">× Limpar filtro</button>':'')+
-  '</div>';
-
-  kanban.innerHTML=qaStrip+filterBar+DEM_COLUMNS.map((col,colIdx)=>{
-    const items=demandas.filter(d=>d.status===col.key
-      && (demFilterResp==='all'||d.resp===demFilterResp)
-      && (demFilterSetor==='all'||d.setor===demFilterSetor));
-    const cards=items.map((d)=>{
-      const prazoDate=d.prazo?new Date(d.prazo):null;
-      const isOverdue=prazoDate&&prazoDate<now&&col.key!=='concluido'&&col.key!=='cancelado';
-      const prazoFmt=d.prazo?d.prazo.split('-').reverse().join('/'):'';
-      const pinfo = d.prazo ? prazoInfo(d.prazo) : null;
-      const statusSelOpts=STATUS_OPTS.map(o=>'<option value="'+o.v+'"'+(d.status===o.v?' selected':'')+'>'+o.l+'</option>').join('');
-      const clientObj = clients.find(c=>c.name===d.cliente);
-      const clientNotes = clientObj&&clientObj.notes?clientObj.notes:'';
-      const canLeft=colIdx>0;
-      const canRight=colIdx<DEM_COLUMNS.length-1;
-      return '<div class="dem-kan-card'+(isOverdue?' overdue':'')+'" draggable="true" ondragstart="dragDemandaStart(event,\''+escAttr(d.id)+'\')">'+
-        '<div class="dem-move-btns">'+
-          '<button class="dem-move-btn" '+(canLeft?'onclick="moveDemanda(\''+escAttr(d.id)+'\',-1)"':'disabled')+' title="Mover para '+( colIdx>0?DEM_COLUMNS[colIdx-1].label:'')+'">◀</button>'+
-          '<button class="dem-move-btn" '+(canRight?'onclick="moveDemanda(\''+escAttr(d.id)+'\',1)"':'disabled')+' title="Mover para '+(colIdx<DEM_COLUMNS.length-1?DEM_COLUMNS[colIdx+1].label:'')+'">▶</button>'+
-        '</div>'+
-        '<div class="dem-kan-tipo">'+escHtml(d.tipo||'Demanda')+'</div>'+
-        '<div class="dem-kan-client" style="display:flex;align-items:center;gap:6px">'+
-          escHtml(d.cliente)+
-          (clientNotes?'<div class="dem-notes-wrap"><button class="dem-notes-btn" title="Anotações do cliente">📝</button><div class="dem-notes-tooltip">'+escHtml(clientNotes)+'</div></div>':'')+
-        '</div>'+
-        (d.desc?'<div class="dem-kan-desc">'+escHtml(d.desc)+'</div>':'')+
-        '<div class="dem-kan-meta">'+
-          '<span>👤 '+escHtml(d.resp||'—')+'</span>'+
-          '<span class="dem-tag '+(d.setor||'outros')+'">'+escHtml(d.setor||'')+'</span>'+
-        '</div>'+
-        (prazoFmt?'<div class="dem-kan-meta" style="margin-top:3px">📅 '+prazoFmt+(pinfo&&col.key!=='concluido'&&col.key!=='cancelado'?' <span class="hoje-prazo-chip '+pinfo.cls+'">'+pinfo.label+'</span>':'')+'</div>':'')+
-        (isOverdue?'<div class="dem-kan-overdue">⚠️ Prazo vencido</div>':'')+
-        '<div class="dem-kan-footer">'+
-          '<select class="dem-status-select" onchange="changeDemStatus(\''+escAttr(d.id)+'\',this.value)">'+statusSelOpts+'</select>'+
-          '<button class="dem-del-btn" onclick="removeDemandaById(\''+escAttr(d.id)+'\')">×</button>'+
-        '</div>'+
-        (()=>{
-          const coms=(commentsData[d.id]||[]);
-          return '<div class="dem-comments-wrap">'+
-            '<button class="dem-comments-toggle" onclick="toggleDemComments(\''+escAttr(d.id)+'\')">'+
-              '💬 '+coms.length+' comentário'+(coms.length!==1?'s':'')+
-            '</button>'+
-            '<div id="cmts_'+escAttr(d.id)+'" hidden>'+
-              '<div class="dem-comments-list">'+
-                coms.slice(-3).map(c=>'<div class="dem-comment-item">'+escHtml(c.text)+'<div class="dem-comment-meta">'+escHtml(c.author)+' · '+c.ts.slice(0,10)+'</div></div>').join('')+
-              '</div>'+
-              '<div class="dem-comment-input-row">'+
-                '<input class="dem-comment-input" id="ci_'+escAttr(d.id)+'" placeholder="Adicionar comentário…" onkeydown="if(event.key===\'Enter\')addComment(\''+escAttr(d.id)+'\')">'+
-                '<button class="dem-comment-send" onclick="addComment(\''+escAttr(d.id)+'\')">Enviar</button>'+
-              '</div>'+
-            '</div>'+
-          '</div>';
-        })()+
-      '</div>';
-    }).join('');
-    return '<div class="dem-kan-col">'+
-      '<div class="dem-kan-header">'+
-        '<span class="dem-kan-title">'+col.label+'</span>'+
-        '<span class="dem-kan-count" style="color:'+col.color+'">'+items.length+'</span>'+
-      '</div>'+
-      '<div class="dem-kan-cards" ondragover="event.preventDefault()" ondrop="dropDemandaOnCol(event,\''+col.key+'\')">'+(cards||'<div class="dem-kan-empty">Vazio</div>')+'</div>'+
-    '</div>';
-  }).join('');
-}
-
-function quickAddDemanda(){
-  const cliente=(document.getElementById('qa-cliente')||{}).value||'';
-  const tipo=(document.getElementById('qa-tipo')||{}).value.trim();
-  const prazo=(document.getElementById('qa-prazo')||{}).value||'';
-  if(!cliente||!tipo) return;
-  demandas.unshift({
-    id:'dem_'+Date.now(),
-    cliente,
-    tipo,
-    desc:'',
-    resp:'',
-    setor:'',
-    prazo,
-    status:'pendente',
-    data:new Date().toISOString().slice(0,10)
-  });
-  save('cb3_demandas',demandas);
-  renderDemandas();
-  renderRadarDemandas();
-  // Prazo é opcional aqui de propósito (nem toda demanda tem uma data —
-  // ex. "aguardando resposta do cliente"), mas sem prazo a demanda NÃO
-  // aparece na aba Hoje (que só lista o que tem data definida). Isso já
-  // confundiu gente que esperava achar a demanda lá — avisa na hora em vez
-  // de deixar sumir silenciosamente.
-  if(!prazo){
-    showToast('Demanda criada sem prazo — ela não vai aparecer na aba Hoje até você definir uma data.', 'ok', 5000);
-  }
-  /* limpar campos */
-  const qc=document.getElementById('qa-cliente'); if(qc) qc.value='';
-  const qt=document.getElementById('qa-tipo'); if(qt) qt.value='';
-  const qp=document.getElementById('qa-prazo'); if(qp) qp.value='';
-}
-
-let draggingDemandaId = null;
-function setDemFilterResp(v){ demFilterResp=v; renderDemandas(); }
-function setDemFilterSetor(v){ demFilterSetor=v; renderDemandas(); }
-function clearDemFilters(){ demFilterResp='all'; demFilterSetor='all'; renderDemandas(); }
-
-function dragDemandaStart(ev, id){ draggingDemandaId = id; try{ ev.dataTransfer.effectAllowed='move'; }catch(e){} }
-function dropDemandaOnCol(ev, colKey){
-  ev.preventDefault();
-  const id = draggingDemandaId;
-  draggingDemandaId = null;
-  if(!id) return;
-  const idx = demandas.findIndex(d=>d.id===id);
-  if(idx<0 || demandas[idx].status===colKey) return;
-  demandas[idx].status = colKey;
-  save('cb3_demandas', demandas);
-  renderDemandas();
-  renderRadarDemandas();
-}
-
-function moveDemanda(id, direction){
-  const colKeys=DEM_COLUMNS.map(c=>c.key);
-  const idx=demandas.findIndex(d=>d.id===id);
-  if(idx<0) return;
-  const curColIdx=colKeys.indexOf(demandas[idx].status);
-  const newColIdx=curColIdx+direction;
-  if(newColIdx<0||newColIdx>=colKeys.length) return;
-  demandas[idx].status=colKeys[newColIdx];
-  save('cb3_demandas',demandas);
-  renderDemandas();
-  renderRadarDemandas();
-}
-
-function changeDemStatus(id,status){
-  const idx=demandas.findIndex(d=>d.id===id);
-  if(idx>-1){demandas[idx].status=status;save('cb3_demandas',demandas);renderDemandas();renderRadarDemandas();}
-}
-
-function removeDemandaById(id, skipConfirm){
-  if(!skipConfirm){
-    const d = demandas.find(x=>x.id===id);
-    const desc = d ? (d.tipo||d.desc||'esta demanda') : 'esta demanda';
-    if(!confirm('Excluir "'+desc+'"? Esta ação não pode ser desfeita.')) return;
-  }
-  demandas=demandas.filter(d=>d.id!==id);
-  save('cb3_demandas',demandas);
-  renderDemandas();
-  renderRadarDemandas();
-  showToast('Demanda excluída.', 'ok');
-}
-
-function toggleDemForm(){
-  const f=document.getElementById('demForm');
-  f.classList.toggle('visible');
-  if(f.classList.contains('visible')){
-    document.getElementById('demData').value=new Date().toISOString().slice(0,10);
-  }
-}
-
-function addDemanda(){
-  const data=document.getElementById('demData').value;
-  const cliente=document.getElementById('demCliente').value;
-  if(!cliente){return}
-  demandas.unshift({
-    id:'dem_'+Date.now(),
-    data,cliente,
-    setor:document.getElementById('demSetor').value,
-    tipo:document.getElementById('demTipo').value.trim(),
-    desc:document.getElementById('demDesc').value.trim(),
-    resp:document.getElementById('demResp').value,
-    prazo:document.getElementById('demPrazo').value,
-    valor:document.getElementById('demValor').value.trim(),
-    status:document.getElementById('demStatus').value,
-  });
-  save('cb3_demandas',demandas);
-  document.getElementById('demForm').classList.remove('visible');
-  document.getElementById('demTipo').value='';
-  document.getElementById('demDesc').value='';
-  document.getElementById('demValor').value='';
-  document.getElementById('demPrazo').value='';
-  renderDemandas();
-  showToast('Demanda adicionada com sucesso!', 'ok');
-}
-
-
-/* ═══════════════════════════════════════════════
-   RADAR — DEMANDAS
+   RADAR — DEMANDAS (lê hojeTarefas, tipo='demanda' — mesma fonte da
+   Operação; o kanban dedicado saiu, ver renderOperacao/paintOperacao)
 ═══════════════════════════════════════════════ */
 function renderRadarDemandas(){
   const el = document.getElementById('radarDemandasList');
   if(!el) return;
-  const active = demandas.filter(d=>d.status==='pendente'||d.status==='em_andamento');
+  const active = hojeTarefas.filter(t=>t.tipo==='demanda'&&(t.status==='pendente'||t.status==='em_andamento'||t.status==='revisao'));
   if(!active.length){
     el.innerHTML='<div class="radar-dem-item"><span style="color:var(--green);font-size:13px">✅ Sem demandas ativas no momento</span></div>';
     return;
   }
-  // Usa prazoInfo() (mesma régua do kanban/Hoje) em vez de comparar
-  // `new Date(d.prazo) < new Date()` direto: isso comparava a meia-noite
-  // UTC do prazo com o instante atual, então qualquer demanda com prazo
-  // HOJE já aparecia como "vencida" a partir da meia-noite UTC — ou seja,
-  // quase o dia inteiro, mesmo faltando o dia inteiro pra vencer de fato.
-  const overdueCount = active.filter(d=>d.prazo && prazoInfo(d.prazo).dd < 0).length;
+  const overdueCount = active.filter(isAtrasado).length;
   const summaryBanner = overdueCount
     ? '<div style="background:rgba(220,38,38,.1);border-left:3px solid var(--red);border-radius:6px;padding:6px 10px;margin-bottom:8px;font-size:12px;color:var(--red);font-weight:700">⚠ '+overdueCount+' demanda'+(overdueCount>1?'s':'')+' com prazo vencido</div>'
     : '';
-  el.innerHTML = summaryBanner + active.slice(0,8).map(d=>{
-    const isEm = d.status==='em_andamento';
-    const sClass = isEm ? 'amber' : 'red';
-    const sLabel = isEm ? 'em andamento' : 'aguardando';
-    const overdue = d.prazo && prazoInfo(d.prazo).dd < 0 && !['concluido','cancelado'].includes(d.status);
-    return '<div class="radar-dem-item">'+
+  el.innerHTML = summaryBanner + active.slice(0,8).map(t=>{
+    const isEm = t.status==='em_andamento';
+    const sClass = t.status==='revisao' ? 'amber' : isEm ? 'amber' : 'red';
+    const sLabel = OPER_STATUS_LABEL[t.status] || 'aguardando';
+    const overdue = isAtrasado(t);
+    return '<div class="radar-dem-item" onclick="openOperModal('+t.id+')" style="cursor:pointer">'+
       '<span class="ob-dot '+sClass+'"></span>'+
       '<div style="flex:1;min-width:0">'+
-        '<div style="font-size:13px;font-weight:600;color:var(--fg)">'+escHtml(d.cliente)+'</div>'+
-        '<div style="font-size:11px;color:var(--fg3);margin-top:1px">'+escHtml(d.tipo)+(d.desc?' — '+escHtml(d.desc):'')+'</div>'+
-        (overdue?'<div style="font-size:10px;color:var(--red);font-weight:700;margin-top:1px">⚠ Prazo vencido: '+d.prazo.split('-').reverse().join('/')+'</div>':'')+
+        '<div style="font-size:13px;font-weight:600;color:var(--fg)">'+escHtml(clienteNomeDe(t))+'</div>'+
+        '<div style="font-size:11px;color:var(--fg3);margin-top:1px">'+escHtml(t.titulo||'')+(t.descricao?' — '+escHtml(t.descricao):'')+'</div>'+
+        (overdue?'<div style="font-size:10px;color:var(--red);font-weight:700;margin-top:1px">⚠ Prazo vencido: '+t.prazo.split('-').reverse().join('/')+'</div>':'')+
       '</div>'+
       '<span style="font-size:10px;color:var(--'+sClass+');font-weight:600;white-space:nowrap;text-transform:uppercase;letter-spacing:.3px">'+sLabel+'</span>'+
     '</div>';
@@ -5855,14 +5088,17 @@ function sidebarOpenClient(id) {
   switchTab('clientes', null);
   setTimeout(() => { openEditClientModal(id); }, 100);
 }
-function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+// (havia uma 2ª definição de escHtml aqui, sem escapar `"` — como function
+// declarations são hoisted, essa é que de fato valia em runtime pra tudo
+// no arquivo, por vir depois da de cima. Removida: a de cima (que escapa
+// aspas também) é a única agora.)
 
 /* ═══════════════════════════════════════════════
-   ATALHOS DE TECLADO (1-7 trocam abas)
+   ATALHOS DE TECLADO (1-6 trocam abas)
 ═══════════════════════════════════════════════ */
 (function(){
   const tabKeys = {
-    '1':'radar','2':'clientes','3':'funil','4':'fechamento','5':'demandas','6':'acessos','7':'instagram','8':'financeiro'
+    '1':'radar','2':'clientes','3':'hoje','4':'funil','5':'instagram','6':'financeiro'
   };
   document.addEventListener('keydown', function(e) {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
@@ -5890,7 +5126,6 @@ function runGlobalSearch(q){
   const query=(q||'').trim().toLowerCase();
   if(query.length<2){el.innerHTML='<div class="gs-empty">Digite ao menos 2 caracteres…</div>';return;}
   const STAGE_LBL={prosp:'Prospecção',qual:'Qualificado',prop:'Proposta',neg:'Negociação',negotiation:'Negociação',won:'Fechado',lost:'Perdido'};
-  const DEM_STATUS_LBL={pendente:'Pendente',em_andamento:'Em andamento',concluido:'Concluído',cancelado:'Cancelado'};
   let html='';
   const mc=clients.filter(c=>(c.name||'').toLowerCase().includes(query));
   if(mc.length) html+='<div class="global-search-section">Clientes</div>'+mc.slice(0,5).map(c=>
@@ -5902,10 +5137,10 @@ function runGlobalSearch(q){
     '<div class="global-search-item" onclick="closeGlobalSearch();switchTab(\'funil\',null);setTimeout(()=>openLeadModal(\''+escAttr(l.id)+'\'),120)">'+
     '<span style="font-size:14px">📊</span><div><div class="gs-name">'+escHtml(l.name)+'</div><div class="gs-sub">'+(STAGE_LBL[l.stage]||l.stage)+'</div></div>'+
     '<span class="gs-badge">Lead</span></div>').join('');
-  const md=demandas.filter(d=>(d.cliente||'').toLowerCase().includes(query)||(d.tipo||'').toLowerCase().includes(query)||(d.desc||'').toLowerCase().includes(query));
-  if(md.length) html+='<div class="global-search-section">Demandas</div>'+md.slice(0,5).map(d=>
-    '<div class="global-search-item" onclick="closeGlobalSearch();switchTab(\'demandas\',null)">'+
-    '<span style="font-size:14px">📋</span><div><div class="gs-name">'+escHtml(d.tipo||'Demanda')+'</div><div class="gs-sub">'+escHtml(d.cliente)+' · '+(DEM_STATUS_LBL[d.status]||escHtml(d.status))+'</div></div>'+
+  const md=hojeTarefas.filter(t=>t.tipo==='demanda'&&((clienteNomeDe(t)||'').toLowerCase().includes(query)||(t.titulo||'').toLowerCase().includes(query)||(t.descricao||'').toLowerCase().includes(query)));
+  if(md.length) html+='<div class="global-search-section">Demandas</div>'+md.slice(0,5).map(t=>
+    '<div class="global-search-item" onclick="closeGlobalSearch();switchTab(\'hoje\',null);setTimeout(()=>openOperModal('+t.id+'),120)">'+
+    '<span style="font-size:14px">📋</span><div><div class="gs-name">'+escHtml(t.titulo||'Demanda')+'</div><div class="gs-sub">'+escHtml(clienteNomeDe(t))+' · '+(OPER_STATUS_LABEL[t.status]||escHtml(t.status))+'</div></div>'+
     '<span class="gs-badge">Demanda</span></div>').join('');
   el.innerHTML=html||'<div class="gs-empty">Nenhum resultado para "'+escHtml(q)+'"</div>';
 }
@@ -5916,31 +5151,10 @@ document.addEventListener('keydown',function(e){
 });
 
 /* ═══════════════════════════════════════════════
-   FASE 4 — COMENTÁRIOS EM DEMANDAS (item 16)
+   (Comentários em demandas/obrigações: a "nuvem" lateral do modal de
+   Operação — buildOperComments/addOperComment — substituiu o antigo
+   toggle no rodapé do card, removido daqui.)
 ═══════════════════════════════════════════════ */
-function toggleDemComments(demId){
-  const el=document.getElementById('cmts_'+demId);
-  if(el) el.hidden=!el.hidden;
-  if(el&&!el.hidden){
-    const inp=document.getElementById('ci_'+demId);
-    if(inp) inp.focus();
-  }
-}
-function addComment(demId){
-  const inp=document.getElementById('ci_'+demId);
-  if(!inp) return;
-  const text=(inp.value||'').trim();
-  if(!text) return;
-  if(!commentsData[demId]) commentsData[demId]=[];
-  commentsData[demId].push({id:'c_'+Date.now(),text,author:'Nathan',ts:new Date().toISOString()});
-  save('cb3_comments',commentsData);
-  renderDemandas();
-  // Re-open the comment section
-  setTimeout(()=>{
-    const el=document.getElementById('cmts_'+demId);
-    if(el) el.hidden=false;
-  },30);
-}
 
 /* ═══════════════════════════════════════════════
    FASE 4 — TEMPLATES DE CLIENTE (item 19)
