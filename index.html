@@ -1006,6 +1006,15 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .modal-checklist{display:flex;flex-direction:column;gap:5px}
 .modal-check-item{display:flex;align-items:center;gap:9px;padding:7px 10px;background:var(--bg3);border-radius:8px;cursor:pointer;font-size:12px;font-weight:500;user-select:none}
 .modal-check-item input[type=checkbox]{accent-color:var(--navy);width:15px;height:15px;flex-shrink:0;cursor:pointer}
+.oper-checklist-row{display:flex;align-items:center;gap:8px;padding:5px 6px 5px 10px;background:var(--bg3);border-radius:8px}
+.oper-checklist-row input[type=checkbox]{accent-color:var(--navy);width:15px;height:15px;flex-shrink:0;cursor:pointer}
+.oper-checklist-label-input{flex:1;min-width:0;background:transparent;border:1px solid transparent;border-radius:6px;padding:4px 6px;font-size:12px;font-family:'Outfit',sans-serif;color:var(--fg)}
+.oper-checklist-label-input:hover,.oper-checklist-label-input:focus{background:var(--bg2);border-color:var(--border);outline:none}
+.oper-checklist-label-input.done{text-decoration:line-through;color:var(--fg4)}
+.oper-checklist-remove{background:none;border:none;cursor:pointer;opacity:.5;font-size:12px;flex-shrink:0;padding:2px 4px;border-radius:5px}
+.oper-checklist-remove:hover{opacity:1;background:rgba(220,38,38,.1)}
+.oper-checklist-add-row{display:flex;gap:6px;margin-top:2px}
+.oper-checklist-add-row .modal-input{flex:1}
 .modal-danger-zone{margin-top:16px;padding-top:12px;border-top:1px solid var(--border)}
 .btn-danger{background:none;border:1.5px solid var(--red);color:var(--red);border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;font-family:'Outfit',sans-serif;cursor:pointer;transition:.12s}
 .btn-danger:hover{background:var(--red-lt)}
@@ -1056,7 +1065,8 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .btn-sm.navy:hover{background:var(--navy2)}
 
 /* ── Demanda Kanban ── */
-.dem-kanban{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:8px}
+.dem-kanban{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:8px}
+@media(max-width:1200px){.dem-kanban{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:760px){.dem-kanban{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:440px){.dem-kanban{grid-template-columns:1fr}}
 .dem-kan-col{background:var(--bg3);border-radius:var(--radius);padding:12px}
@@ -1128,20 +1138,28 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
   .hoje-item-actions{margin-left:30px;width:100%}
 }
 
-/* ── Operação — resumo, painel por setor, toolbar ── */
-.oper-summary-row{display:flex;align-items:center;gap:22px;flex-wrap:wrap}
-.oper-summary-pct{display:flex;flex-direction:column;align-items:center;text-align:center;flex-shrink:0;padding-right:20px;border-right:1px solid var(--border)}
+/* ── Operação — dashboard (resumo + painel por setor), toolbar ── */
+.oper-dashboard-card{position:relative;overflow:hidden}
+.oper-dashboard-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--navy),var(--gold))}
+.oper-summary-row{display:flex;align-items:stretch;gap:0;flex-wrap:wrap}
+.oper-summary-pct{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;flex-shrink:0;padding-right:22px;margin-right:18px;border-right:1px solid var(--border)}
 .oper-summary-pct-ring{display:flex;align-items:center;justify-content:center;width:68px;height:68px;border-radius:50%;background:var(--bg3);border:4px solid var(--border);transition:border-color .2s}
 .oper-summary-pct-ring.pct-low{border-color:var(--red)}
 .oper-summary-pct-ring.pct-mid{border-color:var(--amber)}
 .oper-summary-pct-ring.pct-high{border-color:var(--green)}
 .oper-summary-pct-num{font-size:19px;font-weight:900;color:var(--navy);line-height:1}
 .oper-summary-pct-label{font-size:10px;color:var(--fg3);line-height:1.3;margin-top:7px;max-width:84px}
-.oper-summary-counts{display:flex;gap:16px;flex-wrap:wrap}
-.oper-count-chip{font-size:12px;display:flex;flex-direction:column;align-items:flex-start;gap:1px}
-.oper-count-chip strong{font-size:19px;font-variant-numeric:tabular-nums}
+/* Barra de estatísticas preenchendo a largura, com divisores — em vez de
+   chips pequenas alinhadas à esquerda sobrando bastante vazio à direita
+   em telas largas (era a principal fonte do "espaço em branco" relatado). */
+.oper-summary-counts{flex:1;min-width:220px;display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));align-items:center}
+.oper-count-chip{font-size:12px;display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:0 16px;border-left:1px solid var(--border2)}
+.oper-count-chip:first-child{border-left:none;padding-left:0}
+.oper-count-chip strong{font-size:20px;font-variant-numeric:tabular-nums}
+.oper-dash-divider{height:1px;background:var(--border);margin:16px 0 12px}
+.oper-dash-setor-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:var(--fg3);margin-bottom:8px}
 .section-label::after{content:'';flex:1;height:1px;background:var(--border);margin-left:2px}
-.oper-setor-panel{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:16px}
+.oper-setor-panel{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,220px));gap:10px}
 .oper-setor-chip{position:relative;text-align:left;background:var(--bg2);border:1px solid var(--border);border-left:4px solid var(--border);border-radius:10px;padding:10px 12px 10px 14px;cursor:pointer;font-family:'Outfit',sans-serif;transition:transform .12s,box-shadow .12s}
 .oper-setor-chip:hover{box-shadow:var(--shadow);transform:translateY(-1px)}
 .oper-setor-chip.active{box-shadow:0 0 0 1.5px currentColor inset}
@@ -1535,15 +1553,17 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
     <button class="dem-add-btn" onclick="toggleOperQuickAdd()">+ Nova demanda</button>
   </div>
 
-  <div class="card" style="margin-bottom:14px">
-    <div class="card-body oper-summary-row">
-      <div class="oper-summary-pct"><div class="oper-summary-pct-ring" id="operOverallPctRing"><span class="oper-summary-pct-num" id="operOverallPct">0%</span></div><span class="oper-summary-pct-label">concluído<br>no filtro atual</span></div>
-      <div class="oper-summary-counts" id="operSummaryCounts"></div>
+  <div class="card oper-dashboard-card" style="margin-bottom:14px">
+    <div class="card-body" style="padding-bottom:14px">
+      <div class="oper-summary-row">
+        <div class="oper-summary-pct"><div class="oper-summary-pct-ring" id="operOverallPctRing"><span class="oper-summary-pct-num" id="operOverallPct">0%</span></div><span class="oper-summary-pct-label">concluído<br>no filtro atual</span></div>
+        <div class="oper-summary-counts" id="operSummaryCounts"></div>
+      </div>
+      <div class="oper-dash-divider"></div>
+      <div class="oper-dash-setor-label">📊 Por setor</div>
+      <div class="oper-setor-panel" id="operSetorPanel"></div>
     </div>
   </div>
-
-  <div class="section-label">📊 POR SETOR</div>
-  <div class="oper-setor-panel" id="operSetorPanel"></div>
 
   <div class="dem-form-card" id="operQuickAdd" style="display:none">
     <div class="dem-form-grid">
@@ -1601,13 +1621,13 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
       </select>
       <select id="operFiltroStatus" onchange="onOperFilterChange()">
         <option value="">Todos os status</option>
+        <option value="__atrasadas">🔴 Atrasadas</option>
         <option value="pendente">Aguardando</option>
         <option value="em_andamento">Andamento</option>
         <option value="revisao">Revisão</option>
         <option value="concluido">Concluído</option>
       </select>
       <label class="oper-atraso-toggle"><input type="checkbox" id="operFiltroOcultarConclChk" checked onchange="onOperFilterChange()"> 🙈 Ocultar concluídas</label>
-      <label class="oper-atraso-toggle"><input type="checkbox" id="operFiltroAtrasoChk" onchange="onOperFilterChange()"> 🔴 Só atrasadas</label>
       <span id="operContador" style="margin-left:auto;font-size:12px;color:var(--fg2)"></span>
     </div>
   </div>
@@ -2449,7 +2469,46 @@ function isAtrasado(t) {
   return dd !== null && dd < 0;
 }
 function clienteNomeDe(t) { return (t.cliente && t.cliente.nome) || t.cliente_nome || '—'; }
-function getChecklistItemsFor(t) { return OPER_CHECKLIST_DEFAULT; }
+// Checklist agora é editável por tarefa, inclusive os 4 itens "fixos" —
+// que na real nunca foram fixos no banco, só no código (getChecklistItemsFor
+// sempre devolvia o mesmo array global). t.sop.checklistItems, quando
+// existe, é a lista definitiva daquela tarefa (cada item com id próprio e
+// estável, pra não embaralhar o estado marcado/desmarcado ao renomear ou
+// reordenar); sem isso, cai nos 4 padrão de sempre.
+function getChecklistItemsFor(t) {
+  const custom = t && t.sop && t.sop.checklistItems;
+  if (custom && custom.length) return custom;
+  return OPER_CHECKLIST_DEFAULT.map((label,i)=>({ id:'ci'+i, label }));
+}
+function ensureChecklistItems(t) { return getChecklistItemsFor(t).map(x=>({...x})); }
+function renameChecklistItem(id, itemId, label) {
+  const t = hojeTarefas.find(x=>x.id===id);
+  if (!t) return;
+  const items = ensureChecklistItems(t);
+  const it = items.find(x=>x.id===itemId);
+  if (it) it.label = label;
+  patchTarefaSop(id, { checklistItems: items });
+}
+function removeChecklistItem(id, itemId) {
+  const t = hojeTarefas.find(x=>x.id===id);
+  if (!t) return;
+  const items = ensureChecklistItems(t).filter(x=>x.id!==itemId);
+  const checklist = { ...((t.sop&&t.sop.checklist)||{}) };
+  delete checklist[itemId];
+  patchTarefaSop(id, { checklistItems: items, checklist });
+  buildOperModal(t);
+}
+function addChecklistItem(id) {
+  const input = document.getElementById('operChecklistNewInput');
+  const label = (input.value||'').trim();
+  if (!label) { input.focus(); return; }
+  const t = hojeTarefas.find(x=>x.id===id);
+  if (!t) return;
+  const items = ensureChecklistItems(t);
+  items.push({ id:'ci_'+Date.now(), label });
+  patchTarefaSop(id, { checklistItems: items });
+  buildOperModal(t);
+}
 
 function setOperView(v) {
   operView = v;
@@ -2466,7 +2525,12 @@ function onOperFilterChange() {
   operFilterResp = document.getElementById('operFiltroResp').value;
   operFilterTipo = document.getElementById('operFiltroTipo').value;
   operFilterStatus = document.getElementById('operFiltroStatus').value;
-  operFilterAtraso = document.getElementById('operFiltroAtrasoChk').checked;
+  // "Atrasadas" virou uma opção de dentro do próprio select de status, em
+  // vez de um checkbox à parte com o mesmo tipo de efeito — eram dois
+  // controles fazendo um recorte parecido, confuso. isAtrasado() não é um
+  // status de verdade (é calculado por prazo, por cima de qualquer status
+  // real), então esse valor é tratado à parte de t.status em todo o resto.
+  operFilterAtraso = operFilterStatus === '__atrasadas';
   operFilterOcultarConcl = document.getElementById('operFiltroOcultarConclChk').checked;
   paintOperacao();
 }
@@ -2531,7 +2595,18 @@ function operDragStart(ev, id) { ev.dataTransfer.setData('text/plain', String(id
 function operDropOnCol(ev, statusKey) {
   ev.preventDefault();
   const id = Number(ev.dataTransfer.getData('text/plain'));
-  if (id) setTarefaStatus(id, statusKey);
+  if (!id) return;
+  // Soltar numa coluna de status normal é "voltar a trabalhar nisso" —
+  // limpa o flag de atraso do cliente (se tiver) pra não ficar puxando o
+  // card de volta pra coluna "Atraso do cliente" no próximo repaint.
+  const t = hojeTarefas.find(x=>x.id===id);
+  if (t && t.sop && t.sop.atraso_cliente) setTarefaAtrasoCliente(id, false);
+  setTarefaStatus(id, statusKey);
+}
+function operDropOnAtrasoCliente(ev) {
+  ev.preventDefault();
+  const id = Number(ev.dataTransfer.getData('text/plain'));
+  if (id) setTarefaAtrasoCliente(id, true);
 }
 
 // Painel "por setor" — quantitativo de atrasadas (com a quebra de quantas
@@ -2669,15 +2744,22 @@ function paintOperacao() {
   // confuso, e sem efeito nenhum no Kanban). Só não se aplica quando o
   // usuário pediu status=concluído explicitamente: aí a intenção é ver.
   const listFiltradas = base.filter(t => {
+    if (operFilterStatus === '__atrasadas') return true; // `base` já está restrita a atrasadas (ver acima)
     if (operFilterStatus) return t.status === operFilterStatus;
     return !(operFilterOcultarConcl && t.status === 'concluido');
   });
+  // "Atrasada por conta do cliente" ganha grupo próprio, antes de "Atrasadas"
+  // — é a categoria mais acionável (o que eu preciso cobrar do cliente),
+  // então fica em destaque, separada do que está atrasado por razão interna.
+  // Os demais grupos continuam mutuamente exclusivos entre si (cada item
+  // cai em exatamente um).
   const grupos = [
-    { label:'🔴 Atrasadas',             test:t=>isAtrasado(t) },
-    { label:'🟠 Hoje',                  test:t=>!isAtrasado(t)&&prazoInfo(t.prazo).dd===0 },
-    { label:'🟡 Próximos 7 dias',       test:t=>!isAtrasado(t)&&prazoInfo(t.prazo).dd>=1&&prazoInfo(t.prazo).dd<=7 },
-    { label:'⚪ Mais adiante',          test:t=>!isAtrasado(t)&&!!t.prazo&&prazoInfo(t.prazo).dd>=8 },
-    { label:'⚫ Sem prazo definido',    test:t=>!t.prazo },
+    { label:'👤 Atrasadas por conta do cliente', test:t=>!!(t.sop&&t.sop.atraso_cliente)&&t.status!=='concluido' },
+    { label:'🔴 Atrasadas',             test:t=>isAtrasado(t)&&!(t.sop&&t.sop.atraso_cliente) },
+    { label:'🟠 Hoje',                  test:t=>!isAtrasado(t)&&!(t.sop&&t.sop.atraso_cliente)&&prazoInfo(t.prazo).dd===0 },
+    { label:'🟡 Próximos 7 dias',       test:t=>!isAtrasado(t)&&!(t.sop&&t.sop.atraso_cliente)&&prazoInfo(t.prazo).dd>=1&&prazoInfo(t.prazo).dd<=7 },
+    { label:'⚪ Mais adiante',          test:t=>!isAtrasado(t)&&!(t.sop&&t.sop.atraso_cliente)&&!!t.prazo&&prazoInfo(t.prazo).dd>=8 },
+    { label:'⚫ Sem prazo definido',    test:t=>!t.prazo&&!(t.sop&&t.sop.atraso_cliente) },
   ];
   const buckets = grupos.map(g => ({ ...g, items: listFiltradas.filter(g.test) }));
   listaEl.innerHTML = buckets.filter(b=>b.items.length).map(b =>
@@ -2687,15 +2769,26 @@ function paintOperacao() {
     </div>`
   ).join('') || '<p style="padding:16px;color:var(--fg2)">Nenhum item encontrado com esse filtro.</p>';
 
-  // Kanban: as 4 colunas de status reais. O filtro de status da barra não
-  // se aplica aqui (a coluna já É o status), mas "Ocultar concluídas" sim —
-  // a coluna continua visível (senão uma coluna some, o que destrói a leitura
-  // do quadro), só os cards dela somem, com um aviso explicando o porquê em
-  // vez de aparentar que o Concluído simplesmente ficou vazio.
+  // Kanban: 1ª coluna é "Atraso do cliente" — transversal aos status (um
+  // item esperando o cliente pode estar pendente, em andamento ou em
+  // revisão), puxada pra fora das 4 colunas de status normais pra não
+  // aparecer em dois lugares ao mesmo tempo. Concluído nunca entra nela:
+  // uma vez concluído não tem mais nada esperando do cliente. O filtro de
+  // status da barra não se aplica às colunas de status (a coluna já É o
+  // status), mas "Ocultar concluídas" sim — a coluna Concluído continua
+  // visível (senão uma coluna some, o que destrói a leitura do quadro), só
+  // os cards dela somem, com um aviso explicando o porquê.
   const kanbanEl = document.getElementById('operKanbanWrap');
   if (kanbanEl) {
-    kanbanEl.innerHTML = OPER_STATUS_ORDER.map(key => {
-      const items = base.filter(t=>t.status===key);
+    const corCliente = '#ec4899';
+    const itensCliente = base.filter(t => t.sop && t.sop.atraso_cliente && t.status !== 'concluido');
+    const idsCliente = new Set(itensCliente.map(t=>t.id));
+    const colCliente = '<div class="dem-kan-col" style="border-top:3px solid '+corCliente+'">'+
+      '<div class="dem-kan-header"><span class="dem-kan-title" style="color:'+corCliente+'">👤 Atraso do cliente</span><span class="dem-kan-count" style="color:'+corCliente+'">'+itensCliente.length+'</span></div>'+
+      '<div class="dem-kan-cards" ondragover="event.preventDefault()" ondrop="operDropOnAtrasoCliente(event)">'+(itensCliente.map(renderOperKanbanCard).join('')||'<div class="dem-kan-empty">Vazio</div>')+'</div>'+
+    '</div>';
+    const colsStatus = OPER_STATUS_ORDER.map(key => {
+      const items = base.filter(t=>t.status===key && !(key!=='concluido' && idsCliente.has(t.id)));
       const hiddenHere = key === 'concluido' && operFilterOcultarConcl;
       const cardsHtml = hiddenHere
         ? '<div class="dem-kan-empty">🙈 '+items.length+' oculta'+(items.length===1?'':'s')+' — desmarque "Ocultar concluídas" pra ver</div>'
@@ -2705,6 +2798,7 @@ function paintOperacao() {
         '<div class="dem-kan-cards" ondragover="event.preventDefault()" ondrop="operDropOnCol(event,\''+key+'\')">'+cardsHtml+'</div>'+
       '</div>';
     }).join('');
+    kanbanEl.innerHTML = colCliente + colsStatus;
   }
 
   const contador = document.getElementById('operContador');
@@ -2731,11 +2825,18 @@ function buildOperModal(t) {
   const atrasado = isAtrasado(t);
   const checklistItems = getChecklistItemsFor(t);
   const checklistState = (t.sop && t.sop.checklist) || {};
-  const checklistHtml = checklistItems.map((label,i)=>{
-    const iid = 'ci'+i;
-    const done = !!checklistState[iid];
-    return '<label class="modal-check-item"><input type="checkbox"'+(done?' checked':'')+' onchange="toggleTarefaChecklistItem('+t.id+',\''+iid+'\')"><span>'+escHtml(label)+'</span></label>';
-  }).join('');
+  const checklistHtml = checklistItems.map(item=>{
+    const done = !!checklistState[item.id];
+    return '<div class="oper-checklist-row">'+
+      '<input type="checkbox"'+(done?' checked':'')+' onchange="toggleTarefaChecklistItem('+t.id+',\''+item.id+'\')">'+
+      '<input class="oper-checklist-label-input'+(done?' done':'')+'" value="'+escAttr(item.label)+'" onchange="renameChecklistItem('+t.id+',\''+item.id+'\',this.value)">'+
+      '<button class="oper-checklist-remove" onclick="removeChecklistItem('+t.id+',\''+item.id+'\')" title="Remover item">🗑</button>'+
+    '</div>';
+  }).join('') + (checklistItems.length?'':'<p style="font-size:12px;color:var(--fg3);padding:4px 0">Nenhum item — adicione abaixo.</p>') +
+    '<div class="oper-checklist-add-row">'+
+      '<input class="modal-input" id="operChecklistNewInput" placeholder="Novo item do checklist…" onkeydown="if(event.key===\'Enter\')addChecklistItem('+t.id+')">'+
+      '<button class="btn-sm" type="button" onclick="addChecklistItem('+t.id+')">+ Adicionar</button>'+
+    '</div>';
   const titleEl = document.getElementById('modalOperTitle');
   if (titleEl) titleEl.textContent = (t.tipo==='demanda'?'📋 Demanda · ':'⚖️ Obrigação · ')+clienteNomeDe(t);
   document.getElementById('modalOperBody').innerHTML =
