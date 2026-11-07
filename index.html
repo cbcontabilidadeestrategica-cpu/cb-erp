@@ -3760,11 +3760,21 @@ function renderFinanceiro(){
   const metaPct=Math.min(Math.round(n/20*100),100);
   const faltam=Math.max(20-n,0);
 
-  // Salvar histórico MRR (item 12)
+  // Salvar histórico MRR (item 12) — só grava quando o valor do mês atual
+  // realmente mudou. Causa real do timeout visto em produção: isso gravava
+  // incondicionalmente em TODA renderFinanceiro() — inclusive logo no
+  // login, bem na mesma rajada em que loadFromSupabase() e renderOperacao()
+  // (2 upserts + 1 select grandes) também disparam, exatamente quando a
+  // sessão ainda está "se firmando" (ver comentário em saveSupa — é a
+  // situação mais sujeita a travar). Quase sempre era o MESMO valor já
+  // salvo, gravado de novo à toa. Agora só grava se mudou de verdade.
   const mrrMonthKey=new Date().toISOString().slice(0,7);
   const mrrHist=load('cb3_mrr_history')||{};
-  mrrHist[mrrMonthKey]={mrr:total,nClients:n};
-  save('cb3_mrr_history',mrrHist);
+  const mrrPrev=mrrHist[mrrMonthKey];
+  if(!mrrPrev || mrrPrev.mrr!==total || mrrPrev.nClients!==n){
+    mrrHist[mrrMonthKey]={mrr:total,nClients:n};
+    save('cb3_mrr_history',mrrHist);
+  }
 
   // Tendência comercial (item 14)
   const histKeys=Object.keys(mrrHist).sort();
