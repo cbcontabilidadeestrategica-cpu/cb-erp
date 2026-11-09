@@ -1463,6 +1463,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
       <div class="sidebar-nav-group-label">Comercial &amp; Marketing</div>
       <button class="sidebar-nav-btn" onclick="switchTab('funil',this)" data-tab="funil"><span class="nav-icon">🎯</span><span class="nav-label"> CRM</span></button>
       <button class="sidebar-nav-btn" onclick="switchTab('instagram',this)" data-tab="instagram"><span class="nav-icon">📣</span><span class="nav-label"> Planejamento de Marketing</span></button>
+      <button class="sidebar-nav-btn" onclick="switchTab('esteira',this)" data-tab="esteira"><span class="nav-icon">🪜</span><span class="nav-label"> Esteira de Produtos</span></button>
 
       <div class="sidebar-nav-group-label">Financeiro</div>
       <button class="sidebar-nav-btn" onclick="switchTab('financeiro',this)" data-tab="financeiro"><span class="nav-icon">💰</span><span class="nav-label"> Financeiro</span></button>
@@ -1667,6 +1668,21 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
   </div>
 </section>
 
+<!-- ═══ ESTEIRA DE PRODUTOS ═══ -->
+<section id="tab-esteira" class="tab-panel">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+    <div>
+      <p class="page-title" style="margin-bottom:2px">Esteira de Produtos</p>
+      <p class="page-sub" style="margin-bottom:0">Do conteúdo gratuito ao honorário recorrente — construída a partir das dores reais do CRM, não de persona genérica</p>
+    </div>
+    <button class="btn-primary" onclick="openNewEsteiraModal()" style="padding:10px 18px;flex-shrink:0">+ Novo item</button>
+  </div>
+
+  <div id="esteiraDoresBanco" style="margin-bottom:14px"></div>
+
+  <div class="kanban-board" id="esteiraBoard"></div>
+</section>
+
 <!-- ═══ FUNIL ═══ -->
 <section id="tab-funil" class="tab-panel">
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
@@ -1739,6 +1755,21 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
     <div class="modal-footer">
       <button class="btn-secondary" onclick="closeLeadModal()">Cancelar</button>
       <button class="btn-primary" onclick="saveLeadModal()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ESTEIRA MODAL -->
+<div class="modal-overlay hidden" id="esteiraModal" onclick="if(event.target===this)closeEsteiraModal()">
+  <div class="modal-card">
+    <div class="modal-header">
+      <span class="modal-title" id="modalEsteiraTitle">Item da esteira</span>
+      <button class="modal-close" onclick="closeEsteiraModal()">×</button>
+    </div>
+    <div class="modal-body" id="modalEsteiraBody"></div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeEsteiraModal()">Cancelar</button>
+      <button class="btn-primary" onclick="saveEsteiraModal()">Salvar</button>
     </div>
   </div>
 </div>
@@ -1832,7 +1863,7 @@ async function showApp(user) {
   const renders = [
     ['initState',initState],['initTheme',initTheme],['initSidebar',initSidebar],
     ['renderMetaBanner',renderMetaBanner],['renderRadar',renderRadar],['renderRadarDemandas',renderRadarDemandas],
-    ['renderFunil',renderFunil],['renderComercialHoje',renderComercialHoje],['renderFinanceiro',renderFinanceiro],
+    ['renderFunil',renderFunil],['renderComercialHoje',renderComercialHoje],['renderEsteira',renderEsteira],['renderFinanceiro',renderFinanceiro],
     ['renderClientes',renderClientes],['renderClientDefaults',renderClientDefaults],['renderObligationTemplates',renderObligationTemplates],
   ];
   renders.forEach(([name,fn])=>{ try{ fn(); } catch(e){ console.error('Falha ao renderizar '+name+':', e); } });
@@ -2882,6 +2913,7 @@ const IG_TEMPLATES = {
 ═══════════════════════════════════════════════ */
 let leads = [], igEvents = [], closingData = {}, clientDrives = {}, revenues = {};
 let pbCheck = {};
+let esteiraItems = [];
 let onboarding = {}, csData = {}, acessosData = [], commentsData = {};
 
 const ACESSOS_COLS = [
@@ -2919,6 +2951,7 @@ let finYear, finMonth;
 let finView = 'operacional'; // 'operacional' | 'dre' | 'dfc' | 'config'
 function finSetView(v){ finView=v; renderFinanceiroTab(); }
 let editingLeadId = null, editingClientId = null;
+let editingEsteiraId = null, draggedEsteiraId = null;
 // Estado temporário do editor "Obrigações deste cliente" dentro do modal de
 // cliente — só é gravado em client.obligationOverrides quando Salvar é
 // clicado (saveClientModal). Reiniciado a cada abertura do modal.
@@ -2982,6 +3015,8 @@ function initState() {
     try { csData=JSON.parse(localStorage.getItem('cb3_cs')||'{}'); } catch(e){}
     try { commentsData=JSON.parse(localStorage.getItem('cb3_comments')||'{}'); } catch(e){}
     try { pbCheck=JSON.parse(localStorage.getItem('cb3_pb_check')||'{}'); } catch(e){}
+    try { esteiraItems=JSON.parse(localStorage.getItem('cb3_esteira')||'[]'); } catch(e){ esteiraItems=[]; }
+    esteiraItems = esteiraItems.map((it,i)=>normalizeEsteiraItem(it,i));
     try {
       const saved=JSON.parse(localStorage.getItem('cb3_acessos')||'null');
       acessosData = saved && saved.length ? saved : ACESSOS_SEED_ROWS.map(r=>({...r}));
@@ -3736,6 +3771,190 @@ function renderComercialHoje(){
     '</div>';
   }
   el.innerHTML = html;
+}
+
+/* ═══════════════════════════════════════════════
+   ESTEIRA DE PRODUTOS — escada de valor (09/11/2026)
+   Do conteúdo gratuito (Degrau 0) ao honorário recorrente (Degrau 3) e
+   expansão na carteira (Degrau 4). A regra de ouro aqui é a mesma do resto
+   do CRM: construir a partir das dores REAIS já registradas em leads e
+   clientes, não de persona genérica inventada — ver getDoresBancoReal().
+═══════════════════════════════════════════════ */
+const ESTEIRA_DEGRAUS = [
+  { id:0, label:'0 · Alcance',        desc:'Conteúdo útil grátis — redes sociais, YouTube, grupo de networking' },
+  { id:1, label:'1 · Isca',           desc:'Captura de contato — planilha, checklist, ebook curto, quiz' },
+  { id:2, label:'2 · Baixo ticket',   desc:'Evento pago, ebook completo, diagnóstico avulso' },
+  { id:3, label:'3 · Oferta principal', desc:'Honorário recorrente — Assessoria Contábil + Financeira' },
+  { id:4, label:'4 · Expansão',       desc:'Land & Expand — upsell na carteira já cliente' },
+];
+const ESTEIRA_TIPOS = {
+  conteudo: '🎥 Conteúdo', isca: '🧲 Isca', evento: '🎟️ Evento/Oficina',
+  produto: '📦 Produto/Material', grupo: '👥 Grupo/Comunidade', outro: '🔹 Outro'
+};
+const ESTEIRA_STATUS = {
+  ideia:     { label:'💡 Ideia',           color:'#8a8a8a' },
+  producao:  { label:'🛠️ Em produção',     color:'#b8860b' },
+  pronto:    { label:'✅ Pronto',          color:'#2563eb' },
+  publicado: { label:'🚀 Publicado/Ativo', color:'#1a8a4a' },
+  pausado:   { label:'⏸️ Pausado',         color:'#b42318' },
+};
+function normalizeEsteiraItem(it, i){
+  if(!it.id) it.id = 'es_'+Date.now()+'_'+i;
+  if(it.degrau===undefined || it.degrau===null) it.degrau = 0;
+  if(!it.tipo) it.tipo = 'conteudo';
+  if(!it.status) it.status = 'ideia';
+  if(!Array.isArray(it.dores)) it.dores = it.dores ? [String(it.dores)] : [];
+  if(!it.titulo) it.titulo = '';
+  if(!it.descricao) it.descricao = '';
+  if(!it.publico) it.publico = '';
+  if(!it.responsavel) it.responsavel = '';
+  if(!it.notas) it.notas = '';
+  if(!it.createdAt) it.createdAt = new Date().toISOString();
+  if(!it.updatedAt) it.updatedAt = it.createdAt;
+  return it;
+}
+// Banco de dores reais — junta o campo Dor dos leads com a dor diagnosticada
+// (ou a nota completa) dos clientes já fechados. É a referência que deve
+// alimentar cada item da esteira, pra não inventar dor genérica de persona.
+function getDoresBancoReal(){
+  const map = new Map();
+  const add = (texto, fonte) => {
+    const d = (texto||'').trim();
+    if(!d) return;
+    const key = d.toLowerCase();
+    if(!map.has(key)) map.set(key, { text:d, fontes:[] });
+    map.get(key).fontes.push(fonte);
+  };
+  (leads||[]).forEach(l => add(l.dor, (l.name||'lead')+' (lead)'));
+  (clients||[]).forEach(c => {
+    const n = (c.notes||'').trim();
+    if(!n) return;
+    const m = n.match(/Dor diagnosticada:\s*([^·\n]+)/i);
+    add(m ? m[1] : n.slice(0,140), (c.name||'cliente')+' (cliente)');
+  });
+  return [...map.values()];
+}
+function renderEsteiraDoresBanco(){
+  const el = document.getElementById('esteiraDoresBanco');
+  if(!el) return;
+  const dores = getDoresBancoReal();
+  if(!dores.length){
+    el.innerHTML = '<div class="card"><div class="card-body" style="font-size:12px;color:var(--fg3)">Nenhuma dor registrada ainda em leads/clientes — preencha o campo "Dor/Contexto" nos leads do CRM (ou as anotações do cliente) pra alimentar este banco automaticamente.</div></div>';
+    return;
+  }
+  el.innerHTML = '<div class="card"><div class="card-body">'+
+    '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gold);margin-bottom:8px">🗂️ Banco de dores reais — vindo do CRM (leads e clientes)</div>'+
+    '<div style="display:flex;flex-wrap:wrap;gap:6px">'+
+      dores.map(d => '<span title="'+escAttr(d.fontes.join(', '))+'" style="font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid var(--border);background:var(--bg2)">'+escHtml(d.text.slice(0,70))+(d.text.length>70?'…':'')+'</span>').join('')+
+    '</div>'+
+    '<div style="font-size:11px;color:var(--fg4);margin-top:8px">Passe o mouse num item pra ver de quem veio. Use essas dores reais (não uma dor genérica) ao criar um item da esteira.</div>'+
+  '</div></div>';
+}
+function renderEsteira(){
+  esteiraItems = esteiraItems.map((it,i)=>normalizeEsteiraItem(it,i));
+  renderEsteiraDoresBanco();
+  const board = document.getElementById('esteiraBoard');
+  if(!board) return;
+  board.innerHTML = ESTEIRA_DEGRAUS.map(deg=>{
+    const items = esteiraItems.filter(it=>it.degrau===deg.id);
+    const cards = items.map(it=>{
+      const st = ESTEIRA_STATUS[it.status] || ESTEIRA_STATUS.ideia;
+      return '<div class="kanban-card" draggable="true" ondragstart="dragEsteiraStart(event,\''+escAttr(it.id)+'\')" onclick="openEsteiraModal(\''+escAttr(it.id)+'\')">'+
+        '<div class="kanban-card-top">'+
+          '<span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:999px;background:'+st.color+';color:#fff;white-space:nowrap">'+st.label+'</span>'+
+        '</div>'+
+        '<div class="kanban-name" style="margin:4px 0 2px">'+(ESTEIRA_TIPOS[it.tipo]||'')+' '+escHtml(it.titulo||'(sem título)')+'</div>'+
+        (it.publico?'<div class="kanban-resp">🎯 '+escHtml(it.publico)+'</div>':'')+
+        (it.dores.length?'<div class="kanban-dor">💬 '+escHtml(it.dores[0])+(it.dores.length>1?' <span style="color:var(--fg4)">+'+(it.dores.length-1)+'</span>':'')+'</div>':'')+
+        (it.responsavel?'<div class="kanban-resp">👤 '+escHtml(it.responsavel)+'</div>':'')+
+      '</div>';
+    }).join('');
+    return '<div class="kanban-col" style="min-width:230px;width:230px">'+
+      '<div class="kanban-col-header">'+
+        '<span class="kanban-col-title">'+escHtml(deg.label)+'</span>'+
+        '<span class="kanban-col-count">'+items.length+'</span>'+
+      '</div>'+
+      '<div style="font-size:10px;color:var(--fg4);padding:2px 2px 4px">'+escHtml(deg.desc)+'</div>'+
+      '<div class="kanban-col-body" ondragover="event.preventDefault()" ondrop="dropEsteiraOnDegrau(event,'+deg.id+')">'+(cards||'<div class="kanban-empty">Vazio</div>')+'</div>'+
+      '<button class="btn-secondary" style="margin-top:4px;padding:6px 8px;font-size:11px;width:100%" onclick="openNewEsteiraModal('+deg.id+')">+ Adicionar aqui</button>'+
+    '</div>';
+  }).join('');
+}
+function dragEsteiraStart(ev, id){ draggedEsteiraId = id; try{ ev.dataTransfer.setData('text/plain', id); }catch(e){} }
+function dropEsteiraOnDegrau(ev, degrau){
+  ev.preventDefault();
+  const id = draggedEsteiraId || (ev.dataTransfer && ev.dataTransfer.getData('text/plain'));
+  const it = esteiraItems.find(x=>x.id===id);
+  if(it){ it.degrau = degrau; it.updatedAt = new Date().toISOString(); save('cb3_esteira', esteiraItems); renderEsteira(); }
+  draggedEsteiraId = null;
+}
+function buildEsteiraModal(it){
+  const degrauOpts = ESTEIRA_DEGRAUS.map(d=>'<option value="'+d.id+'"'+(it&&it.degrau===d.id?' selected':'')+'>'+escHtml(d.label)+'</option>').join('');
+  const tipoOpts = Object.keys(ESTEIRA_TIPOS).map(k=>'<option value="'+k+'"'+(it&&it.tipo===k?' selected':'')+'>'+ESTEIRA_TIPOS[k]+'</option>').join('');
+  const statusOpts = Object.keys(ESTEIRA_STATUS).map(k=>'<option value="'+k+'"'+(it&&it.status===k?' selected':'')+'>'+ESTEIRA_STATUS[k].label+'</option>').join('');
+  document.getElementById('modalEsteiraBody').innerHTML =
+    '<div class="modal-field-group"><label>Título</label><input class="modal-input" id="me_titulo" placeholder="Ex: Planilha de controle financeiro pra MEI" value="'+escAttr(it?it.titulo||'':'')+'"></div>'+
+    '<div class="modal-2col">'+
+      '<div class="modal-field-group"><label>Degrau da esteira</label><select class="modal-input" id="me_degrau">'+degrauOpts+'</select></div>'+
+      '<div class="modal-field-group"><label>Tipo</label><select class="modal-input" id="me_tipo">'+tipoOpts+'</select></div>'+
+    '</div>'+
+    '<div class="modal-2col">'+
+      '<div class="modal-field-group"><label>Status</label><select class="modal-input" id="me_status">'+statusOpts+'</select></div>'+
+      '<div class="modal-field-group"><label>Responsável</label><input class="modal-input" id="me_resp" placeholder="Nathan / Yuri" value="'+escAttr(it?it.responsavel||'':'')+'"></div>'+
+    '</div>'+
+    '<div class="modal-field-group"><label>Público-alvo</label><input class="modal-input" id="me_publico" placeholder="Ex: MEI iniciando, pequena empresa desorganizada financeiramente..." value="'+escAttr(it?it.publico||'':'')+'"></div>'+
+    '<div class="modal-field-group"><label>Dor(es) real(is) que isso resolve — 1 por linha</label><textarea class="modal-input modal-textarea" id="me_dores" rows="2" placeholder="Cole/adapte uma dor real do banco acima — ex: não sabe quanto lucra de fato">'+escHtml(it?(it.dores||[]).join('\n'):'')+'</textarea></div>'+
+    '<div class="modal-field-group"><label>Descrição / próximo passo</label><textarea class="modal-input modal-textarea" id="me_desc" rows="3" placeholder="O que é, e qual é a próxima ação concreta pra avançar">'+escHtml(it?it.descricao||'':'')+'</textarea></div>'+
+    '<div class="modal-field-group"><label>Notas</label><textarea class="modal-input modal-textarea" id="me_notas" rows="2" placeholder="Observações livres — ex: nº de participantes do grupo, canal usado...">'+escHtml(it?it.notas||'':'')+'</textarea></div>'+
+    (it?'<button type="button" class="btn-secondary" style="color:var(--red);border-color:var(--red)" onclick="removeEsteiraItemFromModal()">🗑 Remover item</button>':'');
+}
+function openEsteiraModal(id){
+  const it = esteiraItems.find(x=>x.id===id);
+  if(!it) return;
+  editingEsteiraId = id;
+  document.getElementById('modalEsteiraTitle').textContent = it.titulo || 'Item da esteira';
+  buildEsteiraModal(it);
+  document.getElementById('esteiraModal').classList.remove('hidden');
+}
+function openNewEsteiraModal(degrau){
+  editingEsteiraId = null;
+  document.getElementById('modalEsteiraTitle').textContent = 'Novo item da esteira';
+  buildEsteiraModal(null);
+  if(degrau!==undefined){ const s=document.getElementById('me_degrau'); if(s) s.value = degrau; }
+  document.getElementById('esteiraModal').classList.remove('hidden');
+}
+function closeEsteiraModal(){
+  editingEsteiraId = null;
+  document.getElementById('esteiraModal').classList.add('hidden');
+}
+function saveEsteiraModal(){
+  const titulo = (document.getElementById('me_titulo').value||'').trim();
+  if(!titulo){ document.getElementById('me_titulo').focus(); return; }
+  const degrau = parseInt(document.getElementById('me_degrau').value, 10);
+  const tipo = document.getElementById('me_tipo').value;
+  const status = document.getElementById('me_status').value;
+  const responsavel = (document.getElementById('me_resp').value||'').trim();
+  const publico = (document.getElementById('me_publico').value||'').trim();
+  const dores = (document.getElementById('me_dores').value||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  const descricao = (document.getElementById('me_desc').value||'').trim();
+  const notas = (document.getElementById('me_notas').value||'').trim();
+  const now = new Date().toISOString();
+  if(editingEsteiraId){
+    const idx = esteiraItems.findIndex(x=>x.id===editingEsteiraId);
+    if(idx>-1) esteiraItems[idx] = { ...esteiraItems[idx], titulo, degrau, tipo, status, responsavel, publico, dores, descricao, notas, updatedAt: now };
+  } else {
+    esteiraItems.unshift({ id:'es_'+Date.now(), titulo, degrau, tipo, status, responsavel, publico, dores, descricao, notas, createdAt: now, updatedAt: now });
+  }
+  save('cb3_esteira', esteiraItems);
+  closeEsteiraModal();
+  renderEsteira();
+}
+function removeEsteiraItemFromModal(){
+  if(!editingEsteiraId) return;
+  esteiraItems = esteiraItems.filter(x=>x.id!==editingEsteiraId);
+  save('cb3_esteira', esteiraItems);
+  closeEsteiraModal();
+  renderEsteira();
 }
 
 function openLeadModal(id){
