@@ -1681,6 +1681,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
     <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
       <button class="btn-primary" onclick="openNewEsteiraModal()" style="padding:10px 18px;flex-shrink:0">+ Novo item</button>
     </div>
+    <div id="esteiraPlanBox" style="margin-bottom:14px"></div>
     <div id="esteiraDoresBanco" style="margin-bottom:14px"></div>
     <div class="kanban-board" id="esteiraBoard"></div>
   </div>
@@ -2918,6 +2919,7 @@ const IG_TEMPLATES = {
 let leads = [], igEvents = [], closingData = {}, clientDrives = {}, revenues = {};
 let pbCheck = {};
 let esteiraItems = [];
+let esteiraPlanCheck = {};
 let onboarding = {}, csData = {}, acessosData = [], commentsData = {};
 
 const ACESSOS_COLS = [
@@ -3037,6 +3039,7 @@ function initState() {
     try { pbCheck=JSON.parse(localStorage.getItem('cb3_pb_check')||'{}'); } catch(e){}
     try { esteiraItems=JSON.parse(localStorage.getItem('cb3_esteira')||'[]'); } catch(e){ esteiraItems=[]; }
     esteiraItems = esteiraItems.map((it,i)=>normalizeEsteiraItem(it,i));
+    try { esteiraPlanCheck=JSON.parse(localStorage.getItem('cb3_esteira_plan_check')||'{}'); } catch(e){ esteiraPlanCheck={}; }
     try {
       const saved=JSON.parse(localStorage.getItem('cb3_acessos')||'null');
       acessosData = saved && saved.length ? saved : ACESSOS_SEED_ROWS.map(r=>({...r}));
@@ -3871,8 +3874,44 @@ function renderEsteiraDoresBanco(){
     '<div style="font-size:11px;color:var(--fg4);margin-top:8px">Passe o mouse num item pra ver de quem veio. Use essas dores reais (não uma dor genérica) ao criar um item da esteira.</div>'+
   '</div></div>';
 }
+// Plano de execução da Esteira — fases sequenciais (cada uma só começa
+// quando a anterior tiver pelo menos 1 resultado concreto). Diferente dos
+// itens do board (que são produtos/conteúdos paralelos por degrau), isso é
+// o roteiro combinado em 09/11/2026 pra sair do zero — fica fixo no topo
+// da aba até a Fase 5 ser concluída.
+const ESTEIRA_PLAN_ITEMS = [
+  { id:'f1', label: 'Fase 1 · Mapear dor real', detail: 'Marcar e realizar a reunião de CS com os clientes atuais — registrar pelo menos 3 dores novas (nas notas do cliente ou direto num card da Esteira)' },
+  { id:'f2', label: 'Fase 2 · Lançar a 1ª isca', detail: 'Escolher 1 isca com base na dor mais recorrente (ex: planilha de controle financeiro) e publicar com forma de captar contato' },
+  { id:'f3', label: 'Fase 3 · Formalizar o grupo de MEI', detail: 'Decidir canal, nome, 1º tema e lista de convite inicial — criar o grupo e postar o primeiro tema' },
+  { id:'f4', label: 'Fase 4 · Rodar 1 ciclo de conteúdo', detail: 'Fechar 1 ciclo de 14 dias do módulo de Instagram (checklist já ativo no card "Ação Comercial Hoje")' },
+  { id:'f5', label: 'Fase 5 · Testar 1 produto de baixo ticket', detail: 'Só depois de isca + grupo terem gente engajando — 1ª oferta de Degrau 2 (evento pago ou diagnóstico avulso)' },
+];
+function toggleEsteiraPlanCheck(id){
+  esteiraPlanCheck[id] = !esteiraPlanCheck[id];
+  save('cb3_esteira_plan_check', esteiraPlanCheck);
+  renderEsteiraPlan();
+}
+function renderEsteiraPlan(){
+  const el = document.getElementById('esteiraPlanBox');
+  if(!el) return;
+  const doneCount = ESTEIRA_PLAN_ITEMS.filter(it=>esteiraPlanCheck[it.id]).length;
+  el.innerHTML = '<div class="card"><div class="card-body">'+
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'+
+      '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gold)">🗺️ Plano de execução da Esteira</div>'+
+      '<div style="font-size:11px;color:var(--fg3);font-weight:700">'+doneCount+'/'+ESTEIRA_PLAN_ITEMS.length+' concluídas</div>'+
+    '</div>'+
+    ESTEIRA_PLAN_ITEMS.map(it=>{
+      const done = !!esteiraPlanCheck[it.id];
+      return '<label class="pb-check-item'+(done?' pb-done':'')+'" style="align-items:flex-start">'+
+        '<input type="checkbox" style="margin-top:2px"'+(done?' checked':'')+' onchange="toggleEsteiraPlanCheck(\''+it.id+'\')">'+
+        '<span><strong>'+escHtml(it.label)+'</strong><br><span style="font-weight:400;color:var(--fg3)">'+escHtml(it.detail)+'</span></span>'+
+      '</label>';
+    }).join('')+
+  '</div></div>';
+}
 function renderEsteira(){
   esteiraItems = esteiraItems.map((it,i)=>normalizeEsteiraItem(it,i));
+  renderEsteiraPlan();
   renderEsteiraDoresBanco();
   const board = document.getElementById('esteiraBoard');
   if(!board) return;
