@@ -1677,8 +1677,10 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
     <button class="btn-primary" id="funilNewLeadBtn" onclick="openNewLeadModal()" style="padding:10px 18px;flex-shrink:0">+ Novo Lead</button>
   </div>
 
+  <div id="funilMetaReversa" style="margin-bottom:12px"></div>
   <div id="funilKpiBar" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px"></div>
   <div id="funilConversao"></div>
+  <div id="funilLostReasons"></div>
 
   <div class="qf-filters" style="margin-bottom:12px">
     <button class="qf-filter-btn active" id="funilPrioBtnAll" onclick="setFunilPrioFilter('all')">Todos</button>
@@ -3382,10 +3384,23 @@ function normalizeLead(l, i){
   // conservadora (mostra o funil um pouco mais "vazado" no topo, nunca menos).
   if(l.lostFromStage===undefined) l.lostFromStage = l.stage==='lost' ? 'prosp' : '';
   if(l.priority===undefined) l.priority='';
+  // Origem da classificação A/B/C — 'ai' = sugerida sem confirmação de quem
+  // vende, 'manual' = confirmada/ajustada por Nathan/Yuri no modal. Evita
+  // tratar um palpite como se fosse qualificação já validada.
+  if(l.prioritySource===undefined) l.prioritySource = l.priority ? 'manual' : '';
   return l;
 }
 
 function getLeadById(id){ return leads.find(l=>l.id===id) }
+
+// Badge de prioridade reutilizável — adiciona "?" quando a classificação
+// ainda é sugestão de IA, nunca confirmada por quem de fato vende.
+function prioBadgeHtml(l){
+  const prio = LEAD_PRIORITY[l.priority];
+  if(!prio) return '';
+  const unconfirmed = l.prioritySource==='ai';
+  return '<span title="'+escAttr(prio.label)+(unconfirmed?' (sugerida, não confirmada)':'')+'" style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:'+prio.color+';color:#fff;font-size:10px;font-weight:700;flex-shrink:0;'+(unconfirmed?'box-shadow:0 0 0 2px var(--amber)':'')+'">'+l.priority+(unconfirmed?'?':'')+'</span>';
+}
 
 function getCheckCount(l){
   const done = LEAD_CHECKS.filter(c=>l.checklist&&l.checklist[c.id]).length;
@@ -3408,6 +3423,50 @@ function renderFunilKpis(){
     '<div class="stat-tile"><span class="stat-num gold">R$ '+valorAberto.toLocaleString('pt-BR')+'</span><span class="stat-label">Em pipeline (R$/mês)</span></div>'+
     '<div class="stat-tile"><span class="stat-num green">'+(winRate===null?'—':winRate+'%')+'</span><span class="stat-label">Taxa de conversão</span></div>'+
     '<div class="stat-tile"><span class="stat-num navy">'+won.length+'</span><span class="stat-label">Fechados (total)</span></div>';
+}
+
+// Meta reversa — transforma "faltam 15 clientes" em "quantos leads precisam
+// avançar por semana", calculado de verdade (não só escrito no playbook).
+// Ajuste META_CLIENTES_ALVO/META_DEADLINE se a meta combinada mudar.
+const META_CLIENTES_ALVO = 20;
+const META_DEADLINE = '2026-12-31';
+function renderMetaReversa(){
+  const el = document.getElementById('funilMetaReversa');
+  if(!el) return;
+  const atuais = clients.length;
+  const faltam = Math.max(0, META_CLIENTES_ALVO - atuais);
+  if(faltam===0){ el.innerHTML = '<div class="pb-reality">🎉 Meta de '+META_CLIENTES_ALVO+' clientes atingida!</div>'; return; }
+  const hoje = new Date();
+  const deadline = new Date(META_DEADLINE+'T23:59:59');
+  const diasRestantes = Math.max(1, Math.ceil((deadline-hoje)/86400000));
+  const semanasRestantes = Math.max(1, diasRestantes/7);
+  const won = leads.filter(l=>l.stage==='won').length;
+  const fechados = won + leads.filter(l=>l.stage==='lost').length;
+  const winRateEstimado = fechados>=3 ? (won/fechados) : 0.4; // sem histórico suficiente ainda — usa a referência do playbook (2-3 leads fecham 1, ~35-50%)
+  const usouEstimativa = fechados<3;
+  const leadsQualNecessarios = Math.ceil(faltam/winRateEstimado);
+  const leadsPorSemana = Math.ceil(leadsQualNecessarios/semanasRestantes);
+  el.innerHTML = '<div class="pb-reality">📊 Faltam <strong>'+faltam+' clientes</strong> até '+deadline.toLocaleDateString('pt-BR')+' (hoje: '+atuais+'/'+META_CLIENTES_ALVO+', '+diasRestantes+' dias restantes). '+
+    'Com conversão '+(usouEstimativa?'estimada':'real')+' de ~'+Math.round(winRateEstimado*100)+'%, isso exige <strong>~'+leadsQualNecessarios+' leads</strong> qualificados fechando até lá — ou <strong>~'+leadsPorSemana+'/semana</strong> avançando de etapa a partir de agora.'+
+    (usouEstimativa?' <span style="opacity:.75">(ainda sem 3 fechamentos reais pra calcular a taxa de verdade — usando a referência do playbook.)</span>':'')+
+    '</div>';
+}
+
+// Motivo de perda agregado — o campo já existia (categorizado no modal),
+// mas não virava relatório. Isso soma por categoria pra mostrar onde o
+// funil mais vaza, sem precisar abrir lead por lead.
+function renderLostReasons(){
+  const el = document.getElementById('funilLostReasons');
+  if(!el) return;
+  const lost = leads.filter(l=>l.stage==='lost');
+  if(!lost.length){ el.innerHTML=''; return; }
+  const counts = {};
+  lost.forEach(l=>{ const r = l.lostReason||'Sem motivo registrado'; counts[r]=(counts[r]||0)+1; });
+  const rows = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  el.innerHTML = '<div class="section-label" style="margin:18px 0 8px">POR QUE PERDEMOS (TOTAL: '+lost.length+')</div>'+
+    '<div class="card" style="padding:10px 16px;display:flex;flex-wrap:wrap;gap:14px">'+
+    rows.map(([reason,count])=>'<div style="font-size:12px"><strong>'+count+'</strong> · '+escHtml(reason)+'</div>').join('')+
+    '</div>';
 }
 
 // Funil de conversão por etapa — snapshot de quantos leads já alcançaram
@@ -3518,8 +3577,10 @@ function quickCheckLead(ev, id){
 
 function renderFunil(){
   leads = leads.map((l,i)=>normalizeLead(l,i));
+  renderMetaReversa();
   renderFunilKpis();
   renderFunilConversao();
+  renderLostReasons();
   const board = document.getElementById('kanbanBoard');
   if(!board) return;
   const todayStr0 = new Date().toISOString().slice(0,10);
@@ -3537,11 +3598,10 @@ function renderFunil(){
       const fuOverdue = l.followUpDate && l.followUpDate < todayStr;
       const nextCheck = LEAD_CHECKS.find(c=>!(l.checklist&&l.checklist[c.id]));
       const canAdvance = STAGE_ORDER.indexOf(l.stage) < STAGE_ORDER.length-3;
-      const prio = LEAD_PRIORITY[l.priority];
       return '<div class="kanban-card" draggable="true" ondragstart="dragLeadStart(event,\''+escAttr(l.id)+'\')" onclick="openLeadModal(\''+escAttr(l.id)+'\')">'+
         '<div class="kanban-card-top">'+
           '<span class="kanban-dot" style="background:'+dot+'"></span>'+
-          (prio?'<span title="'+escAttr(prio.label)+'" style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:'+prio.color+';color:#fff;font-size:10px;font-weight:700;flex-shrink:0">'+l.priority+'</span>':'')+
+          prioBadgeHtml(l)+
           '<span class="kanban-name">'+escHtml(l.name)+'</span>'+
           (agingDays>0?'<span class="kanban-aging'+(agingClass?' '+agingClass:'')+'">'+agingDays+'d</span>':'')+
         '</div>'+
@@ -3607,9 +3667,8 @@ function renderComercialHoje(){
     html += '<div class="card" style="padding:0;margin-bottom:4px">'+
       due.map(l=>{
         const overdue = l.followUpDate < todayStr;
-        const prio = LEAD_PRIORITY[l.priority];
         return '<div class="qf-row" style="cursor:pointer" onclick="openLeadModal(\''+escAttr(l.id)+'\')">'+
-          (prio?'<span title="'+escAttr(prio.label)+'" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:'+prio.color+';color:#fff;font-size:10px;font-weight:700;flex-shrink:0">'+l.priority+'</span>':'<span style="width:18px;flex-shrink:0"></span>')+
+          (LEAD_PRIORITY[l.priority]?prioBadgeHtml(l):'<span style="width:18px;flex-shrink:0"></span>')+
           '<div class="qf-name">'+escHtml(l.name)+'<div class="qf-meta">'+(STAGE_LABELS[l.stage]||l.stage)+'</div></div>'+
           '<div class="qf-next'+(overdue?' overdue':'')+'">'+(overdue?'⚠️ ':'📅 ')+(l.nextStep?escHtml(l.nextStep):'<span style="color:var(--fg4)">sem próxima ação definida</span>')+'</div>'+
         '</div>';
@@ -3617,6 +3676,24 @@ function renderComercialHoje(){
     '</div>';
   } else {
     html += '<div class="card" style="padding:12px 16px;font-size:13px;color:var(--fg3);margin-bottom:4px">Nenhum follow-up de lead pendente pra hoje. 🎉</div>';
+  }
+  // Leads sem follow-up NEM próximo passo não aparecem na lista acima (não
+  // têm data pra "vencer") e por isso ficam invisíveis — sem isso, eles só
+  // se acumulam parados. Aparecem aqui como "defina o plano ou arquive".
+  const semPlano = open.filter(l=>!l.followUpDate && !l.nextStep);
+  if(semPlano.length){
+    html += '<div class="card" style="margin-top:10px;padding:0">'+
+      '<div style="padding:8px 14px 2px;font-size:11px;font-weight:700;color:var(--fg3)">⚪ SEM PLANO DEFINIDO — DEFINA O PRÓXIMO PASSO OU ARQUIVE</div>'+
+      semPlano.map(l=>{
+        const agingMs = Date.now() - new Date(l.stageChangedAt||l.createdAt||Date.now()).getTime();
+        const agingDays = Math.max(0, Math.floor(agingMs/86400000));
+        return '<div class="qf-row" style="cursor:pointer" onclick="openLeadModal(\''+escAttr(l.id)+'\')">'+
+          (LEAD_PRIORITY[l.priority]?prioBadgeHtml(l):'<span style="width:18px;flex-shrink:0"></span>')+
+          '<div class="qf-name">'+escHtml(l.name)+'<div class="qf-meta">'+(STAGE_LABELS[l.stage]||l.stage)+(l.dor?'':' · sem dor registrada')+'</div></div>'+
+          '<div class="qf-next">parado há '+agingDays+'d</div>'+
+        '</div>';
+      }).join('')+
+    '</div>';
   }
   const pending = PB_CHECKLIST_ITEMS.find(it=>!pbCheck[it.id]);
   if(pending){
@@ -3649,48 +3726,59 @@ function openNewLeadModal(){
 const STAGE_GUIDANCE = {
   prosp: {
     goal: 'Prospecção — confirmar fit e abrir a conversa (SDR + BANT)',
-    script: 'Pra eu te ajudar certo, posso te fazer duas perguntas rápidas? Hoje como vocês cuidam da parte fiscal/contábil, e o que fez vocês pensarem em mudar/buscar ajuda agora?',
-    hint: 'BANT: tem dor real (Necessidade)? falo com quem decide (Autoridade)? tem condição de pagar (Capacidade)? tem urgência agora (Momento)?'
+    script: (dor)=> 'Pra eu te ajudar certo, posso te fazer duas perguntas rápidas? Hoje como vocês cuidam da parte fiscal/contábil, e o que fez vocês pensarem em mudar/buscar ajuda agora?',
+    hint: 'BANT: tem dor real (Necessidade)? falo com quem decide (Autoridade)? tem condição de pagar (Capacidade)? tem urgência agora (Momento)? — ESCREVA a dor no campo "Dor/Contexto" assim que descobrir; isso personaliza as próximas etapas.'
   },
   qual: {
     goal: 'Qualificado — diagnóstico (SPIN Selling)',
-    script: 'Situação: "Como funciona hoje a gestão contábil/financeira da empresa?"\nProblema: "Onde você sente mais dificuldade ou insegurança hoje?"\nImplicação: "Se isso continuar assim, o que isso custa pra você — em dinheiro, tempo ou risco?"\nNecessidade: "Se você tivesse [relatório claro/previsibilidade], o que mudaria na forma como decide?"',
+    script: (dor)=> 'Situação: "Como funciona hoje a gestão contábil/financeira da empresa?"\nProblema: "Onde você sente mais dificuldade ou insegurança hoje?"\nImplicação: "'+(dor?'Você comentou que '+dor+' — se isso continuar assim, o que isso custa pra você em dinheiro, tempo ou risco?':'Se isso continuar assim, o que isso custa pra você — em dinheiro, tempo ou risco?')+'"\nNecessidade: "Se você tivesse [relatório claro/previsibilidade], o que mudaria na forma como decide?"',
     hint: 'Recapitule a dor nas palavras do cliente antes de seguir pra proposta — nunca pule direto pro preço.'
   },
   prop: {
     goal: 'Proposta — recapitular e apresentar só o que resolve a dor',
-    script: 'Resumo da dor → "É isso mesmo, ou tem algo que deixei de fora?" → só então apresente o pacote recomendado (escopo, honorário, prazo de início).',
-    hint: 'Nunca o "menu completo" — só o(s) serviço(s) ligado(s) à dor que ele já confirmou.'
+    script: (dor)=> (dor?'Resumo: "Pelo tanto que você me disse, '+dor+' — é isso mesmo, ou tem algo que deixei de fora?"':'Resumo da dor → "É isso mesmo, ou tem algo que deixei de fora?"')+' → só então apresente o pacote recomendado (escopo, honorário, prazo de início).',
+    hint: 'Nunca o "menu completo" — só o(s) serviço(s) ligado(s) à dor que ele já confirmou.',
+    ref: 'Referência rápida de honorário (ajuste pela complexidade real — não é tabela fixa): MEI/autônomo simples R$ 300–500 · Pequena Simples com poucas notas R$ 500–900 · Pequena com folha ativa R$ 900–1.500 · Médio porte/Presumido R$ 1.500–3.000+.'
   },
   neg: {
     goal: 'Negociação — contornar objeção e pedir a decisão',
-    script: 'O que ainda falta pra vocês decidirem? Tem mais alguém envolvido na decisão? Faz sentido eu confirmar isso até [data]?',
+    script: (dor)=> 'O que ainda falta pra vocês decidirem? Tem mais alguém envolvido na decisão? Faz sentido eu confirmar isso até [data]?',
     hint: 'Argumente com base no diagnóstico, não em desconto. Nunca deixar "sem resposta" aberto — avança, recua, ou marca como perdido com motivo.'
   },
-  won: { goal: 'Fechado — handoff pro pós-venda', script: '', hint: 'Confirme que o cliente foi criado (automação abaixo) e passe o contexto do diagnóstico pro onboarding.' },
-  lost: { goal: 'Perdido — motivo registrado', script: '', hint: 'Escolha a categoria real do motivo — é isso que vira relatório de "por que perdemos" depois.' }
+  won: { goal: 'Fechado — handoff pro pós-venda', script: null, hint: 'Confirme que o cliente foi criado (automação abaixo) — a dor diagnosticada já vai junto nas anotações do cadastro.' },
+  lost: { goal: 'Perdido — motivo registrado', script: null, hint: 'Escolha a categoria real do motivo — é isso que alimenta o relatório "por que perdemos" (ver KPIs do Funil).' }
 };
-function leadGuidanceHtml(stage){
+// Cada vez que o modal abre ou troca de etapa, pega a dor JÁ DIGITADA no
+// próprio campo "Dor/Contexto" — o script deixa de ser texto genérico fixo
+// e passa a citar o que aquele lead específico disse, sempre que possível.
+function currentLeadDor(){
+  const el = document.getElementById('ml_dor');
+  return el ? (el.value||'').trim() : '';
+}
+function leadGuidanceHtml(stage, dor){
   const g = STAGE_GUIDANCE[stage] || STAGE_GUIDANCE.prosp;
-  if(!g.script && !g.hint) return '';
+  const scriptText = g.script ? g.script(dor||'') : '';
+  if(!scriptText && !g.hint) return '';
   return '<div class="post-hook" style="margin-bottom:14px">'+
     '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;color:var(--gold)">📍 '+escHtml(g.goal)+'</div>'+
-    (g.script?'<div style="white-space:pre-wrap;margin-bottom:6px;font-size:13px">'+escHtml(g.script)+'</div>':'')+
+    (scriptText?'<div style="white-space:pre-wrap;margin-bottom:6px;font-size:13px">'+escHtml(scriptText)+'</div>':'')+
     (g.hint?'<div style="font-size:11px;color:var(--fg3)">💡 '+escHtml(g.hint)+'</div>':'')+
-    (g.script?'<button type="button" class="btn-secondary" style="margin-top:8px;padding:4px 10px;font-size:11px" onclick="copyLeadScript()">📋 Copiar script</button>':'')+
+    (g.ref?'<div style="font-size:11px;color:var(--fg3);margin-top:4px">💰 '+escHtml(g.ref)+'</div>':'')+
+    (scriptText?'<button type="button" class="btn-secondary" style="margin-top:8px;padding:4px 10px;font-size:11px" onclick="copyLeadScript()">📋 Copiar rascunho (adapte antes de enviar)</button>':'')+
   '</div>';
 }
 function renderLeadGuidanceBox(stage){
   const wrap = document.getElementById('ml_guidance_wrap');
-  if(wrap) wrap.innerHTML = leadGuidanceHtml(stage);
+  if(wrap) wrap.innerHTML = leadGuidanceHtml(stage, currentLeadDor());
 }
 function copyLeadScript(){
   const sel = document.getElementById('ml_stage');
   const stage = sel ? sel.value : 'prosp';
   const g = STAGE_GUIDANCE[stage] || STAGE_GUIDANCE.prosp;
-  if(!g.script) return;
+  const scriptText = g.script ? g.script(currentLeadDor()) : '';
+  if(!scriptText) return;
   if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(g.script).then(()=>showToast('Script copiado','ok')).catch(()=>showToast('Não foi possível copiar — selecione e copie manualmente','err'));
+    navigator.clipboard.writeText(scriptText).then(()=>showToast('Rascunho copiado — adapte antes de enviar','ok')).catch(()=>showToast('Não foi possível copiar — selecione e copie manualmente','err'));
   } else {
     showToast('Copie manualmente — seu navegador não permite copiar automático aqui','err');
   }
@@ -3710,7 +3798,7 @@ function buildLeadModal(l){
   const isLost = l&&l.stage==='lost';
   const initialStage = l ? l.stage : 'prosp';
   document.getElementById('modalLeadBody').innerHTML =
-    '<div id="ml_guidance_wrap">'+leadGuidanceHtml(initialStage)+'</div>'+
+    '<div id="ml_guidance_wrap">'+leadGuidanceHtml(initialStage, l?l.dor||'':'')+'</div>'+
     '<div class="modal-field-group">'+
       '<label>Nome do lead</label>'+
       '<input class="modal-input" id="ml_name" placeholder="Nome da empresa ou pessoa" value="'+escAttr(l?l.name||'':'')+'">'+
@@ -3721,7 +3809,7 @@ function buildLeadModal(l){
         '<select class="modal-input" id="ml_stage" onchange="document.getElementById(\'ml_lost_sec\').hidden=this.value!==\'lost\';renderLeadGuidanceBox(this.value)">'+stageOpts+'</select>'+
       '</div>'+
       '<div class="modal-field-group">'+
-        '<label>Prioridade</label>'+
+        '<label>Prioridade'+(l&&l.priority&&l.prioritySource==='ai'?' <span style="color:var(--amber);font-weight:400;font-size:10px">⚠️ sugerida — confira e salve pra confirmar</span>':'')+'</label>'+
         '<select class="modal-input" id="ml_prio">'+
           '<option value="">— sem classificar —</option>'+
           Object.keys(LEAD_PRIORITY).map(p=>'<option value="'+p+'"'+(l&&l.priority===p?' selected':'')+'>'+LEAD_PRIORITY[p].label+'</option>').join('')+
@@ -3750,7 +3838,7 @@ function buildLeadModal(l){
     '</div>'+
     '<div class="modal-field-group">'+
       '<label>Dor / Contexto</label>'+
-      '<textarea class="modal-input modal-textarea" id="ml_dor" rows="2" placeholder="Qual o problema principal que este lead quer resolver?">'+escHtml(l?l.dor||'':'')+'</textarea>'+
+      '<textarea class="modal-input modal-textarea" id="ml_dor" rows="2" placeholder="Qual o problema principal que este lead quer resolver?" onblur="renderLeadGuidanceBox(document.getElementById(\'ml_stage\').value)">'+escHtml(l?l.dor||'':'')+'</textarea>'+
     '</div>'+
     '<div class="modal-2col">'+
       '<div class="modal-field-group">'+
@@ -3803,20 +3891,23 @@ function saveLeadModal(){
   if(stage==='lost'&&!lostReason){ lrCatEl&&lrCatEl.focus(); showToast('Selecione o motivo da perda','err'); return; }
   const checklist = {};
   LEAD_CHECKS.forEach(c=>{ const el=document.getElementById('mc_'+c.id); if(el&&el.checked) checklist[c.id]=true; });
+  // Salvar o modal com uma prioridade visível conta como confirmação humana
+  // dela — some o selo "sugerida" (ver prioritySource em normalizeLead).
+  const prioritySource = priority ? 'manual' : '';
   if(editingLeadId){
     const idx = leads.findIndex(l=>l.id===editingLeadId);
     if(idx>-1){
       const prev = leads[idx];
       const stageChanged = prev.stage !== stage;
       const lostFromStage = (stage==='lost' && prev.stage!=='lost') ? prev.stage : prev.lostFromStage;
-      leads[idx] = { ...prev, name, stage, valor, origem, resp, firstContact, dor, nextStep, followUpDate, priority, lostReason, lostDetail, lostFromStage, checklist,
+      leads[idx] = { ...prev, name, stage, valor, origem, resp, firstContact, dor, nextStep, followUpDate, priority, prioritySource, lostReason, lostDetail, lostFromStage, checklist,
         stageChangedAt: stageChanged ? new Date().toISOString() : (prev.stageChangedAt||prev.createdAt||new Date().toISOString())
       };
     }
   } else {
     const now = new Date().toISOString();
     const lostFromStage = stage==='lost' ? 'prosp' : '';
-    leads.unshift({ id:'l_'+Date.now(), name, stage, valor, origem, resp, firstContact, dor, nextStep, followUpDate, priority, lostReason, lostDetail, lostFromStage, checklist, createdAt:now, stageChangedAt:now });
+    leads.unshift({ id:'l_'+Date.now(), name, stage, valor, origem, resp, firstContact, dor, nextStep, followUpDate, priority, prioritySource, lostReason, lostDetail, lostFromStage, checklist, createdAt:now, stageChangedAt:now });
   }
   save('cb3_leads', leads);
   // Automação: lead fechado → oferecer criar cliente (item 17)
@@ -5516,11 +5607,17 @@ function offerCreateClientFromLead(lead){
   if(confirm('🎉 Lead "'+lead.name+'" foi fechado!\n\nDeseja criar este cliente automaticamente?')){
     const newId=Date.now();
     const valorNum=parseFloat((lead.valor||'').replace(/[^\d,]/g,'').replace(',','.'))||0;
+    // Handoff pro Dir. CS: a dor levantada no diagnóstico (SPIN) não pode se
+    // perder na virada lead→cliente — vai junto nas anotações, pra quem fizer
+    // o onboarding já saber por que esse cliente comprou.
+    const handoffParts = ['Lead convertido em '+new Date().toLocaleDateString('pt-BR')];
+    if(lead.dor) handoffParts.push('Dor diagnosticada: '+lead.dor);
+    if(lead.origem) handoffParts.push('Origem: '+lead.origem);
     clients.push({
       id:newId,name:lead.name,initials:lead.name.slice(0,2).toUpperCase(),
       regime:'Simples Nacional',mensalidade:valorNum,
       whatsapp:'',hasEmployees:false,services:['Fiscal','Contábil'],
-      notes:'Lead convertido em '+new Date().toLocaleDateString('pt-BR'),
+      notes:handoffParts.join(' · '),
       contractRenewal:'',driveKey:'drive_'+newId
     });
     save('cb3_clients',clients);
