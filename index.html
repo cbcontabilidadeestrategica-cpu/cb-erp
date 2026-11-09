@@ -827,7 +827,12 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
    KANBAN — FUNIL COMERCIAL
 ══════════════════════════════════════════ */
 .kanban-board{display:flex;gap:10px;overflow-x:auto;padding-bottom:14px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
-.kanban-col{min-width:195px;width:195px;flex-shrink:0;scroll-snap-align:start;display:flex;flex-direction:column;gap:7px}
+/* Largura fixa deixava sobra vazia à direita do board em telas largas
+   (main agora vai a 1480px) — flex:1 faz as colunas crescerem e dividirem
+   o espaço disponível, com min/max pra não ficar nem apertado nem absurdo
+   num monitor grande. Só vira scroll horizontal quando não cabe nem no
+   mínimo (ex: 6 colunas numa tela estreita). */
+.kanban-col{flex:1 1 210px;min-width:210px;max-width:320px;scroll-snap-align:start;display:flex;flex-direction:column;gap:7px}
 .kanban-col-header{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;display:flex;align-items:center;gap:8px;box-shadow:var(--shadow-card)}
 .kc-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .kc-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;flex:1}
@@ -4032,7 +4037,7 @@ function renderEsteira(){
         (it.responsavel?'<div class="kanban-resp">👤 '+escHtml(it.responsavel)+'</div>':'')+
       '</div>';
     }).join('');
-    return '<div class="kanban-col" style="min-width:230px;width:230px">'+
+    return '<div class="kanban-col" style="flex-basis:230px;min-width:230px">'+
       '<div class="kanban-col-header">'+
         '<span class="kanban-col-title">'+escHtml(deg.label)+'</span>'+
         '<span class="kanban-col-count">'+items.length+'</span>'+
