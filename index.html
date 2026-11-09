@@ -1682,7 +1682,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
       <button class="btn-primary" onclick="openNewEsteiraModal()" style="padding:10px 18px;flex-shrink:0">+ Novo item</button>
     </div>
     <div id="esteiraPlanBox" style="margin-bottom:14px"></div>
-    <div id="esteiraDoresBanco" style="margin-bottom:14px"></div>
+    <div id="esteiraDoresBanco" style="margin-bottom:8px"></div>
     <div class="kanban-board" id="esteiraBoard"></div>
   </div>
 </section>
@@ -3902,6 +3902,10 @@ function normalizeEsteiraItem(it, i){
 // Banco de dores reais — junta o campo Dor dos leads com a dor diagnosticada
 // (ou a nota completa) dos clientes já fechados. É a referência que deve
 // alimentar cada item da esteira, pra não inventar dor genérica de persona.
+// Fonte restrita de propósito: só o campo Dor dos leads (dado estruturado
+// do próprio Funil) e, pros clientes já fechados, só o trecho "Dor
+// diagnosticada: ..." das anotações (nunca a nota inteira) — uma nota de
+// cliente pode conter endereço, acesso, etc., e isso não é dor nenhuma.
 function getDoresBancoReal(){
   const map = new Map();
   const add = (texto, fonte) => {
@@ -3913,23 +3917,37 @@ function getDoresBancoReal(){
   };
   (leads||[]).forEach(l => add(l.dor, (l.name||'lead')+' (lead)'));
   (clients||[]).forEach(c => {
-    const n = (c.notes||'').trim();
-    if(!n) return;
-    const m = n.match(/Dor diagnosticada:\s*([^·\n]+)/i);
-    add(m ? m[1] : n.slice(0,140), (c.name||'cliente')+' (cliente)');
+    const m = (c.notes||'').match(/Dor diagnosticada:\s*([^·\n]+)/i);
+    if(m) add(m[1], (c.name||'cliente')+' (cliente)');
   });
   return [...map.values()];
+}
+// Recolhido por padrão — é consulta de apoio ao criar um item, não precisa
+// ocupar espaço fixo toda vez que a sub-aba Esteira abre.
+let esteiraDoresBancoOpen = false;
+function toggleEsteiraDoresBanco(){
+  esteiraDoresBancoOpen = !esteiraDoresBancoOpen;
+  renderEsteiraDoresBanco();
 }
 function renderEsteiraDoresBanco(){
   const el = document.getElementById('esteiraDoresBanco');
   if(!el) return;
   const dores = getDoresBancoReal();
+  if(!esteiraDoresBancoOpen){
+    el.innerHTML = '<div style="font-size:11px;color:var(--fg3);cursor:pointer;display:inline-block;margin-bottom:2px" onclick="toggleEsteiraDoresBanco()">🗂️ Banco de dores reais do Funil ('+dores.length+') ▾</div>';
+    return;
+  }
   if(!dores.length){
-    el.innerHTML = '<div class="card"><div class="card-body" style="font-size:12px;color:var(--fg3)">Nenhuma dor registrada ainda em leads/clientes — preencha o campo "Dor/Contexto" nos leads do CRM (ou as anotações do cliente) pra alimentar este banco automaticamente.</div></div>';
+    el.innerHTML = '<div class="card"><div class="card-body" style="font-size:12px;color:var(--fg3)">'+
+      '<span style="cursor:pointer" onclick="toggleEsteiraDoresBanco()">▴ recolher</span><br><br>'+
+      'Nenhuma dor registrada ainda nos leads do Funil — preencha o campo "Dor/Contexto" no lead pra alimentar este banco automaticamente.</div></div>';
     return;
   }
   el.innerHTML = '<div class="card"><div class="card-body">'+
-    '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gold);margin-bottom:8px">🗂️ Banco de dores reais — vindo do CRM (leads e clientes)</div>'+
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;cursor:pointer" onclick="toggleEsteiraDoresBanco()">'+
+      '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gold)">🗂️ Banco de dores reais — vindo do Funil (leads e clientes fechados)</div>'+
+      '<div style="font-size:11px;color:var(--fg3)">▴ recolher</div>'+
+    '</div>'+
     '<div style="display:flex;flex-wrap:wrap;gap:6px">'+
       dores.map(d => '<span title="'+escAttr(d.fontes.join(', '))+'" style="font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid var(--border);background:var(--bg2)">'+escHtml(d.text.slice(0,70))+(d.text.length>70?'…':'')+'</span>').join('')+
     '</div>'+
