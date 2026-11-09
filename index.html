@@ -1846,6 +1846,32 @@ function withTimeout(promise, ms, label) {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 let sbUser = null;
+// Achado real (09/11/2026, com reprodução em teste): quando a sessão expira
+// com a aba aberta por muito tempo, toda gravação direta à tabela `tarefa`
+// passa a cair com "new row violates row-level security policy" (code
+// 42501) — porque a policy exige auth.role()='authenticated' e o token
+// expirado não satisfaz isso mais. O saveSupa() (usado pro kv_store) já
+// tinha lógica pra isso (força renovar a sessão e tenta de novo antes de
+// desistir) — mas addOperDemanda() fazia só uma tentativa e desistia. Esse
+// helper extrai essa resiliência pra reuso.
+async function withSessionRetry(fn, label) {
+  try {
+    return await fn();
+  } catch (e) {
+    const code = e && e.code;
+    const msg = String((e && e.message) || '');
+    const looksLikeSessaoExpirada = code === '42501' || code === 'PGRST301' || /jwt|row-level security/i.test(msg) || msg.startsWith('timeout:');
+    if (!looksLikeSessaoExpirada) throw e;
+    console.warn('Supabase: possível sessão expirada em "' + label + '", tentando renovar e repetir...', e);
+    try {
+      await withTimeout(sb.auth.refreshSession(), 6000, 'refreshSession:' + label);
+    } catch (refreshException) {
+      console.warn('Supabase: falha ao renovar sessão para retry de "' + label + '":', refreshException);
+      throw e; // mantém o erro original, mais informativo que o de renovação
+    }
+    return await fn(); // uma última tentativa, com a sessão (esperançosamente) renovada
+  }
+}
 
 async function initAuth() {
   const { data: { session } } = await sb.auth.getSession();
@@ -2664,10 +2690,10 @@ async function addOperDemanda() {
   const btn = document.getElementById('operQaSubmitBtn');
   if (btn) { btn.disabled = true; btn.textContent = 'Adicionando…'; }
   try {
-    const { data, error } = await withTimeout(
+    const { data, error } = await withSessionRetry(() => withTimeout(
       sb.from('tarefa').insert(row).select('id,cliente_id,cliente_nome,legacy_id,setor,tipo,origem,titulo,descricao,responsavel,prazo,status,valor,sop,created_at,cliente:cliente_id(nome,iniciais)').single(),
       10000, 'addOperDemanda'
-    );
+    ), 'addOperDemanda');
     if (error) throw error;
     hojeTarefas.unshift(data);
     toggleOperQuickAdd();
@@ -2677,7 +2703,13 @@ async function addOperDemanda() {
   } catch(e) {
     console.warn('Erro ao adicionar demanda:', e);
     const isTimeout = String(e&&e.message).startsWith('timeout:');
-    showToast(isTimeout ? '⚠ O servidor demorou demais pra responder — tente de novo.' : '⚠ Não foi possível salvar a demanda no servidor.', 'err');
+    const isSessao = e && (e.code==='42501' || e.code==='PGRST301' || /jwt|row-level security/i.test(String(e.message||'')));
+    showToast(
+      isSessao ? '⚠ Sua sessão expirou. Recarregue a página (F5) e faça login de novo pra adicionar a demanda.'
+      : isTimeout ? '⚠ O servidor demorou demais pra responder — tente de novo.'
+      : '⚠ Não foi possível salvar a demanda no servidor.',
+      'err', isSessao ? 7000 : 2800
+    );
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Adicionar'; }
   }
@@ -3045,7 +3077,7 @@ const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho'
 // IMPORTANTE: atualize este valor (data/hora do deploy) a cada publicação
 // — é a única forma de o navegador de quem já está com o hub aberto saber
 // que existe uma versão mais nova.
-const APP_BUILD = '2026-11-09T19:10-03:00';
+const APP_BUILD = '2026-11-09T16:10-03:00';
 let appUpdateBannerShown = false;
 async function checkForNewVersion() {
   try {
