@@ -1697,6 +1697,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
     <button class="btn-primary" id="funilNewLeadBtn" onclick="openNewLeadModal()" style="padding:10px 18px;flex-shrink:0">+ Novo Lead</button>
   </div>
 
+  <div id="funilPrioRules" style="margin-bottom:12px"></div>
   <div id="funilMetaReversa" style="margin-bottom:12px"></div>
   <div id="funilKpiBar" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px"></div>
   <div id="funilConversao"></div>
@@ -3413,10 +3414,27 @@ const LEAD_CHECKS = [
 // "Preparar" do playbook comercial: A = bom fit e sinal atual (contato
 // prioritário), B = bom fit mas sinal fraco/timing incerto (nutrição),
 // C = fit duvidoso (enriquecer dado ou descartar).
+// Regras de atendimento por prioridade (definidas 09/11/2026) — cada
+// prioridade tem uma cadência mínima de follow-up e um nível de atenção
+// diferente. Isso existe pra "A" não virar só uma cor no card: é uma régua
+// real de quando ligar/escrever de novo, e quando é hora de rebaixar ou
+// arquivar um lead que não responde.
 const LEAD_PRIORITY = {
-  A:{ label:'A · Prioritário', color:'var(--gold)' },
-  B:{ label:'B · Nutrição',    color:'var(--blue)' },
-  C:{ label:'C · Fit duvidoso', color:'var(--fg3)' },
+  A:{
+    label:'A · Prioritário', color:'var(--gold)',
+    cadence: 'Contato em até 24h · follow-up a cada 2-3 dias',
+    regra: 'Atenção pessoal de Nathan/Yuri, sem terceirizar. Nunca deixar passar de 3 dias sem contato — "sem resposta" virar ligação, não só mensagem. Se parar de responder por 5+ dias, decidir: insiste mais uma vez ou marca como perdido com motivo (não deixa parado sem decisão).'
+  },
+  B:{
+    label:'B · Nutrição', color:'var(--blue)',
+    cadence: 'Follow-up semanal (a cada 7 dias)',
+    regra: 'Pode ser nutrição leve — compartilhar conteúdo/isca relevante em vez de abordagem direta toda hora. Reavaliar fit a cada 2-3 semanas: se continuar sem sinal de interesse real, rebaixar pra C.'
+  },
+  C:{
+    label:'C · Fit duvidoso', color:'var(--fg3)',
+    cadence: 'Contato pontual (mensal) ou nutrição passiva',
+    regra: 'Sem esforço ativo constante — prioridade é confirmar se há fit real (enriquecer dado) ou arquivar. Pode entrar só na nutrição passiva (grupo de MEI, conteúdo de Instagram) em vez de follow-up direto. Sem resposta em 30 dias → perdido com motivo, não fica parado indefinidamente.'
+  },
 };
 // Motivo de perda categorizado — texto livre não vira relatório. O
 // detalhe (lostDetail) continua livre, mas a categoria (lostReason)
@@ -3468,6 +3486,35 @@ function prioBadgeHtml(l){
   return '<span title="'+escAttr(prio.label)+(unconfirmed?' (sugerida, não confirmada)':'')+'" style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:'+prio.color+';color:#fff;font-size:10px;font-weight:700;flex-shrink:0;'+(unconfirmed?'box-shadow:0 0 0 2px var(--amber)':'')+'">'+l.priority+(unconfirmed?'?':'')+'</span>';
 }
 
+function prioRuleHtml(p){
+  const prio = LEAD_PRIORITY[p];
+  if(!prio) return '<div style="font-size:11px;color:var(--fg4)">Sem prioridade definida ainda — classifique pra ver a regra de cadência.</div>';
+  return '<div style="font-size:11px;color:var(--fg3);background:var(--bg3);border-radius:6px;padding:6px 8px;margin-top:4px">'+
+    '<strong style="color:var(--fg2)">⏱️ '+escHtml(prio.cadence)+'</strong><br>'+escHtml(prio.regra)+
+  '</div>';
+}
+function renderPrioRule(p){
+  const el = document.getElementById('ml_prio_rule');
+  if(el) el.innerHTML = prioRuleHtml(p);
+}
+// Painel fixo de referência no topo do Funil — as 3 regras sempre visíveis,
+// sem precisar abrir um lead pra lembrar qual é a cadência de cada uma.
+function renderFunilPrioRules(){
+  const el = document.getElementById('funilPrioRules');
+  if(!el) return;
+  el.innerHTML = '<div class="card"><div class="card-body" style="padding:10px 14px">'+
+    '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gold);margin-bottom:6px">📏 Regras de atendimento por prioridade</div>'+
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px">'+
+      Object.keys(LEAD_PRIORITY).map(p=>{
+        const prio=LEAD_PRIORITY[p];
+        return '<div style="font-size:11px;border-left:3px solid '+prio.color+';padding-left:8px">'+
+          '<strong>'+escHtml(prio.label)+'</strong><br>'+
+          '<span style="color:var(--fg3)">'+escHtml(prio.cadence)+'</span>'+
+        '</div>';
+      }).join('')+
+    '</div>'+
+  '</div></div>';
+}
 function getCheckCount(l){
   const done = LEAD_CHECKS.filter(c=>l.checklist&&l.checklist[c.id]).length;
   return done+'/'+LEAD_CHECKS.length;
@@ -3670,6 +3717,7 @@ function quickCheckLead(ev, id){
 
 function renderFunil(){
   leads = leads.map((l,i)=>normalizeLead(l,i));
+  renderFunilPrioRules();
   renderMetaReversa();
   renderFunilKpis();
   renderFunilConversao();
@@ -4123,10 +4171,11 @@ function buildLeadModal(l){
       '</div>'+
       '<div class="modal-field-group">'+
         '<label>Prioridade'+(l&&l.priority&&l.prioritySource==='ai'?' <span style="color:var(--amber);font-weight:400;font-size:10px">⚠️ sugerida — confira e salve pra confirmar</span>':'')+'</label>'+
-        '<select class="modal-input" id="ml_prio">'+
+        '<select class="modal-input" id="ml_prio" onchange="renderPrioRule(this.value)">'+
           '<option value="">— sem classificar —</option>'+
           Object.keys(LEAD_PRIORITY).map(p=>'<option value="'+p+'"'+(l&&l.priority===p?' selected':'')+'>'+LEAD_PRIORITY[p].label+'</option>').join('')+
         '</select>'+
+        '<div id="ml_prio_rule">'+prioRuleHtml(l?l.priority||'':'')+'</div>'+
       '</div>'+
     '</div>'+
     '<div class="modal-2col">'+
