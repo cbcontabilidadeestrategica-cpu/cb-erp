@@ -2593,7 +2593,7 @@ function removeChecklistItem(id, itemId) {
 function addChecklistItem(id) {
   const input = document.getElementById('operChecklistNewInput');
   const label = (input.value||'').trim();
-  if (!label) { input.focus(); return; }
+  if (!label) { flagRequiredField(input, 'Preencha o texto do item antes de adicionar.'); return; }
   const t = hojeTarefas.find(x=>x.id===id);
   if (!t) return;
   const items = ensureChecklistItems(t);
@@ -2645,7 +2645,7 @@ async function addOperDemanda() {
   const clienteVal = clienteSel.value;
   const tituloEl = document.getElementById('operQaTitulo');
   const titulo = (tituloEl.value||'').trim();
-  if (!titulo) { tituloEl.focus(); return; }
+  if (!titulo) { flagRequiredField(tituloEl, 'Preencha o título da demanda antes de adicionar.'); return; }
   const setor = document.getElementById('operQaSetor').value;
   const desc = (document.getElementById('operQaDesc').value||'').trim();
   const resp = document.getElementById('operQaResp').value;
@@ -4311,7 +4311,7 @@ function closeEsteiraModal(){
 }
 function saveEsteiraModal(){
   const titulo = (document.getElementById('me_titulo').value||'').trim();
-  if(!titulo){ document.getElementById('me_titulo').focus(); return; }
+  if(!titulo){ flagRequiredField(document.getElementById('me_titulo'), 'Preencha o título antes de salvar.'); return; }
   const degrau = parseInt(document.getElementById('me_degrau').value, 10);
   const tipo = document.getElementById('me_tipo').value;
   const status = document.getElementById('me_status').value;
@@ -4523,7 +4523,7 @@ function buildLeadModal(l){
 
 function saveLeadModal(){
   const name = (document.getElementById('ml_name').value||'').trim();
-  if(!name){ document.getElementById('ml_name').focus(); return; }
+  if(!name){ flagRequiredField(document.getElementById('ml_name'), 'Preencha o nome do lead antes de salvar.'); return; }
   const stage = document.getElementById('ml_stage').value;
   const _prevStageForAutomation = editingLeadId ? (leads.find(l=>l.id===editingLeadId)||{}).stage : null;
   const valor = (document.getElementById('ml_valor').value||'').trim();
@@ -5886,7 +5886,7 @@ function addModalObligFromCatalog(templateId){
 function addModalObligCustom(){
   const labelEl=document.getElementById('mc_oblig_c_label');
   const label=(labelEl.value||'').trim();
-  if(!label){ labelEl.focus(); return; }
+  if(!label){ flagRequiredField(labelEl, 'Preencha o nome da obrigação antes de adicionar.'); return; }
   const desc=(document.getElementById('mc_oblig_c_desc').value||'').trim();
   const setor=document.getElementById('mc_oblig_c_setor').value;
   const prazoDia=Math.min(31,Math.max(1,parseInt(document.getElementById('mc_oblig_c_prazo').value,10)||20));
@@ -5904,7 +5904,7 @@ function toggleModalObligDisabled(id, off){
 
 function saveClientModal(){
   const name=(document.getElementById('mc_name').value||'').trim();
-  if(!name){document.getElementById('mc_name').focus();return;}
+  if(!name){flagRequiredField(document.getElementById('mc_name'), 'Preencha o nome do cliente antes de salvar.');return;}
   const initials=(document.getElementById('mc_initials').value||'').trim().toUpperCase().slice(0,3)||name.slice(0,2).toUpperCase();
   const regime=document.getElementById('mc_regime').value;
   const mensalidade=parseFloat(document.getElementById('mc_mensalidade').value)||0;
@@ -6104,6 +6104,19 @@ function renderRadarDemandas(){
 /* ═══════════════════════════════════════════════
    TOAST NOTIFICATIONS
 ═══════════════════════════════════════════════ */
+// Validação de "campo obrigatório vazio" que não deixa o clique em salvar
+// parecer que não fez nada — achado real, o mesmo bug em 6 formulários
+// diferentes do hub (demanda avulsa, item de checklist, esteira comercial,
+// lead, obrigação customizada, cliente): todos só devolviam o foco pro
+// campo, sem toast nem destaque nenhum. Pra quem clica "Adicionar"/"Salvar"
+// e nada parece acontecer, a conclusão natural é "o botão está quebrado".
+function flagRequiredField(el, msg) {
+  if (!el) return;
+  el.focus();
+  el.style.borderColor = 'var(--red)';
+  setTimeout(()=>{ el.style.borderColor=''; }, 1800);
+  showToast('⚠ ' + msg, 'err');
+}
 function showToast(msg, type='ok', duration=2800) {
   const container = document.getElementById('toastContainer');
   if (!container) return;
