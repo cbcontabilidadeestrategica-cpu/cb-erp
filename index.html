@@ -2851,16 +2851,30 @@ function paintOperacao() {
     { label:'🔴 Atrasadas',             test:t=>isAtrasado(t)&&!(t.sop&&t.sop.atraso_cliente) },
     { label:'🟠 Hoje',                  test:t=>!isAtrasado(t)&&!(t.sop&&t.sop.atraso_cliente)&&prazoInfo(t.prazo).dd===0 },
     { label:'🟡 Próximos 7 dias',       test:t=>!isAtrasado(t)&&!(t.sop&&t.sop.atraso_cliente)&&prazoInfo(t.prazo).dd>=1&&prazoInfo(t.prazo).dd<=7 },
-    { label:'⚪ Mais adiante',          test:t=>!isAtrasado(t)&&!(t.sop&&t.sop.atraso_cliente)&&!!t.prazo&&prazoInfo(t.prazo).dd>=8 },
+    { label:'⚪ Próximas (8–20 dias)',  test:t=>!isAtrasado(t)&&!(t.sop&&t.sop.atraso_cliente)&&!!t.prazo&&prazoInfo(t.prazo).dd>=8&&prazoInfo(t.prazo).dd<=20 },
     { label:'⚫ Sem prazo definido',    test:t=>!t.prazo&&!(t.sop&&t.sop.atraso_cliente) },
   ];
   const buckets = grupos.map(g => ({ ...g, items: listFiltradas.filter(g.test) }));
-  listaEl.innerHTML = buckets.filter(b=>b.items.length).map(b =>
+  const bucketsHtml = buckets.filter(b=>b.items.length).map(b =>
     `<div class="hoje-group">
       <div class="hoje-group-hd"><span class="hoje-group-label">${b.label}</span><span class="hoje-group-count">${b.items.length}</span></div>
       ${b.items.map(renderOperItem).join('')}
     </div>`
-  ).join('') || '<p style="padding:16px;color:var(--fg2)">Nenhum item encontrado com esse filtro.</p>';
+  ).join('');
+  // "Futuras" (+20 dias) é o motivo real da poluição (obrigação do mês
+  // seguinte e CS recorrente pré-materializado, às vezes meses na frente) —
+  // fica fora do array de grupos normal porque, ao contrário dos outros,
+  // não aparece expandida por padrão: só contagem + um clique pra abrir.
+  const futuras = listFiltradas.filter(t=>!isAtrasado(t)&&!(t.sop&&t.sop.atraso_cliente)&&!!t.prazo&&prazoInfo(t.prazo).dd>20);
+  const futurasHtml = !futuras.length ? '' :
+    `<div class="hoje-group">
+      <div class="hoje-group-hd" style="cursor:pointer" onclick="toggleOperFuturas()">
+        <span class="hoje-group-label">🔵 Futuras (+20 dias)</span><span class="hoje-group-count">${futuras.length}</span>
+        <span style="margin-left:auto;font-size:11px;font-weight:600;color:var(--fg2)">${operFuturasExpanded?'▲ ocultar':'▼ mostrar'}</span>
+      </div>
+      ${operFuturasExpanded ? futuras.map(renderOperItem).join('') : ''}
+    </div>`;
+  listaEl.innerHTML = (bucketsHtml + futurasHtml) || '<p style="padding:16px;color:var(--fg2)">Nenhum item encontrado com esse filtro.</p>';
 
   // Kanban: 1ª coluna é "Atraso do cliente" — transversal aos status (um
   // item esperando o cliente pode estar pendente, em andamento ou em
@@ -2883,9 +2897,23 @@ function paintOperacao() {
     const colsStatus = OPER_STATUS_ORDER.map(key => {
       const items = base.filter(t=>t.status===key && !(key!=='concluido' && idsCliente.has(t.id)));
       const hiddenHere = key === 'concluido' && operFilterOcultarConcl;
-      const cardsHtml = hiddenHere
-        ? '<div class="dem-kan-empty">🙈 '+items.length+' oculta'+(items.length===1?'':'s')+' — desmarque "Ocultar concluídas" pra ver</div>'
-        : (items.map(renderOperKanbanCard).join('')||'<div class="dem-kan-empty">Vazio</div>');
+      let cardsHtml;
+      if (hiddenHere) {
+        cardsHtml = '<div class="dem-kan-empty">🙈 '+items.length+' oculta'+(items.length===1?'':'s')+' — desmarque "Ocultar concluídas" pra ver</div>';
+      } else {
+        // Mesmo corte de 20 dias da lista (ver operFuturasExpanded) — sem
+        // isso, a coluna "Pendente" vira um arquivo morto de obrigação do
+        // mês seguinte e CS recorrente de meses na frente, escondendo o
+        // que é pra trabalhar agora no meio do que ainda nem chegou.
+        const perto = items.filter(t=>isAtrasado(t)||!t.prazo||prazoInfo(t.prazo).dd<=20);
+        const futurosCol = items.filter(t=>!isAtrasado(t)&&!!t.prazo&&prazoInfo(t.prazo).dd>20);
+        cardsHtml = perto.map(renderOperKanbanCard).join('');
+        if (futurosCol.length) {
+          cardsHtml += '<div class="dem-kan-empty" style="cursor:pointer;font-style:normal;font-weight:600;color:var(--fg2)" onclick="toggleOperFuturas()">'+(operFuturasExpanded?'▲ ocultar':'▼ mostrar')+' '+futurosCol.length+' futura'+(futurosCol.length===1?'':'s')+' (+20d)</div>';
+          if (operFuturasExpanded) cardsHtml += futurosCol.map(renderOperKanbanCard).join('');
+        }
+        if (!cardsHtml) cardsHtml = '<div class="dem-kan-empty">Vazio</div>';
+      }
       return '<div class="dem-kan-col" style="border-top:3px solid '+OPER_STATUS_COLOR[key]+'">'+
         '<div class="dem-kan-header"><span class="dem-kan-title" style="color:'+OPER_STATUS_COLOR[key]+'">'+OPER_STATUS_LABEL[key]+'</span><span class="dem-kan-count" style="color:'+OPER_STATUS_COLOR[key]+'">'+items.length+'</span></div>'+
         '<div class="dem-kan-cards" ondragover="event.preventDefault()" ondrop="operDropOnCol(event,\''+key+'\')">'+cardsHtml+'</div>'+
@@ -3092,6 +3120,15 @@ let fecYear, fecMonth, igYear, igMonth, igSelectedDate = null, igView = 'cal';
 // modo de visualização, filtros e item aberto no momento.
 let operView = 'lista'; // 'lista' | 'kanban'
 let operFilterSetor = '', operFilterResp = '', operFilterStatus = '', operFilterTipo = '', operFilterAtraso = false, operFilterOcultarConcl = true;
+// Itens com prazo a mais de 20 dias (obrigação do próximo mês já
+// materializada, CS recorrente trimestral/semestral pré-criado pra não
+// esquecer) ficam recolhidos por padrão tanto na lista quanto no Kanban —
+// achado real: eles poluíam a visão do dia a dia, misturados com o que
+// vence em 9 dias. Nada é apagado, só começa escondido; esse flag é
+// compartilhado entre as duas visões (um clique em qualquer uma abre as
+// duas, pra não ter dois estados "futuras" diferentes pra lembrar).
+let operFuturasExpanded = false;
+function toggleOperFuturas() { operFuturasExpanded = !operFuturasExpanded; paintOperacao(); }
 let openOperTarefaId = null;
 let editingIgEventId = null, igWeekStart = null;
 let finYear, finMonth;
