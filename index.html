@@ -1697,7 +1697,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
     <button class="btn-primary" id="funilNewLeadBtn" onclick="openNewLeadModal()" style="padding:10px 18px;flex-shrink:0">+ Novo Lead</button>
   </div>
 
-  <div id="funilPrioRules" style="margin-bottom:12px"></div>
+  <div id="funilPrioRules" style="margin-bottom:8px"></div>
   <div id="funilMetaReversa" style="margin-bottom:12px"></div>
   <div id="funilKpiBar" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px"></div>
   <div id="funilConversao"></div>
@@ -3497,13 +3497,27 @@ function renderPrioRule(p){
   const el = document.getElementById('ml_prio_rule');
   if(el) el.innerHTML = prioRuleHtml(p);
 }
-// Painel fixo de referência no topo do Funil — as 3 regras sempre visíveis,
-// sem precisar abrir um lead pra lembrar qual é a cadência de cada uma.
+// Referência de regras por prioridade no Funil — fica recolhida por padrão
+// (só um link discreto) pra não ocupar espaço fixo toda vez que a aba abre.
+// A regra em si continua sempre visível onde importa: dentro do modal do
+// lead, junto ao seletor de prioridade (ver prioRuleHtml/renderPrioRule).
+let funilPrioRulesOpen = false;
+function toggleFunilPrioRules(){
+  funilPrioRulesOpen = !funilPrioRulesOpen;
+  renderFunilPrioRules();
+}
 function renderFunilPrioRules(){
   const el = document.getElementById('funilPrioRules');
   if(!el) return;
+  if(!funilPrioRulesOpen){
+    el.innerHTML = '<div style="font-size:11px;color:var(--fg3);cursor:pointer;display:inline-block;margin-bottom:2px" onclick="toggleFunilPrioRules()">📏 Regras de atendimento por prioridade (A/B/C) ▾</div>';
+    return;
+  }
   el.innerHTML = '<div class="card"><div class="card-body" style="padding:10px 14px">'+
-    '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gold);margin-bottom:6px">📏 Regras de atendimento por prioridade</div>'+
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;cursor:pointer" onclick="toggleFunilPrioRules()">'+
+      '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gold)">📏 Regras de atendimento por prioridade</div>'+
+      '<div style="font-size:11px;color:var(--fg3)">▴ recolher</div>'+
+    '</div>'+
     '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px">'+
       Object.keys(LEAD_PRIORITY).map(p=>{
         const prio=LEAD_PRIORITY[p];
