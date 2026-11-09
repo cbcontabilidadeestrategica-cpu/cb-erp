@@ -323,7 +323,11 @@ body{
 }
 
 /* ─── MAIN ─── */
-main{flex:1;padding:14px 20px 28px;max-width:1040px;width:100%;margin:0 auto}
+/* 1040px deixava muita sobra nas laterais em telas largas, espremendo o
+   Kanban do Funil pra um corredor estreito no meio — 1 webcam/notebook
+   grande já sofre com isso. 1480px aproveita a tela sem esticar demais um
+   texto corrido (cards/kanban têm sua própria largura máxima interna). */
+main{flex:1;padding:14px 28px 28px;max-width:1480px;width:100%;margin:0 auto}
 @media(max-width:480px){main{padding:10px 12px 20px}}
 .tab-panel{display:none}
 .tab-panel.active{display:block;animation:fadeUp .2s ease}
@@ -3591,19 +3595,38 @@ function renderMetaReversa(){
   const leadsNecessariosSuper = faltamSuper>0 ? Math.ceil(faltamSuper/winRateEstimado) : 0;
   const porSemanaSuper = Math.ceil(leadsNecessariosSuper/semanasRestantes);
 
-  let html = '<div class="pb-reality">📊 <strong>'+metaMes.label+'</strong> — '+diasRestantes+' dias restantes. ';
-  html += faltamMeta===0
-    ? 'Meta mínima de '+metaMes.meta+' clientes batida ('+wonClientesMes+'). '
-    : 'Meta mínima: <strong>'+wonClientesMes+'/'+metaMes.meta+'</strong> clientes (faltam '+faltamMeta+'). ';
-  html += faltamSuper===0
-    ? 'Super meta de '+metaMes.super+' batida! 🎉 '
-    : 'Super meta: <strong>'+wonClientesMes+'/'+metaMes.super+'</strong> — com conversão '+(usouEstimativa?'estimada':'real')+' de ~'+Math.round(winRateEstimado*100)+'%, faltam ~<strong>'+leadsNecessariosSuper+' leads</strong> fechando (~'+porSemanaSuper+'/semana). ';
-  html += faltaParceiro===0
-    ? '🤝 Meta de parceiro do mês batida!'
-    : '🤝 Parceiro: '+wonParceirosMes+'/'+metaMes.parceiro+' fechado.';
-  if(usouEstimativa) html += ' <span style="opacity:.75">(ainda sem 3 fechamentos reais de cliente pra calcular a taxa de verdade.)</span>';
-  html += '</div>';
-  el.innerHTML = html;
+  // Visual na identidade da CB (navy + dourado, mesmo hero da aba Início)
+  // em vez do antigo parágrafo corrido num bloco âmbar.
+  const stat = (done, total, label, doneBadge) => (
+    '<div style="text-align:center;min-width:76px">'+
+      '<div style="font-size:24px;font-weight:900;color:#fff;font-variant-numeric:tabular-nums">'+done+'<span style="font-size:13px;color:rgba(255,255,255,.5)">/'+total+'</span></div>'+
+      '<div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gold3)">'+label+(done>=total?' '+doneBadge:'')+'</div>'+
+    '</div>'
+  );
+  let detailLine = '';
+  if(faltamSuper>0){
+    detailLine = 'Conversão '+(usouEstimativa?'estimada':'real')+' ~'+Math.round(winRateEstimado*100)+'% → faltam ~'+leadsNecessariosSuper+' leads fechando (~'+porSemanaSuper+'/semana) pra super meta.';
+  } else if(faltamMeta>0) {
+    detailLine = 'Meta mínima ainda não batida — faltam '+faltamMeta+' cliente'+(faltamMeta>1?'s':'')+'.';
+  } else {
+    detailLine = 'Super meta do mês batida! 🎉';
+  }
+  if(usouEstimativa) detailLine += ' <span style="opacity:.7">(sem 3 fechamentos reais ainda pra taxa de verdade.)</span>';
+  el.innerHTML =
+    '<div class="radar-hero" style="padding:14px 20px;margin-bottom:0">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;position:relative">'+
+        '<div>'+
+          '<div class="radar-day-label">📊 META REVERSA — '+escHtml(metaMes.label)+'</div>'+
+          '<div style="font-size:12px;color:rgba(255,255,255,.65);margin-top:2px">'+diasRestantes+' dias restantes no mês</div>'+
+        '</div>'+
+        '<div style="display:flex;gap:16px;position:relative">'+
+          stat(wonClientesMes, metaMes.meta, 'Meta mínima', '✅')+
+          stat(wonClientesMes, metaMes.super, 'Super meta', '🎉')+
+          stat(wonParceirosMes, metaMes.parceiro, '🤝 Parceiro', '✅')+
+        '</div>'+
+      '</div>'+
+      '<div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:10px;position:relative">'+detailLine+'</div>'+
+    '</div>';
 }
 
 // Motivo de perda agregado — o campo já existia (categorizado no modal),
