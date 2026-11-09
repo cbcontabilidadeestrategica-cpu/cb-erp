@@ -2428,7 +2428,7 @@ async function renderOperacao() {
   try {
     const { data, error } = await withTimeout(
       sb.from('tarefa')
-        .select('id,cliente_id,cliente_nome,legacy_id,setor,tipo,titulo,descricao,responsavel,prazo,status,valor,sop,created_at,cliente:cliente_id(nome,iniciais)')
+        .select('id,cliente_id,cliente_nome,legacy_id,setor,tipo,origem,titulo,descricao,responsavel,prazo,status,valor,sop,created_at,cliente:cliente_id(nome,iniciais)')
         .order('prazo', { ascending: true, nullsFirst: false })
         .limit(1000),
       10000, 'renderOperacao'
@@ -2582,7 +2582,7 @@ async function addOperDemanda() {
   if (btn) { btn.disabled = true; btn.textContent = 'Adicionando…'; }
   try {
     const { data, error } = await withTimeout(
-      sb.from('tarefa').insert(row).select('id,cliente_id,cliente_nome,legacy_id,setor,tipo,titulo,descricao,responsavel,prazo,status,valor,sop,created_at,cliente:cliente_id(nome,iniciais)').single(),
+      sb.from('tarefa').insert(row).select('id,cliente_id,cliente_nome,legacy_id,setor,tipo,origem,titulo,descricao,responsavel,prazo,status,valor,sop,created_at,cliente:cliente_id(nome,iniciais)').single(),
       10000, 'addOperDemanda'
     );
     if (error) throw error;
