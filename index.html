@@ -1523,6 +1523,9 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
     <div id="radarFecAlert" style="display:none;margin-top:8px;background:rgba(220,38,38,.1);border-left:3px solid var(--red);border-radius:6px;padding:7px 12px;font-size:12px;color:var(--red);font-weight:600"></div>
   </div>
 
+  <div class="section-label" style="margin-top:4px">📣 AÇÃO COMERCIAL HOJE</div>
+  <div id="radarComercialHoje"></div>
+
   <div class="radar-split">
     <div>
       <div class="section-label">🔴 OBRIGAÇÕES PRÓXIMAS</div>
@@ -1674,139 +1677,18 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
     <button class="btn-primary" id="funilNewLeadBtn" onclick="openNewLeadModal()" style="padding:10px 18px;flex-shrink:0">+ Novo Lead</button>
   </div>
 
-  <div class="ig-view-toggle">
-    <button class="ig-view-btn active" id="funilBtnKanban" onclick="setFunilView('kanban')">🎯 Kanban</button>
-    <button class="ig-view-btn" id="funilBtnQualif" onclick="setFunilView('qualif')">🏷️ Qualificação</button>
-    <button class="ig-view-btn" id="funilBtnPlaybook" onclick="setFunilView('playbook')">📘 Playbook Comercial</button>
+  <div id="funilKpiBar" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px"></div>
+  <div id="funilConversao"></div>
+
+  <div class="qf-filters" style="margin-bottom:12px">
+    <button class="qf-filter-btn active" id="funilPrioBtnAll" onclick="setFunilPrioFilter('all')">Todos</button>
+    <button class="qf-filter-btn" id="funilPrioBtnA" onclick="setFunilPrioFilter('A')">🟡 A · Prioritário</button>
+    <button class="qf-filter-btn" id="funilPrioBtnB" onclick="setFunilPrioFilter('B')">🔵 B · Nutrição</button>
+    <button class="qf-filter-btn" id="funilPrioBtnC" onclick="setFunilPrioFilter('C')">⚪ C · Fit duvidoso</button>
+    <button class="qf-filter-btn" id="funilPrioBtnOverdue" onclick="setFunilPrioFilter('overdue')">⚠️ Atrasados</button>
   </div>
 
-  <div id="funilKanbanView">
-    <div id="funilKpiBar" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px"></div>
-    <div id="funilConversao"></div>
-    <div class="kanban-board" id="kanbanBoard"></div>
-  </div>
-
-  <div id="funilQualifView" style="display:none">
-    <p class="page-sub" style="margin-bottom:12px">Registro de qualificação — classifique por A/B/C e veja quem precisa de mais interação ou follow-up. Leads fechados/perdidos não aparecem aqui.</p>
-    <div class="qf-filters">
-      <button class="qf-filter-btn active" id="qfBtnAll" onclick="setQualifFilter('all')">Todos</button>
-      <button class="qf-filter-btn" id="qfBtnA" onclick="setQualifFilter('A')">🟡 A · Prioritário</button>
-      <button class="qf-filter-btn" id="qfBtnB" onclick="setQualifFilter('B')">🔵 B · Nutrição</button>
-      <button class="qf-filter-btn" id="qfBtnC" onclick="setQualifFilter('C')">⚪ C · Fit duvidoso</button>
-      <button class="qf-filter-btn" id="qfBtnNone" onclick="setQualifFilter('none')">Sem classificação</button>
-    </div>
-    <div class="card" id="qualifList" style="padding:0"></div>
-  </div>
-
-  <div id="funilPlaybookView" style="display:none">
-
-    <div class="pb-reality">
-      📊 <strong>Checagem de realidade (atualizado 07/11/2026):</strong> faltam 15 clientes até dezembro/2026. Com a conversão atual (2-3 leads fecham 1 cliente, ~35-50%), isso exige ~15-22 leads/mês — hoje o volume é de 5-10/mês (majoritariamente indicação). O Módulo Instagram abaixo é a primeira ação pra aumentar esse volume.
-    </div>
-
-    <div class="section-label">🧭 ICP E PERSONAS</div>
-    <details class="pb-acc">
-      <summary>Perfil de Cliente Ideal (ICP)</summary>
-      <div class="pb-body">
-        <table class="pb-table">
-          <tr><th>Critério</th><th>O que olhar</th></tr>
-          <tr><td>Regime</td><td>Simples Nacional (maioria) · Lucro Presumido · Imune/3º Setor</td></tr>
-          <tr><td>Porte</td><td>PME local (Natal/RN) — do MEI que estourou o teto ao pequeno/médio com folha ativa</td></tr>
-          <tr><td>Sinal de prioridade</td><td>Trocando de contador · abrindo CNPJ · contratando o 1º funcionário · autuação/pendência fiscal</td></tr>
-          <tr><td>Dor típica</td><td>Contador que só entrega guia · atraso/erro em obrigação · falta de relatório gerencial</td></tr>
-          <tr><td>Exclusão</td><td>Sem intenção real de regularizar · zero abertura a processo · fit duvidoso</td></tr>
-        </table>
-        <p style="margin-top:10px;font-size:12px;color:var(--fg3)"><strong>Checklist antes do 1º contato:</strong> sei por que esse lead pode se importar com a CB? Tenho sinal verificável (não inventado)? Sei exatamente o que vou perguntar?</p>
-      </div>
-    </details>
-    <details class="pb-acc">
-      <summary>Personas (perfis de decisor)</summary>
-      <div class="pb-body">
-        <table class="pb-table">
-          <tr><th>Persona</th><th>Dor central</th><th>Argumento mais eficaz</th></tr>
-          <tr><td>Dono de pequena empresa</td><td>Não tem tempo pra olhar números</td><td>Mostrar o que o relatório gerencial revela que a guia não revela</td></tr>
-          <tr><td>Iniciando (abrindo CNPJ)</td><td>Medo de errar</td><td>Posicionar como prevenção de custo (multa), não despesa</td></tr>
-          <tr><td>Desorganizado financeiramente</td><td>Não sabe quanto lucra</td><td>Perguntar o custo de continuar sem saber (SPIN — Implicação)</td></tr>
-          <tr><td>Insatisfeito com contador atual</td><td>Atraso, erro, falta de atenção</td><td>Processo de transição guiado pela CB, sem atrito</td></tr>
-          <tr><td>Quer crescer</td><td>Decisões no escuro</td><td>Postura consultiva + exemplo de decisão apoiada em número real</td></tr>
-        </table>
-      </div>
-    </details>
-
-    <div class="section-label" style="margin-top:22px">🧩 PROCESSO PASSO A PASSO</div>
-    <details class="pb-acc">
-      <summary>1. SDR — Captação e Qualificação</summary>
-      <div class="pb-body">
-        <div class="pb-step"><div class="pb-step-num">1</div><div><strong>Inbound:</strong> lead chega (indicação, Instagram, WhatsApp) → registrar no CRM com origem → responder no menor tempo possível.</div></div>
-        <div class="pb-step"><div class="pb-step-num">2</div><div><strong>Outbound:</strong> encontrar empresa compatível com ICP → pesquisar regime/porte/sinais → identificar decisor → abordar de forma natural, nunca genérica.</div></div>
-        <div class="pb-step"><div class="pb-step-num">3</div><div><strong>Qualificar (BANT):</strong> Necessidade real? Autoridade (é quem decide)? Capacidade financeira? Momento/urgência agora?</div></div>
-        <div class="pb-step"><div class="pb-step-num">4</div><div><strong>Passagem pro diagnóstico:</strong> só avançar com fit de ICP confirmado + dor real + decisor identificado. Registrar tudo no CRM antes de agendar.</div></div>
-        <div class="post-hook" style="margin-top:10px">💬 <strong>Script de qualificação:</strong> "Pra eu te ajudar certo, posso te fazer duas perguntas rápidas? Hoje como vocês cuidam da parte fiscal/contábil, e o que fez vocês pensarem em mudar/buscar ajuda agora?"</div>
-      </div>
-    </details>
-    <details class="pb-acc">
-      <summary>2. Diagnóstico Comercial — SPIN Selling</summary>
-      <div class="pb-body">
-        <table class="pb-table">
-          <tr><th>Etapa</th><th>Pergunta adaptada</th></tr>
-          <tr><td><strong>S</strong>ituação</td><td>"Como funciona hoje a gestão contábil/financeira da empresa?"</td></tr>
-          <tr><td><strong>P</strong>roblema</td><td>"Onde você sente mais dificuldade ou insegurança hoje?"</td></tr>
-          <tr><td><strong>I</strong>mplicação</td><td>"Se isso continuar assim, o que isso custa pra você — em dinheiro, tempo ou risco?"</td></tr>
-          <tr><td><strong>N</strong>ecessidade</td><td>"Se você tivesse [relatório claro/previsibilidade], o que mudaria na forma como decide?"</td></tr>
-        </table>
-        <p style="margin-top:10px"><strong>Roteiro:</strong> preparação → abertura/rapport → alinhamento de expectativas → investigação (SPIN) → recapitulação → encaminhar pra proposta.</p>
-        <div class="post-hook" style="margin-top:10px">💬 <strong>Recapitulação (sempre nesta ordem):</strong> 1) Resuma a dor nas palavras do cliente. 2) "É isso mesmo, ou tem algo que deixei de fora?" 3) Só então apresente o pacote recomendado.</div>
-      </div>
-    </details>
-    <details class="pb-acc">
-      <summary>3. Closer — Apresentação, Proposta, Negociação, Fechamento</summary>
-      <div class="pb-body">
-        <div class="pb-step"><div class="pb-step-num">1</div><div><strong>Apresentação:</strong> conectar problema→solução, só o(s) serviço(s) relevante(s) — nunca o "menu completo".</div></div>
-        <div class="pb-step"><div class="pb-step-num">2</div><div><strong>Proposta:</strong> escopo claro, honorário, condições de pagamento, prazo de início.</div></div>
-        <div class="pb-step"><div class="pb-step-num">3</div><div><strong>Negociação:</strong> investigar objeção antes de rebater, argumentar com base no diagnóstico (não desconto).</div></div>
-        <div class="pb-step"><div class="pb-step-num">4</div><div><strong>Fechamento:</strong> pedir a decisão diretamente, formalizar contrato, confirmar contratação.</div></div>
-        <div class="pb-step"><div class="pb-step-num">5</div><div><strong>Follow-up:</strong> nunca deixar "sem resposta" aberto — avança, recua ou marca como perdida com motivo.</div></div>
-        <div class="post-hook" style="margin-top:10px">💬 <strong>Fechamento sem pressão:</strong> "O que ainda falta pra vocês decidirem? Tem mais alguém envolvido na decisão? Faz sentido eu confirmar isso até [data]?"</div>
-      </div>
-    </details>
-
-    <div class="section-label" style="margin-top:22px">📸 MÓDULO INSTAGRAM — GERAÇÃO DE LEADS</div>
-    <details class="pb-acc" open>
-      <summary>Ganchos de conteúdo prontos</summary>
-      <div class="pb-body">
-        <div class="post-hook" style="margin-bottom:8px">"Isso aqui já causou multa em 3 clientes que atendi este ano."</div>
-        <div class="post-hook" style="margin-bottom:8px">"Sua contabilidade te avisa ANTES de acontecer, ou só depois que já aconteceu?"</div>
-        <div class="post-hook" style="margin-bottom:8px">"O erro mais comum de quem abre CNPJ e não sabe que tá cometendo."</div>
-        <div class="post-hook" style="margin-bottom:8px">"Bastidor: como ajudamos um cliente a economizar enxergando o regime certo."</div>
-        <div class="post-hook">"Você sabe quanto realmente lucra todo mês? A maioria dos donos de empresa não sabe."</div>
-      </div>
-    </details>
-    <details class="pb-acc" open>
-      <summary>Script de DM (prospecção ativa leve)</summary>
-      <div class="pb-body">
-        <div class="post-hook">"Oi [nome]! Vi [post/comentário/perfil da empresa] e fiquei curioso sobre como vocês tão lidando com [tema específico]. Trabalho com contabilidade consultiva aqui em Natal, não é pra vender nada agora — só queria entender o que vocês já têm resolvido e o que ainda pesa. Topa trocar uma ideia rápida?"</div>
-      </div>
-    </details>
-    <details class="pb-acc" open>
-      <summary>Checklist — primeiros 14 dias</summary>
-      <div class="pb-body" id="pbChecklist"></div>
-    </details>
-
-    <div class="section-label" style="margin-top:22px">📈 INDICADORES</div>
-    <details class="pb-acc">
-      <summary>Indicadores por fase do funil</summary>
-      <div class="pb-body">
-        <table class="pb-table">
-          <tr><th>Fase</th><th>Indicadores</th></tr>
-          <tr><td>Prospecção</td><td>Leads pesquisados · captados · abordagens · taxa de resposta</td></tr>
-          <tr><td>Qualificação</td><td>Leads qualificados · reuniões agendadas · taxa de comparecimento</td></tr>
-          <tr><td>Fechamento</td><td>Propostas apresentadas · taxa de conversão · ticket médio · tempo médio de fechamento</td></tr>
-          <tr><td>Gestão</td><td>Oportunidades em aberto · motivos de perda · follow-ups pendentes · previsão de vendas</td></tr>
-        </table>
-      </div>
-    </details>
-
-  </div>
+  <div class="kanban-board" id="kanbanBoard"></div>
 </section>
 
 <!-- ═══ CLIENTES ═══ -->
@@ -1948,7 +1830,7 @@ async function showApp(user) {
   const renders = [
     ['initState',initState],['initTheme',initTheme],['initSidebar',initSidebar],
     ['renderMetaBanner',renderMetaBanner],['renderRadar',renderRadar],['renderRadarDemandas',renderRadarDemandas],
-    ['renderFunil',renderFunil],['renderPbChecklist',renderPbChecklist],['renderQualifList',renderQualifList],['renderFinanceiro',renderFinanceiro],
+    ['renderFunil',renderFunil],['renderComercialHoje',renderComercialHoje],['renderFinanceiro',renderFinanceiro],
     ['renderClientes',renderClientes],['renderClientDefaults',renderClientDefaults],['renderObligationTemplates',renderObligationTemplates],
   ];
   renders.forEach(([name,fn])=>{ try{ fn(); } catch(e){ console.error('Falha ao renderizar '+name+':', e); } });
@@ -3559,6 +3441,20 @@ function renderFunilConversao(){
     '</div>';
 }
 
+// Filtro de prioridade/atraso direto no Kanban — substitui a antiga aba
+// separada "Qualificação". Em vez de ter que ir a outro lugar pra ver quem
+// precisa de atenção, o próprio Kanban se filtra.
+let funilPrioFilter = 'all';
+function setFunilPrioFilter(f){
+  funilPrioFilter = f;
+  const map = {all:'funilPrioBtnAll', A:'funilPrioBtnA', B:'funilPrioBtnB', C:'funilPrioBtnC', overdue:'funilPrioBtnOverdue'};
+  Object.keys(map).forEach(k=>{
+    const btn = document.getElementById(map[k]);
+    if(btn) btn.classList.toggle('active', k===f);
+  });
+  renderFunil();
+}
+
 let draggingLeadId = null;
 function dragLeadStart(ev, id){ draggingLeadId = id; try{ ev.dataTransfer.effectAllowed='move'; }catch(e){} }
 // Lógica de mudança de estágio compartilhada entre o drag-and-drop e o
@@ -3626,8 +3522,11 @@ function renderFunil(){
   renderFunilConversao();
   const board = document.getElementById('kanbanBoard');
   if(!board) return;
+  const todayStr0 = new Date().toISOString().slice(0,10);
   board.innerHTML = STAGE_ORDER.map(stage=>{
-    const cols = leads.filter(l=>l.stage===stage);
+    let cols = leads.filter(l=>l.stage===stage);
+    if(funilPrioFilter==='A'||funilPrioFilter==='B'||funilPrioFilter==='C') cols = cols.filter(l=>l.priority===funilPrioFilter);
+    else if(funilPrioFilter==='overdue') cols = cols.filter(l=>l.followUpDate && l.followUpDate<todayStr0);
     const cards = cols.map(l=>{
       const dot = STAGE_DOT[stage]||'var(--fg3)';
       const chk = getCheckCount(l);
@@ -3669,71 +3568,15 @@ function renderFunil(){
       '<div class="kanban-col-body" ondragover="event.preventDefault()" ondrop="dropLeadOnStage(event,\''+stage+'\')">'+(cards||'<div class="kanban-empty">Vazio</div>')+'</div>'+
     '</div>';
   }).join('');
+  try{ renderComercialHoje(); }catch(e){ console.error('Falha ao renderizar Ação Comercial Hoje:', e); }
 }
 
-/* ─── FUNIL: toggle Kanban / Playbook ─── */
-function setFunilView(v){
-  document.getElementById('funilKanbanView').style.display = v==='kanban' ? '' : 'none';
-  document.getElementById('funilQualifView').style.display = v==='qualif' ? '' : 'none';
-  document.getElementById('funilPlaybookView').style.display = v==='playbook' ? '' : 'none';
-  document.getElementById('funilBtnKanban').classList.toggle('active', v==='kanban');
-  document.getElementById('funilBtnQualif').classList.toggle('active', v==='qualif');
-  document.getElementById('funilBtnPlaybook').classList.toggle('active', v==='playbook');
-  document.getElementById('funilNewLeadBtn').style.display = v==='kanban' ? '' : 'none';
-  if(v==='playbook') renderPbChecklist();
-  if(v==='qualif') renderQualifList();
-}
-
-/* ─── FUNIL: registro de qualificação (A/B/C) ─── */
-let qualifFilter = 'all';
-function setQualifFilter(f){
-  qualifFilter = f;
-  const map = {all:'qfBtnAll', A:'qfBtnA', B:'qfBtnB', C:'qfBtnC', none:'qfBtnNone'};
-  Object.keys(map).forEach(k=>{
-    const btn = document.getElementById(map[k]);
-    if(btn) btn.classList.toggle('active', k===f);
-  });
-  renderQualifList();
-}
-function setLeadPriorityQuick(id, val){
-  const l = getLeadById(id);
-  if(!l) return;
-  l.priority = val;
-  save('cb3_leads', leads);
-  renderQualifList();
-  renderFunil();
-}
-function renderQualifList(){
-  const el = document.getElementById('qualifList');
-  if(!el) return;
-  const todayStr = new Date().toISOString().slice(0,10);
-  const order = { A:0, B:1, C:2, '':3 };
-  let list = leads.filter(l=>l.stage!=='won'&&l.stage!=='lost');
-  if(qualifFilter==='none') list = list.filter(l=>!l.priority);
-  else if(qualifFilter!=='all') list = list.filter(l=>l.priority===qualifFilter);
-  list = list.slice().sort((a,b)=>{
-    const ao = (a.followUpDate && a.followUpDate<todayStr) ? 0 : 1;
-    const bo = (b.followUpDate && b.followUpDate<todayStr) ? 0 : 1;
-    if(ao!==bo) return ao-bo;
-    const ap = order[a.priority||''], bp = order[b.priority||''];
-    if(ap!==bp) return ap-bp;
-    return new Date(a.stageChangedAt||a.createdAt||0) - new Date(b.stageChangedAt||b.createdAt||0);
-  });
-  if(!list.length){ el.innerHTML = '<div class="qf-empty">Nenhum lead nessa categoria.</div>'; return; }
-  el.innerHTML = list.map(l=>{
-    const chk = getCheckCount(l);
-    const fuOverdue = l.followUpDate && l.followUpDate < todayStr;
-    return '<div class="qf-row">'+
-      '<select class="qf-prio-select" onclick="event.stopPropagation()" onchange="setLeadPriorityQuick(\''+escAttr(l.id)+'\',this.value)">'+
-        '<option value=""'+(!l.priority?' selected':'')+'>—</option>'+
-        Object.keys(LEAD_PRIORITY).map(p=>'<option value="'+p+'"'+(l.priority===p?' selected':'')+'>'+p+'</option>').join('')+
-      '</select>'+
-      '<div class="qf-name" onclick="openLeadModal(\''+escAttr(l.id)+'\')">'+escHtml(l.name)+'<div class="qf-meta">'+(STAGE_LABELS[l.stage]||l.stage)+' · '+chk+' atividades</div></div>'+
-      '<div class="qf-next'+(fuOverdue?' overdue':'')+'">'+(fuOverdue?'⚠️ ':'')+(l.nextStep?escHtml(l.nextStep):'<span style="color:var(--fg4)">sem próxima ação definida</span>')+(l.followUpDate?' <span class="qf-meta">('+escHtml(l.followUpDate.slice(5).replace('-','/'))+')</span>':'')+'</div>'+
-    '</div>';
-  }).join('');
-}
-
+/* ═══════════════════════════════════════════════
+   AÇÃO COMERCIAL HOJE — painel no Início (tab-radar).
+   Em vez de uma aba separada "Qualificação"/"Playbook" que exige ir lá
+   conferir, isso aparece todo dia na tela que já se abre primeiro: quem
+   precisa de follow-up agora + o próximo passo do ciclo Instagram.
+═══════════════════════════════════════════════ */
 const PB_CHECKLIST_ITEMS = [
   { id:'pb1', label:'Dias 1-2: ajustar bio, destaques e link do WhatsApp no Instagram' },
   { id:'pb2', label:'Dias 3-7: publicar 2 conteúdos educativos + 3 stories' },
@@ -3741,18 +3584,47 @@ const PB_CHECKLIST_ITEMS = [
   { id:'pb4', label:'Dias 10-14: 1ª rodada de DM outbound leve pra quem engajou' },
   { id:'pb5', label:'Dia 14: contar leads novos via Instagram e registrar no CRM' }
 ];
-function renderPbChecklist(){
-  const el = document.getElementById('pbChecklist');
-  if(!el) return;
-  el.innerHTML = PB_CHECKLIST_ITEMS.map(it => {
-    const done = !!pbCheck[it.id];
-    return '<label class="pb-check-item'+(done?' pb-done':'')+'"><input type="checkbox" '+(done?'checked':'')+' onchange="togglePbCheck(\''+it.id+'\')"><span>'+it.label+'</span></label>';
-  }).join('');
-}
 function togglePbCheck(id){
   pbCheck[id] = !pbCheck[id];
   save('cb3_pb_check', pbCheck);
-  renderPbChecklist();
+  renderComercialHoje();
+}
+function renderComercialHoje(){
+  const el = document.getElementById('radarComercialHoje');
+  if(!el) return;
+  const todayStr = new Date().toISOString().slice(0,10);
+  const order = { A:0, B:1, C:2, '':3 };
+  const open = leads.filter(l=>l.stage!=='won'&&l.stage!=='lost');
+  const due = open.filter(l=>l.followUpDate && l.followUpDate<=todayStr)
+    .sort((a,b)=>{
+      const ao = a.followUpDate<todayStr?0:1, bo = b.followUpDate<todayStr?0:1;
+      if(ao!==bo) return ao-bo;
+      const ap = order[a.priority||''], bp = order[b.priority||''];
+      return ap-bp;
+    });
+  let html = '';
+  if(due.length){
+    html += '<div class="card" style="padding:0;margin-bottom:4px">'+
+      due.map(l=>{
+        const overdue = l.followUpDate < todayStr;
+        const prio = LEAD_PRIORITY[l.priority];
+        return '<div class="qf-row" style="cursor:pointer" onclick="openLeadModal(\''+escAttr(l.id)+'\')">'+
+          (prio?'<span title="'+escAttr(prio.label)+'" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:'+prio.color+';color:#fff;font-size:10px;font-weight:700;flex-shrink:0">'+l.priority+'</span>':'<span style="width:18px;flex-shrink:0"></span>')+
+          '<div class="qf-name">'+escHtml(l.name)+'<div class="qf-meta">'+(STAGE_LABELS[l.stage]||l.stage)+'</div></div>'+
+          '<div class="qf-next'+(overdue?' overdue':'')+'">'+(overdue?'⚠️ ':'📅 ')+(l.nextStep?escHtml(l.nextStep):'<span style="color:var(--fg4)">sem próxima ação definida</span>')+'</div>'+
+        '</div>';
+      }).join('')+
+    '</div>';
+  } else {
+    html += '<div class="card" style="padding:12px 16px;font-size:13px;color:var(--fg3);margin-bottom:4px">Nenhum follow-up de lead pendente pra hoje. 🎉</div>';
+  }
+  const pending = PB_CHECKLIST_ITEMS.find(it=>!pbCheck[it.id]);
+  if(pending){
+    html += '<div style="margin-top:8px">'+
+      '<label class="pb-check-item" style="background:transparent"><input type="checkbox" onchange="togglePbCheck(\''+pending.id+'\')"><span>📸 Instagram — '+pending.label+'</span></label>'+
+    '</div>';
+  }
+  el.innerHTML = html;
 }
 
 function openLeadModal(id){
@@ -3771,6 +3643,59 @@ function openNewLeadModal(){
   document.getElementById('leadModal').classList.remove('hidden');
 }
 
+// Guia contextual por etapa — a metodologia (SDR/BANT/SPIN/Closer) aparece
+// aqui, dentro do próprio lead que está sendo trabalhado, em vez de ficar
+// num painel separado que exige lembrar de ir consultar.
+const STAGE_GUIDANCE = {
+  prosp: {
+    goal: 'Prospecção — confirmar fit e abrir a conversa (SDR + BANT)',
+    script: 'Pra eu te ajudar certo, posso te fazer duas perguntas rápidas? Hoje como vocês cuidam da parte fiscal/contábil, e o que fez vocês pensarem em mudar/buscar ajuda agora?',
+    hint: 'BANT: tem dor real (Necessidade)? falo com quem decide (Autoridade)? tem condição de pagar (Capacidade)? tem urgência agora (Momento)?'
+  },
+  qual: {
+    goal: 'Qualificado — diagnóstico (SPIN Selling)',
+    script: 'Situação: "Como funciona hoje a gestão contábil/financeira da empresa?"\nProblema: "Onde você sente mais dificuldade ou insegurança hoje?"\nImplicação: "Se isso continuar assim, o que isso custa pra você — em dinheiro, tempo ou risco?"\nNecessidade: "Se você tivesse [relatório claro/previsibilidade], o que mudaria na forma como decide?"',
+    hint: 'Recapitule a dor nas palavras do cliente antes de seguir pra proposta — nunca pule direto pro preço.'
+  },
+  prop: {
+    goal: 'Proposta — recapitular e apresentar só o que resolve a dor',
+    script: 'Resumo da dor → "É isso mesmo, ou tem algo que deixei de fora?" → só então apresente o pacote recomendado (escopo, honorário, prazo de início).',
+    hint: 'Nunca o "menu completo" — só o(s) serviço(s) ligado(s) à dor que ele já confirmou.'
+  },
+  neg: {
+    goal: 'Negociação — contornar objeção e pedir a decisão',
+    script: 'O que ainda falta pra vocês decidirem? Tem mais alguém envolvido na decisão? Faz sentido eu confirmar isso até [data]?',
+    hint: 'Argumente com base no diagnóstico, não em desconto. Nunca deixar "sem resposta" aberto — avança, recua, ou marca como perdido com motivo.'
+  },
+  won: { goal: 'Fechado — handoff pro pós-venda', script: '', hint: 'Confirme que o cliente foi criado (automação abaixo) e passe o contexto do diagnóstico pro onboarding.' },
+  lost: { goal: 'Perdido — motivo registrado', script: '', hint: 'Escolha a categoria real do motivo — é isso que vira relatório de "por que perdemos" depois.' }
+};
+function leadGuidanceHtml(stage){
+  const g = STAGE_GUIDANCE[stage] || STAGE_GUIDANCE.prosp;
+  if(!g.script && !g.hint) return '';
+  return '<div class="post-hook" style="margin-bottom:14px">'+
+    '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;color:var(--gold)">📍 '+escHtml(g.goal)+'</div>'+
+    (g.script?'<div style="white-space:pre-wrap;margin-bottom:6px;font-size:13px">'+escHtml(g.script)+'</div>':'')+
+    (g.hint?'<div style="font-size:11px;color:var(--fg3)">💡 '+escHtml(g.hint)+'</div>':'')+
+    (g.script?'<button type="button" class="btn-secondary" style="margin-top:8px;padding:4px 10px;font-size:11px" onclick="copyLeadScript()">📋 Copiar script</button>':'')+
+  '</div>';
+}
+function renderLeadGuidanceBox(stage){
+  const wrap = document.getElementById('ml_guidance_wrap');
+  if(wrap) wrap.innerHTML = leadGuidanceHtml(stage);
+}
+function copyLeadScript(){
+  const sel = document.getElementById('ml_stage');
+  const stage = sel ? sel.value : 'prosp';
+  const g = STAGE_GUIDANCE[stage] || STAGE_GUIDANCE.prosp;
+  if(!g.script) return;
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(g.script).then(()=>showToast('Script copiado','ok')).catch(()=>showToast('Não foi possível copiar — selecione e copie manualmente','err'));
+  } else {
+    showToast('Copie manualmente — seu navegador não permite copiar automático aqui','err');
+  }
+}
+
 function buildLeadModal(l){
   const checks = LEAD_CHECKS.map(c=>{
     const done = l&&l.checklist&&l.checklist[c.id];
@@ -3783,7 +3708,9 @@ function buildLeadModal(l){
     '<option value="'+s+'"'+(l&&l.stage===s?' selected':'')+'>'+STAGE_LABELS[s]+'</option>'
   ).join('');
   const isLost = l&&l.stage==='lost';
+  const initialStage = l ? l.stage : 'prosp';
   document.getElementById('modalLeadBody').innerHTML =
+    '<div id="ml_guidance_wrap">'+leadGuidanceHtml(initialStage)+'</div>'+
     '<div class="modal-field-group">'+
       '<label>Nome do lead</label>'+
       '<input class="modal-input" id="ml_name" placeholder="Nome da empresa ou pessoa" value="'+escAttr(l?l.name||'':'')+'">'+
@@ -3791,7 +3718,7 @@ function buildLeadModal(l){
     '<div class="modal-2col">'+
       '<div class="modal-field-group">'+
         '<label>Etapa no funil</label>'+
-        '<select class="modal-input" id="ml_stage" onchange="document.getElementById(\'ml_lost_sec\').hidden=this.value!==\'lost\'">'+stageOpts+'</select>'+
+        '<select class="modal-input" id="ml_stage" onchange="document.getElementById(\'ml_lost_sec\').hidden=this.value!==\'lost\';renderLeadGuidanceBox(this.value)">'+stageOpts+'</select>'+
       '</div>'+
       '<div class="modal-field-group">'+
         '<label>Prioridade</label>'+
