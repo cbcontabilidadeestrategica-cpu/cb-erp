@@ -800,6 +800,7 @@ main{flex:1;padding:14px 28px 28px;max-width:1480px;width:100%;margin:0 auto}
 .dem-tag.societario{background:var(--teal-lt);color:var(--teal)}
 .dem-tag.financeiro{background:var(--green-lt);color:var(--green)}
 .dem-tag.outros{background:var(--bg3);color:var(--fg3)}
+.dem-tag.onboarding{background:var(--gold-lt);color:var(--gold2)}
 .dem-status-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px}
 .dem-status-badge.pendente{background:var(--amber-lt);color:var(--amber)}
 .dem-status-badge.em_andamento{background:var(--blue-lt);color:var(--blue)}
@@ -1149,6 +1150,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .hoje-source-tag{font-size:10px;font-weight:700;padding:1px 7px;border-radius:999px;white-space:nowrap;margin-right:6px}
 .hoje-source-tag.src-demanda{background:var(--gold-lt);color:var(--gold2)}
 .hoje-source-tag.src-obrigacao{background:var(--blue-lt);color:var(--blue)}
+.hoje-source-tag.src-onboarding{background:rgba(236,72,153,.15);color:#ec4899}
 .hoje-source-tag.src-reuniao{background:rgba(220,38,38,.1);color:var(--red)}
 .hoje-item-actions{display:flex;align-items:center;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;margin-left:auto}
 .hoje-mini-select{background:var(--bg3);color:var(--fg2);border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:11px;max-width:96px;font-family:'Outfit',sans-serif}
@@ -2127,7 +2129,7 @@ const CERTS = [
 // explicitamente com 'MEI') e se exige que o cliente tenha funcionários
 // (`requiresEmployees`). A ordem do array é a ordem de exibição.
 const OBLIG_REGIMES = ['Simples Nacional','Lucro Presumido','Lucro Real','Terceiro Setor','Imune / 3º Setor','MEI'];
-const OBLIG_SETORES = ['Fiscal','Depto. Pessoal','Contábil','Societário','Financeiro','Sucesso do Cliente'];
+const OBLIG_SETORES = ['Fiscal','Depto. Pessoal','Contábil','Societário','Financeiro','Sucesso do Cliente','Onboarding'];
 let obligationTemplates = [
   { id:'coleta',     label:'Coleta de dados',               desc:'NFs emitidas, extrato bancário, faturamento',               setor:'Fiscal',         prazoDia:7,  urg:'amber', regimes:['all'], requiresEmployees:false },
   { id:'ponto',      label:'Conferência de ponto',           desc:'Fechar folha ponto × registro',                             setor:'Depto. Pessoal', prazoDia:5,  urg:'amber', regimes:['all'], requiresEmployees:true  },
@@ -2233,6 +2235,46 @@ async function materializeObligations(targetYear, targetMonth) {
   } catch(e) { console.warn('materializeObligations falhou:', e); }
 }
 
+// Onboarding de cliente novo NÃO é mais um checklist isolado dentro do
+// cadastro (ninguém olhava aquilo fora do próprio cliente) — agora é UMA
+// demanda real na esteira de Operação, com o checklist operacional de
+// sempre dentro do card dela. Uma linha só por cliente (legacy_id estável,
+// sem competência — onboarding não é mensal), upsert idempotente igual
+// obrigação: repetir não reseta o progresso marcado. Roda pra TODOS os
+// clientes a cada abertura de Operação (igual materializeObligations),
+// então cobre tanto o cliente recém-criado quanto um backfill automático
+// pra quem já existia antes dessa mudança — herdando o progresso que
+// já estava marcado no checklist antigo (objeto `onboarding`), se houver.
+async function materializeOnboarding() {
+  if (!sbUser || !clients || !clients.length) return;
+  try {
+    const prazoDefault = new Date(); prazoDefault.setDate(prazoDefault.getDate()+14);
+    const prazoISO = prazoDefault.toISOString().slice(0,10);
+    const rows = clients.map(c => {
+      const prevChecked = (onboarding && onboarding[c.id]) || {};
+      const checklist = {};
+      ONBOARDING_STEPS.forEach(s => { if (prevChecked[s.id]) checklist[s.id] = true; });
+      return {
+        legacy_id: `onboarding_${c.id}`,
+        cliente_id: c.id,
+        setor: 'Onboarding',
+        tipo: 'demanda',
+        titulo: '🚀 Onboarding — ' + c.name,
+        descricao: 'Checklist de integração do novo cliente.',
+        prazo: prazoISO,
+        status: 'pendente',
+        origem: 'onboarding_auto',
+        sop: { checklistItems: ONBOARDING_STEPS.map(s=>({id:s.id,label:s.label})), checklist },
+      };
+    });
+    for (let i = 0; i < rows.length; i += 200) {
+      const chunk = rows.slice(i, i+200);
+      const { error } = await withTimeout(sb.from('tarefa').upsert(chunk, { onConflict: 'legacy_id', ignoreDuplicates: true }), 10000, 'materializeOnboarding');
+      if (error) console.warn('materializeOnboarding erro:', error);
+    }
+  } catch(e) { console.warn('materializeOnboarding falhou:', e); }
+}
+
 let hojeTarefas = [];
 // Operação unifica obrigações recorrentes e demandas avulsas — ambas são
 // linhas de `tarefa` (tipo 'obrigacao'/'demanda'). "Atraso" NÃO é um status
@@ -2244,8 +2286,8 @@ const OPER_STATUS_LABEL = { pendente:'Aguardando', em_andamento:'Andamento', rev
 const OPER_STATUS_COLOR = { pendente:'var(--fg2)', em_andamento:'var(--amber)', revisao:'#8b5cf6', concluido:'var(--green)' };
 const OPER_STATUS_BG = { pendente:'rgba(100,116,139,.15)', em_andamento:'rgba(234,179,8,.18)', revisao:'rgba(139,92,246,.18)', concluido:'rgba(16,185,129,.18)' };
 const OPER_STATUS_BORDER = { pendente:'rgba(100,116,139,.35)', em_andamento:'rgba(234,179,8,.4)', revisao:'rgba(139,92,246,.4)', concluido:'rgba(16,185,129,.4)' };
-const OPER_SETOR_COLOR = { 'Fiscal':'#ef4444','Depto. Pessoal':'#eab308','Contábil':'#10b981','Societário':'#6366f1','Financeiro':'#22c55e','Sucesso do Cliente':'#ec4899' };
-const OPER_SETOR_TAGCLASS = { 'Fiscal':'fiscal','Contábil':'contabil','Depto. Pessoal':'dp','Societário':'societario','Financeiro':'financeiro','Sucesso do Cliente':'outros' };
+const OPER_SETOR_COLOR = { 'Fiscal':'#ef4444','Depto. Pessoal':'#eab308','Contábil':'#10b981','Societário':'#6366f1','Financeiro':'#22c55e','Sucesso do Cliente':'#ec4899','Onboarding':'#c8a04a' };
+const OPER_SETOR_TAGCLASS = { 'Fiscal':'fiscal','Contábil':'contabil','Depto. Pessoal':'dp','Societário':'societario','Financeiro':'financeiro','Sucesso do Cliente':'outros','Onboarding':'onboarding' };
 const OPER_CHECKLIST_DEFAULT = ['Documentos recebidos','Conferência realizada','Enviado ao cliente/órgão','Cliente notificado'];
 
 async function setTarefaStatus(id, next) {
@@ -2353,10 +2395,12 @@ function setTarefaAtrasoObs(id, obs) { patchTarefaSop(id, { atraso_obs: obs }); 
 function setTarefaConclObs(id, obs) { patchTarefaSop(id, { obs }); }
 
 // Só demandas avulsas podem ser removidas — obrigação é gerada
-// automaticamente todo mês pela regra do regime, não se apaga uma linha só.
+// automaticamente todo mês pela regra do regime, não se apaga uma linha só
+// (onboarding entra na mesma regra, mesmo sendo tipo 'demanda': ela volta
+// sozinha no próximo materializeOnboarding() enquanto não for concluída).
 async function deleteOperDemanda(id) {
   const t = hojeTarefas.find(x=>x.id===id);
-  if (!t || t.tipo !== 'demanda') return;
+  if (!t || !tipoInfoOf(t).removivel) return;
   if (!confirm('Remover esta demanda? Esta ação não pode ser desfeita.')) return;
   hojeTarefas = hojeTarefas.filter(x=>x.id!==id);
   closeOperModal();
@@ -2379,6 +2423,7 @@ async function renderOperacao() {
     if (nm > 11) { nm = 0; ny++; }
     await materializeObligations();
     await materializeObligations(ny, nm);
+    await materializeOnboarding();
   } catch(e) { console.warn('materializeObligations (Operação) falhou:', e); }
   try {
     const { data, error } = await withTimeout(
@@ -2423,6 +2468,16 @@ function isAtrasado(t) {
   return dd !== null && dd < 0;
 }
 function clienteNomeDe(t) { return (t.cliente && t.cliente.nome) || t.cliente_nome || '—'; }
+// 3 origens possíveis pra uma linha de `tarefa`: obrigação recorrente
+// (regime/serviço), demanda avulsa, ou onboarding de cliente novo (que É
+// uma demanda pra fins de filtro/contagem, mas tem ícone e rótulo próprios
+// — e não aparece como removível, já que ela some e volta no próximo
+// materializeOnboarding() enquanto o checklist não tiver sido concluído).
+function tipoInfoOf(t) {
+  if (t.origem === 'onboarding_auto') return { icon:'🚀', label:'Onboarding', srcClass:'src-onboarding', removivel:false };
+  if (t.tipo === 'demanda') return { icon:'📋', label:'Demanda', srcClass:'src-demanda', removivel:true };
+  return { icon:'⚖️', label:'Obrigação', srcClass:'src-obrigacao', removivel:false };
+}
 // Checklist agora é editável por tarefa, inclusive os 4 itens "fixos" —
 // que na real nunca foram fixos no banco, só no código (getChecklistItemsFor
 // sempre devolvia o mesmo array global). t.sop.checklistItems, quando
@@ -2598,7 +2653,8 @@ function renderOperItem(t) {
   const isDone = t.status === 'concluido';
   const stKey = t.status || 'pendente';
   const id = t.id;
-  const tipoTag = t.tipo==='demanda' ? '<span class="hoje-source-tag src-demanda">📋 Demanda</span>' : '<span class="hoje-source-tag src-obrigacao">⚖️ Obrigação</span>';
+  const tInfo = tipoInfoOf(t);
+  const tipoTag = '<span class="hoje-source-tag '+tInfo.srcClass+'">'+tInfo.icon+' '+tInfo.label+'</span>';
   const atrasoClienteFlag = (t.sop&&t.sop.atraso_cliente) ? '<span class="oper-atraso-cliente-badge" title="Atraso por conta do cliente">👤 cliente</span>' : '';
   // Atrasada ganha a faixa vermelha (prioridade — é o que precisa de
   // atenção imediata); fora isso, a faixa lateral usa a cor do próprio
@@ -2626,7 +2682,7 @@ function renderOperItem(t) {
 function renderOperKanbanCard(t) {
   const pinfo = prazoInfo(t.prazo);
   const atrasado = isAtrasado(t);
-  const tipoIcon = t.tipo==='demanda' ? '📋' : '⚖️';
+  const tipoIcon = tipoInfoOf(t).icon;
   const corBorda = atrasado ? '' : 'border-left:3px solid '+(OPER_SETOR_COLOR[t.setor]||'var(--border)')+';';
   return `<div class="dem-kan-card${atrasado?' overdue':''}" style="cursor:pointer;${corBorda}" draggable="true" ondragstart="operDragStart(event,${t.id})" onclick="openOperModal(${t.id})">
     <div class="dem-kan-tipo">${tipoIcon} ${escHtml(t.titulo||'')}</div>
@@ -2792,7 +2848,7 @@ function buildOperModal(t) {
       '<button class="btn-sm" type="button" onclick="addChecklistItem('+t.id+')">+ Adicionar</button>'+
     '</div>';
   const titleEl = document.getElementById('modalOperTitle');
-  if (titleEl) titleEl.textContent = (t.tipo==='demanda'?'📋 Demanda · ':'⚖️ Obrigação · ')+clienteNomeDe(t);
+  if (titleEl) { const tInfo = tipoInfoOf(t); titleEl.textContent = tInfo.icon+' '+tInfo.label+' · '+clienteNomeDe(t); }
   document.getElementById('modalOperBody').innerHTML =
     '<div class="modal-field-group"><label>Título</label>'+
       (t.tipo==='demanda'
@@ -2819,7 +2875,7 @@ function buildOperModal(t) {
       '<div class="modal-field-group"><label>Data de conclusão</label><input class="modal-input" type="date" value="'+((t.sop&&t.sop.data_conclusao)||'')+'" onchange="patchTarefaSop('+t.id+',{data_conclusao:this.value})"></div>'+
       '<div class="modal-field-group"><label>Observação final</label><input class="modal-input" value="'+escAttr((t.sop&&t.sop.obs)||'')+'" onchange="setTarefaConclObs('+t.id+',this.value)"></div>'+
     '</div>'+
-    (t.tipo==='demanda' ? '<div class="modal-danger-zone"><button class="btn-danger" onclick="deleteOperDemanda('+t.id+')">🗑 Remover esta demanda</button></div>' : '');
+    (tipoInfoOf(t).removivel ? '<div class="modal-danger-zone"><button class="btn-danger" onclick="deleteOperDemanda('+t.id+')">🗑 Remover esta demanda</button></div>' : '');
   buildOperComments(t.id);
 }
 
@@ -3003,6 +3059,22 @@ const ONBOARDING_STEPS = [
   { id:'banco',       label:'Dados bancários + extrato inicial coletados' },
   { id:'regime',      label:'Regime tributário e enquadramento confirmados' },
 ];
+// A tarefa de onboarding de cada cliente (ver materializeOnboarding) —
+// achada pelo legacy_id estável. É a mesma fonte usada tanto no card do
+// cliente (aba Onboarding, abaixo) quanto no modal de Operação: marcar
+// num lugar marca no outro, porque é literalmente a mesma linha.
+function getOnboardingTask(clientId) {
+  return hojeTarefas.find(t => t.legacy_id === 'onboarding_'+clientId) || null;
+}
+function onboardingProgress(clientId) {
+  const t = getOnboardingTask(clientId);
+  if (!t) return { done:0, total:ONBOARDING_STEPS.length, pct:0, task:null };
+  const items = getChecklistItemsFor(t);
+  const checklist = (t.sop && t.sop.checklist) || {};
+  const done = items.filter(it=>checklist[it.id]).length;
+  const pct = items.length ? Math.round(done/items.length*100) : 100;
+  return { done, total: items.length, pct, task: t };
+}
 
 function initState() {
   const now = new Date();
@@ -4538,8 +4610,7 @@ function calcHealthScore(c){
   const steps=getSteps(c);
   const doneCount=steps.filter(s=>getStepState(c.id, s.id, fecYear, fecMonth).done).length;
   const closingPct=steps.length?Math.round(doneCount/steps.length*100):100;
-  const obDone=ONBOARDING_STEPS.filter(s=>onboarding[c.id]&&onboarding[c.id][s.id]).length;
-  const obPct=Math.round(obDone/ONBOARDING_STEPS.length*100);
+  const obPct=onboardingProgress(c.id).pct;
   const cs=csData[c.id]||{};
   const nps=cs.nps!=null?cs.nps:-1;
   const daysSince=cs.lastContact?Math.floor((new Date()-new Date(cs.lastContact))/86400000):null;
@@ -5314,9 +5385,9 @@ function renderClientes(){
       // vez, igual às abas de navegação principal, só que dentro do card.
       (()=>{
         const open = clientOpenTab[c.id] || null;
-        const obDone=ONBOARDING_STEPS.filter(s=>onboarding[c.id]&&onboarding[c.id][s.id]).length;
-        const obPct=Math.round(obDone/ONBOARDING_STEPS.length*100);
-        const obBadge=obPct===100?'✅':obDone+'/'+ONBOARDING_STEPS.length;
+        const obProg=onboardingProgress(c.id);
+        const obDone=obProg.done, obPct=obProg.pct, obTask=obProg.task;
+        const obBadge=obPct===100?'✅':obDone+'/'+obProg.total;
         const cs=csData[c.id]||{};
         const sat=cs.satisfaction||0;
         const nps=cs.nps!=null?cs.nps:-1;
@@ -5343,15 +5414,20 @@ function renderClientes(){
           '</div>'+
           (open==='onboarding' ? '<div class="csc-tab-panel">'+
             '<div class="progress-bar-wrap"><div class="progress-bar '+(obPct===100?'green':obDone>0?'amber':'gold')+'" style="width:'+obPct+'%"></div></div>'+
-            '<div class="onb-list" style="margin-top:8px">'+
-              ONBOARDING_STEPS.map(s=>{
-                const chk=!!(onboarding[c.id]&&onboarding[c.id][s.id]);
-                return '<div class="onb-item" onclick="toggleOnb('+c.id+',\''+s.id+'\')">'+
-                  '<div class="onb-cb'+(chk?' checked':'')+'">'+( chk?'✓':'')+'</div>'+
-                  '<span class="onb-lbl'+(chk?' done':'')+'">'+escHtml(s.label)+'</span>'+
-                '</div>';
-              }).join('')+
-            '</div>'+
+            (obTask ?
+              '<div class="onb-list" style="margin-top:8px">'+
+                getChecklistItemsFor(obTask).map(s=>{
+                  const chk=!!(obTask.sop&&obTask.sop.checklist&&obTask.sop.checklist[s.id]);
+                  return '<div class="onb-item" onclick="toggleTarefaChecklistItem('+obTask.id+',\''+s.id+'\')">'+
+                    '<div class="onb-cb'+(chk?' checked':'')+'">'+( chk?'✓':'')+'</div>'+
+                    '<span class="onb-lbl'+(chk?' done':'')+'">'+escHtml(s.label)+'</span>'+
+                  '</div>';
+                }).join('')+
+              '</div>'+
+              // Mesma tarefa que aparece na esteira de Operação — marcar aqui
+              // marca lá e vice-versa, porque é a mesma linha de `tarefa`.
+              '<div style="margin-top:10px;text-align:right"><button class="btn-sm" type="button" onclick="openOperModal('+obTask.id+')">Abrir na Operação →</button></div>'
+            : '<p style="font-size:12px;color:var(--fg3);padding:4px 0">Gerando a tarefa de onboarding na Operação… abra a aba Operação uma vez e volte aqui.</p>')+
           '</div>' : '')+
           (open==='cs' ? '<div class="csc-tab-panel cs-grid">'+
             '<div>'+
@@ -5439,13 +5515,12 @@ function setClientTab(clientId, tab){
   renderClientes();
 }
 
-/* ONBOARDING */
-function toggleOnb(clientId, stepId){
-  if(!onboarding[clientId]) onboarding[clientId]={};
-  onboarding[clientId][stepId]=!onboarding[clientId][stepId];
-  save('cb3_onboarding',onboarding);
-  renderClientes();
-}
+/* ONBOARDING — superado: a aba Onboarding do card do cliente agora lê/marca
+   direto na tarefa real de Operação (toggleTarefaChecklistItem), ver
+   getOnboardingTask/onboardingProgress e materializeOnboarding. O objeto
+   `onboarding`/cb3_onboarding continua carregado só pra herdar o progresso
+   de quem já tinha marcado algo antes dessa mudança, na primeira vez que a
+   tarefa de cada cliente é materializada. */
 
 /* CS */
 // Ação de 1 clique no topo do card — registra "hoje" como último contato
