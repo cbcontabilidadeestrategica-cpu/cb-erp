@@ -2284,6 +2284,62 @@ async function materializeOnboarding() {
   } catch(e) { console.warn('materializeOnboarding falhou:', e); }
 }
 
+// Atividades recorrentes de Sucesso do Cliente — ciclo PRÓPRIO por
+// cliente, ancorado em `c.csCicloInicio` (hoje, pra quem já é cliente
+// antes dessa mudança — ver migração em initState; data de cadastro, pra
+// quem entrar depois). Não é calendário de ano (jan-mar, abr-jun...): é
+// "N meses depois da ancoragem", então o 1º check-in trimestral de um
+// cliente cadastrado hoje cai em 3 meses a partir de hoje, não no fim do
+// trimestre civil. Cada período gera UMA linha (legacy_id com o índice do
+// período, estável), com prazo de propósito lá na frente — a intenção é
+// exatamente essa: não precisar lembrar, ela aparece sozinha na esteira
+// quando a data chegar. Materializa o período atual + o próximo (mesmo
+// padrão de materializeObligations), então sempre tem pelo menos uma
+// ocorrência futura pronta, mesmo sem abrir Operação por meses.
+const CS_RECORRENTE_TEMPLATES = [
+  { id:'cs_checkin_trimestral', cicloMeses:3, label:'🤝 Check-in trimestral de satisfação', desc:'Conversa rápida (ligação/WhatsApp) pra saber como o cliente está avaliando o atendimento — registrar nota/NPS na aba Sucesso do Cliente do cadastro dele.' },
+  { id:'cs_revisao_semestral',  cicloMeses:6, label:'🤝 Revisão semestral de resultados',    desc:'Reunião mais formal pra revisar números, metas e oportunidades de upsell com o cliente.' },
+];
+function addMonthsISO(iso, n) {
+  const d = new Date(iso+'T00:00:00');
+  d.setMonth(d.getMonth()+n);
+  return d.toISOString().slice(0,10);
+}
+async function materializeCsRecorrente() {
+  if (!sbUser || !clients || !clients.length) return;
+  try {
+    const todayISO = new Date().toISOString().slice(0,10);
+    const rows = [];
+    clients.forEach(c => {
+      const anchor = c.csCicloInicio || todayISO;
+      const anchorD = new Date(anchor+'T00:00:00');
+      const now = new Date();
+      const mesesPassados = (now.getFullYear()-anchorD.getFullYear())*12 + (now.getMonth()-anchorD.getMonth());
+      CS_RECORRENTE_TEMPLATES.forEach(tpl => {
+        const k = Math.max(0, Math.floor(mesesPassados / tpl.cicloMeses));
+        [k, k+1].forEach(periodo => {
+          rows.push({
+            legacy_id: `${tpl.id}_${c.id}_${periodo}`,
+            cliente_id: c.id,
+            setor: 'Sucesso do Cliente',
+            tipo: 'demanda',
+            titulo: tpl.label,
+            descricao: tpl.desc,
+            prazo: addMonthsISO(anchor, (periodo+1)*tpl.cicloMeses),
+            status: 'pendente',
+            origem: 'cs_recorrente_auto',
+          });
+        });
+      });
+    });
+    for (let i = 0; i < rows.length; i += 200) {
+      const chunk = rows.slice(i, i+200);
+      const { error } = await withTimeout(sb.from('tarefa').upsert(chunk, { onConflict: 'legacy_id', ignoreDuplicates: true }), 10000, 'materializeCsRecorrente');
+      if (error) console.warn('materializeCsRecorrente erro:', error);
+    }
+  } catch(e) { console.warn('materializeCsRecorrente falhou:', e); }
+}
+
 let hojeTarefas = [];
 // Operação unifica obrigações recorrentes e demandas avulsas — ambas são
 // linhas de `tarefa` (tipo 'obrigacao'/'demanda'). "Atraso" NÃO é um status
@@ -2454,6 +2510,7 @@ async function renderOperacao() {
     await materializeObligations();
     await materializeObligations(ny, nm);
     await materializeOnboarding();
+    await materializeCsRecorrente();
   } catch(e) { console.warn('materializeObligations (Operação) falhou:', e); }
   try {
     const { data, error } = await withTimeout(
@@ -3128,8 +3185,16 @@ function initState() {
     // existir — já estava recebendo obrigação normalmente, então entra
     // como 'ativo' (nunca regride pra 'onboarding' por essa migração; só
     // cliente cadastrado a partir de agora nasce em onboarding).
+    // Migração: mesma lógica pro ciclo de atividades recorrentes de
+    // Sucesso do Cliente (trimestral/semestral) — ancora em HOJE pra quem
+    // já é cliente (a partir de agora é que o ciclo passa a existir pra
+    // eles), e cada cliente novo ancora na própria data de cadastro.
     { let changed=false;
-      clients.forEach(c => { if (!c.status) { c.status='ativo'; changed=true; } });
+      const todayISO = new Date().toISOString().slice(0,10);
+      clients.forEach(c => {
+        if (!c.status) { c.status='ativo'; changed=true; }
+        if (!c.csCicloInicio) { c.csCicloInicio=todayISO; changed=true; }
+      });
       if (changed) save('cb3_clients', clients); }
     leads        = seedV ? JSON.parse(localStorage.getItem('cb3_leads') || '[]') : null;
     igEvents     = JSON.parse(localStorage.getItem('cb3_ig_events') || '[]');
@@ -5822,7 +5887,10 @@ function saveClientModal(){
     // então não faz sentido já gerar obrigação recorrente pra ele. Vira
     // 'ativo' sozinho quando o checklist de onboarding fechar 100% (ver
     // maybeActivateClienteFromOnboarding) — ou manualmente, se precisar.
-    clients.push({id:newId,name,initials,regime,mensalidade,whatsapp,hasEmployees,services,notes,contractRenewal,obligationOverrides,driveKey:'drive_'+newId,status:'onboarding'});
+    // csCicloInicio ancora o ciclo trimestral/semestral de Sucesso do
+    // Cliente na data de hoje — o 1º check-in dele vence 3 meses a partir
+    // do cadastro, não no fim do trimestre civil (ver materializeCsRecorrente).
+    clients.push({id:newId,name,initials,regime,mensalidade,whatsapp,hasEmployees,services,notes,contractRenewal,obligationOverrides,driveKey:'drive_'+newId,status:'onboarding',csCicloInicio:new Date().toISOString().slice(0,10)});
   }
   const isNew = !editingClientId;
   save('cb3_clients',clients);
