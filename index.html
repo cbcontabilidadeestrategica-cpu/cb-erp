@@ -2208,6 +2208,15 @@ async function materializeObligations(targetYear, targetMonth) {
     const compLabel = competenciaLabel(y, m);
     const rows = [];
     clients.forEach(c => {
+      // Cliente ainda em onboarding não tem transição de contabilidade feita
+      // (acesso a sistema anterior, dados herdados, regime confirmado etc.)
+      // — gerar obrigação agora só criaria tarefa que ninguém tem como
+      // cumprir. Só passa a gerar quando o checklist de onboarding fecha
+      // 100% (ver maybeActivateClienteFromOnboarding, chamado por
+      // patchTarefaSop) e o cliente vira status 'ativo'. Cliente sem
+      // `status` definido é tratado como já ativo — é quem já existia
+      // antes dessa trava, não deve parar de receber obrigação por isso.
+      if (c.status === 'onboarding') return;
       getSteps(c).forEach(s => {
         rows.push({
           legacy_id: `obr_${c.id}_${s.id}_${ym}`,
@@ -2371,6 +2380,26 @@ function setTarefaDescricao(id, descricao) {
   sb.from('tarefa').update({ descricao }).eq('id', id).then(({error})=>{ if(error) console.warn('Erro ao salvar descrição:', error); });
 }
 
+// Onboarding → ativo é uma mão única: fecha 100% do checklist, o cliente
+// passa a gerar obrigação normalmente (ver trava em materializeObligations).
+// Nunca desfaz na volta — desmarcar um item depois de já ativo não pode
+// fazer a obrigação do mês desaparecer de novo, então só decide "pra
+// frente". Cliente sem `status` nunca cai aqui porque já não é tratado
+// como 'onboarding' pela trava — isso é só pra quem nasceu depois dela.
+function maybeActivateClienteFromOnboarding(t) {
+  if (!t || t.origem !== 'onboarding_auto') return;
+  const c = clients.find(x=>x.id===t.cliente_id);
+  if (!c || c.status !== 'onboarding') return;
+  const items = getChecklistItemsFor(t);
+  const checklist = (t.sop && t.sop.checklist) || {};
+  const allDone = items.length > 0 && items.every(it => checklist[it.id]);
+  if (!allDone) return;
+  c.status = 'ativo';
+  save('cb3_clients', clients);
+  renderClientes();
+  showToast('🎉 Onboarding de '+c.name+' concluído — agora é cliente ativo e as obrigações recorrentes começam a ser geradas.', 'ok', 7000);
+  materializeObligations().then(renderOperacao);
+}
 // `sop` carrega o que não é coluna própria: checklist operacional marcado,
 // data/observação de conclusão e o motivo quando o atraso é por conta do
 // cliente. Sempre mescla (nunca sobrescreve o jsonb inteiro).
@@ -2378,6 +2407,7 @@ async function patchTarefaSop(id, patch) {
   const t = hojeTarefas.find(x=>x.id===id);
   if (!t) return;
   t.sop = { ...(t.sop||{}), ...patch };
+  maybeActivateClienteFromOnboarding(t);
   try {
     const { error } = await withTimeout(sb.from('tarefa').update({ sop: t.sop }).eq('id', id), 8000, 'patchTarefaSop');
     if (error) throw error;
@@ -3094,6 +3124,13 @@ function initState() {
         : {...c});
       save('cb3_clients', clients);
     }
+    // Migração: cliente sem `status` é de antes da trava onboarding→ativo
+    // existir — já estava recebendo obrigação normalmente, então entra
+    // como 'ativo' (nunca regride pra 'onboarding' por essa migração; só
+    // cliente cadastrado a partir de agora nasce em onboarding).
+    { let changed=false;
+      clients.forEach(c => { if (!c.status) { c.status='ativo'; changed=true; } });
+      if (changed) save('cb3_clients', clients); }
     leads        = seedV ? JSON.parse(localStorage.getItem('cb3_leads') || '[]') : null;
     igEvents     = JSON.parse(localStorage.getItem('cb3_ig_events') || '[]');
     // Migração: remove os eventos genéricos "s_ob_*" que duplicavam as
@@ -4607,7 +4644,11 @@ function renderMrrChart(){
 
 /* ═══ FASE 3: HEALTH SCORE (item 13) ════════════════════════ */
 function calcHealthScore(c){
-  const steps=getSteps(c);
+  // Cliente em onboarding não tem obrigação gerada ainda (de propósito —
+  // ver trava em materializeObligations), então fechamento sempre bateria
+  // 0% por falta de tarefa pra fechar, não por atraso real. N/A nesse caso,
+  // igual pros clientes de sempre que não tinham nenhuma etapa (steps=0).
+  const steps = c.status==='onboarding' ? [] : getSteps(c);
   const doneCount=steps.filter(s=>getStepState(c.id, s.id, fecYear, fecMonth).done).length;
   const closingPct=steps.length?Math.round(doneCount/steps.length*100):100;
   const obPct=onboardingProgress(c.id).pct;
@@ -5340,6 +5381,7 @@ function renderClientes(){
         '<div class="csc-avatar">'+escHtml(c.initials)+'</div>'+
         '<div class="csc-info">'+
           '<div class="csc-name">'+escHtml(c.name)+'</div>'+
+          (c.status==='onboarding'?'<span class="health-badge amber" title="Ainda não gera obrigação recorrente — falta concluir o checklist de onboarding (transição de contabilidade, acessos, regime confirmado...)">🟡 Em onboarding</span>':'')+
           (()=>{const hs=calcHealthScore(c);const tip='Health Score: '+hs.score+'/100&#10;'+(hs.reasons.length?hs.reasons.join('&#10;'):'Tudo em ordem!');return '<span class="health-badge '+hs.color+'" title="'+tip+'">'+(hs.color==='green'?'💚':hs.color==='amber'?'🟡':'🔴')+' '+hs.score+' pts</span>';})()+
           '<div class="csc-regime">'+escHtml(c.regime)+'</div>'+
           '<div class="csc-chips" style="margin-top:6px">'+
@@ -5702,9 +5744,12 @@ function renderClientObligationsSection(){
   ).join('');
   const usedIds = new Set([...base.map(s=>s.id), ...modalObligExtra.map(e=>e.sourceId).filter(Boolean)]);
   const catalogOpts = obligationTemplates.filter(t=>!usedIds.has(t.id)).map(t=>'<option value="'+escAttr(t.id)+'">'+escHtml(t.label)+'</option>').join('');
+  const existing = editingClientId ? clients.find(c=>c.id===editingClientId) : null;
+  const aindaEmOnboarding = !editingClientId || (existing && existing.status==='onboarding');
   wrap.innerHTML =
     '<label>Obrigações deste cliente</label>'+
     '<p style="font-size:11px;color:var(--fg3);margin:-2px 0 8px">Geradas pelo regime, funcionários e serviços contratados marcados acima — só aparece obrigação de um setor contratado. Desmarque o que não se aplica a este cliente, ou adicione uma exclusiva dele.</p>'+
+    (aindaEmOnboarding?'<p style="font-size:11px;color:var(--gold2);background:var(--gold-lt);border-radius:6px;padding:6px 8px;margin:0 0 8px">🚀 Essa lista é a prévia — essas obrigações só começam a virar tarefa real na Operação depois que o checklist de onboarding do cliente for concluído (transição de contabilidade, acessos, regime confirmado...).</p>':'')+
     baseHtml + extraHtml +
     '<div class="oblig-add-form">'+
       '<select id="mc_oblig_pick" class="modal-input" onchange="onObligPickChange()">'+
@@ -5772,7 +5817,12 @@ function saveClientModal(){
     if(idx>-1) clients[idx]={...clients[idx],name,initials,regime,mensalidade,whatsapp,hasEmployees,services,notes,contractRenewal,obligationOverrides};
   } else {
     const newId=Date.now();
-    clients.push({id:newId,name,initials,regime,mensalidade,whatsapp,hasEmployees,services,notes,contractRenewal,obligationOverrides,driveKey:'drive_'+newId});
+    // Nasce em onboarding — ainda não tem transição de contabilidade feita
+    // (acesso ao sistema anterior, histórico, confirmação de regime...),
+    // então não faz sentido já gerar obrigação recorrente pra ele. Vira
+    // 'ativo' sozinho quando o checklist de onboarding fechar 100% (ver
+    // maybeActivateClienteFromOnboarding) — ou manualmente, se precisar.
+    clients.push({id:newId,name,initials,regime,mensalidade,whatsapp,hasEmployees,services,notes,contractRenewal,obligationOverrides,driveKey:'drive_'+newId,status:'onboarding'});
   }
   const isNew = !editingClientId;
   save('cb3_clients',clients);
