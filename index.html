@@ -1552,12 +1552,8 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
     </div>
   </div>
 
-  <div class="section-label">📅 ROTINA SEMANAL</div>
-  <div class="card">
-    <div class="card-body">
-      <div class="week-row" id="weekGrid"></div>
-    </div>
-  </div>
+  <div class="section-label">🚀 ONBOARDING EM ANDAMENTO</div>
+  <div class="card"><div style="padding:0 16px" id="radarOnboardingList"></div></div>
 
   <div class="section-label" style="margin-top:18px">💰 FINANCEIRO &amp; META</div>
   <div id="revenueConcentrationAlert" class="revenue-concentration-alert"></div>
@@ -3009,14 +3005,6 @@ const OFFICE_CHECKPOINTS = [
   { day:28, titulo:'Início coleta mês seguinte',         setor:'CS / Nathan', urg:'amber' },
 ];
 
-const WEEK_BLOCKS = {
-  0:[{t:'Alinhamento semanal CB',cat:'gestao',time:'08:00'},{t:'Pipeline comercial',cat:'comercial',time:'08:30'},{t:'Operacional fiscal',cat:'fiscal',time:'09:00–12:00'},{t:'📸 Post: Dica Prática',cat:'marketing',time:'07:30'}],
-  1:[{t:'DP e Societário',cat:'dp',time:'09:00–12:00'},{t:'Processos internos',cat:'dp',time:'14:00–17:00'}],
-  2:[{t:'Entregas e relatórios',cat:'contabil',time:'09:00–12:00'},{t:'📸 Post: Alerta Fiscal',cat:'marketing',time:'07:30'},{t:'Criação de conteúdo',cat:'marketing',time:'14:00–15:00'},{t:'Prospecção ativa',cat:'comercial',time:'15:00–16:00'}],
-  3:[{t:'Operacional clientes',cat:'fiscal',time:'09:00–12:00'},{t:'CS — contato clientes',cat:'gestao',time:'14:00–15:00'}],
-  4:[{t:'📸 Post: Case/Prova',cat:'marketing',time:'07:30'},{t:'Pendências em aberto',cat:'fiscal',time:'09:00–11:00'},{t:'Follow-up comercial',cat:'comercial',time:'11:00–12:00'},{t:'Revisão semanal CB',cat:'gestao',time:'14:00–14:45'},{t:'Projetos internos',cat:'gold',time:'14:45–15:15'}],
-};
-const DAY_NAMES_SHORT = ['Seg','Ter','Qua','Qui','Sex'];
 const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 // Toda obrigação mensal (DAS, FGTS, eSocial, lançamentos etc.) vence no mês
 // corrente mas se refere SEMPRE aos dados do mês anterior — regime de
@@ -3499,12 +3487,27 @@ function renderRadar() {
   ).join('')
   : '<li class="obligation-item"><div class="ob-info"><div class="ob-title" style="color:var(--fg3)">Nenhuma obrigação nos próximos 14 dias</div></div></li>';
 
-  document.getElementById('weekGrid').innerHTML = DAY_NAMES_SHORT.map((name,i) => {
-    const blocks = WEEK_BLOCKS[i] || [];
-    const isToday = dow >= 1 && dow <= 5 && (dow-1 === i);
-    return '<div class="day-col'+(isToday?' today-col':'')+'"><div class="day-col-name">'+name+'</div>'+
-      blocks.map(b=>'<div class="day-block '+b.cat+'">'+b.t+'</div>').join('')+'</div>';
-  }).join('');
+  // Substitui a antiga "Rotina Semanal" (grid fixo, mesmo todo santo dia,
+  // nunca refletiu nada real do sistema). No lugar, quem está em onboarding
+  // de verdade agora — ver % do checklist, abrir a tarefa com 1 clique.
+  const onbEl = document.getElementById('radarOnboardingList');
+  if (onbEl) {
+    const emOnboarding = clients.filter(c => c.status === 'onboarding');
+    onbEl.innerHTML = !emOnboarding.length
+      ? '<div class="radar-dem-item"><span style="color:var(--green);font-size:13px">✅ Nenhum cliente em onboarding no momento</span></div>'
+      : emOnboarding.map(c => {
+          const prog = onboardingProgress(c.id);
+          const clickTarget = prog.task ? 'openOperModal('+prog.task.id+')' : 'openEditClientModal('+c.id+')';
+          return '<div class="radar-dem-item" style="cursor:pointer" onclick="'+clickTarget+'">'+
+            '<span class="ob-dot amber"></span>'+
+            '<div style="flex:1;min-width:0">'+
+              '<div style="font-size:13px;font-weight:600;color:var(--fg)">'+escHtml(c.name)+'</div>'+
+              '<div style="font-size:11px;color:var(--fg3);margin-top:1px">'+prog.done+'/'+prog.total+' passos do checklist concluídos</div>'+
+            '</div>'+
+            '<span style="font-size:11px;font-weight:700;color:var(--amber)">'+prog.pct+'%</span>'+
+          '</div>';
+        }).join('');
+  }
 }
 
 /* ═══════════════════════════════════════════════
@@ -4602,18 +4605,15 @@ function renderFinanceiro(){
 
   const el=document.getElementById('radarFinanceiro');
   if(!el) return;
+  // O progresso "N/20 clientes" + barra já está fixo no topo em TODA tela
+  // (meta-banner do header, agora lido de c.status==='ativo' — ver
+  // renderMetaBanner). Repetir aqui era a mesma informação, inclusive com
+  // o mês errado hardcoded ("Dezembro" fixo, por mais que o header já
+  // mostrasse o mês real). Fica só o que não existe em lugar nenhum: a
+  // tendência de crescimento.
   el.innerHTML=
     '<div class="fin-meta-card" style="margin-bottom:10px">'+
-      '<div class="fin-meta-title">🎯 META DEZEMBRO — 20 CLIENTES</div>'+
-      '<div class="fin-meta-row">'+
-        '<div><span class="fin-meta-num">'+n+'</span><span class="fin-meta-of"> / 20</span></div>'+
-        '<div>'+
-          '<div class="fin-meta-label">clientes ativos</div>'+
-          '<div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px">'+(faltam?'Faltam '+faltam+' para bater a meta':'🎉 Meta batida!')+'</div>'+
-        '</div>'+
-      '</div>'+
-      '<div class="fin-meta-bar"><div class="fin-meta-fill" style="width:'+metaPct+'%"></div></div>'+
-      '<div class="fin-meta-sub">'+metaPct+'% da meta · Proj. MRR 20 clientes: R$ '+projMRR.toLocaleString('pt-BR')+'</div>'+
+      '<div class="fin-meta-title">📈 TENDÊNCIA DE CRESCIMENTO</div>'+
       '<div class="trend-mini">'+
         '<div class="trend-stat"><div class="trend-stat-num">'+crescStr+'</div><div class="trend-stat-label">clientes/mês</div></div>'+
         '<div class="trend-stat"><div class="trend-stat-num">'+mesesStr+'</div><div class="trend-stat-label">para a meta</div></div>'+
@@ -6038,7 +6038,7 @@ function removeObligationTemplate(id){
 function renderRadarDemandas(){
   const el = document.getElementById('radarDemandasList');
   if(!el) return;
-  const active = hojeTarefas.filter(t=>t.tipo==='demanda'&&(t.status==='pendente'||t.status==='em_andamento'||t.status==='revisao'));
+  const active = hojeTarefas.filter(t=>t.tipo==='demanda'&&(t.status==='pendente'||t.status==='em_andamento'||t.status==='revisao')&&(t.origem!=='cs_recorrente_auto'||isAtrasado(t)));
   if(!active.length){
     el.innerHTML='<div class="radar-dem-item"><span style="color:var(--green);font-size:13px">✅ Sem demandas ativas no momento</span></div>';
     return;
@@ -6104,7 +6104,12 @@ function showToast(msg, type='ok', duration=2800) {
 ═══════════════════════════════════════════════ */
 function renderMetaBanner() {
   const goal = (typeof clientDefaults !== 'undefined' && clientDefaults.metaClientes) ? clientDefaults.metaClientes : 20;
-  const active = (typeof clients !== 'undefined' ? clients : []).filter(c => c.ativo !== false).length;
+  // Era `c.ativo !== false` — campo que nunca existiu em nenhum cliente
+  // (sempre undefined, então o filtro nunca filtrava nada: "ativos" era
+  // sempre clients.length). Agora que existe um `status` real
+  // ('onboarding' vs 'ativo'), a meta passa a contar só quem já é cliente
+  // ativo de verdade — cliente em onboarding ainda não é quem a meta quer dizer.
+  const active = (typeof clients !== 'undefined' ? clients : []).filter(c => c.status !== 'onboarding').length;
   const pct = Math.min(100, Math.round((active / goal) * 100));
   const mes = new Date().toLocaleString('pt-BR', {month:'long'});
   const textEl = document.getElementById('metaBannerText');
