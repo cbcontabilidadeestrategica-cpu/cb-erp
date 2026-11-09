@@ -3388,8 +3388,15 @@ function normalizeLead(l, i){
   // vende, 'manual' = confirmada/ajustada por Nathan/Yuri no modal. Evita
   // tratar um palpite como se fosse qualificação já validada.
   if(l.prioritySource===undefined) l.prioritySource = l.priority ? 'manual' : '';
+  // 'cliente' = venda de honorário recorrente (conta pra meta de clientes).
+  // 'parceiro' = empresa/pessoa parceira em negociação de indicação mútua —
+  // não é venda de honorário, não pode se misturar com meta/pipeline de
+  // cliente. Ex: Matheus Araujo (permuta/indicação, não honorário padrão).
+  if(l.tipo===undefined) l.tipo = 'cliente';
   return l;
 }
+
+const CANAIS_ORIGEM = ['Indicação','Parceiros','Networking','Instagram','Outro'];
 
 function getLeadById(id){ return leads.find(l=>l.id===id) }
 
@@ -3412,44 +3419,71 @@ function parseLeadValor(v){ return parseFloat(String(v||0).replace(/\./g,'').rep
 function renderFunilKpis(){
   const kpiEl = document.getElementById('funilKpiBar');
   if(!kpiEl) return;
-  const abertos = leads.filter(l=>l.stage!=='won'&&l.stage!=='lost');
-  const won = leads.filter(l=>l.stage==='won');
-  const lost = leads.filter(l=>l.stage==='lost');
-  const valorAberto = abertos.reduce((s,l)=>s+parseLeadValor(l.valor),0);
+  // Parceiro (indicação mútua) não é venda de honorário — fica fora do
+  // pipeline em R$ e da taxa de conversão de cliente, senão infla/distorce
+  // os dois números. Tem contador próprio.
+  const abertosCliente = leads.filter(l=>l.stage!=='won'&&l.stage!=='lost'&&l.tipo!=='parceiro');
+  const abertosParceiro = leads.filter(l=>l.stage!=='won'&&l.stage!=='lost'&&l.tipo==='parceiro');
+  const won = leads.filter(l=>l.stage==='won'&&l.tipo!=='parceiro');
+  const lost = leads.filter(l=>l.stage==='lost'&&l.tipo!=='parceiro');
+  const valorAberto = abertosCliente.reduce((s,l)=>s+parseLeadValor(l.valor),0);
   const fechados = won.length + lost.length;
   const winRate = fechados ? Math.round(won.length/fechados*100) : null;
   kpiEl.innerHTML =
-    '<div class="stat-tile"><span class="stat-num gold">'+abertos.length+'</span><span class="stat-label">Negócios em aberto</span></div>'+
+    '<div class="stat-tile"><span class="stat-num gold">'+abertosCliente.length+'</span><span class="stat-label">Negócios em aberto</span></div>'+
     '<div class="stat-tile"><span class="stat-num gold">R$ '+valorAberto.toLocaleString('pt-BR')+'</span><span class="stat-label">Em pipeline (R$/mês)</span></div>'+
     '<div class="stat-tile"><span class="stat-num green">'+(winRate===null?'—':winRate+'%')+'</span><span class="stat-label">Taxa de conversão</span></div>'+
-    '<div class="stat-tile"><span class="stat-num navy">'+won.length+'</span><span class="stat-label">Fechados (total)</span></div>';
+    '<div class="stat-tile"><span class="stat-num navy">'+won.length+'</span><span class="stat-label">Fechados (total)</span></div>'+
+    '<div class="stat-tile"><span class="stat-num" style="color:var(--blue)">'+abertosParceiro.length+'</span><span class="stat-label">🤝 Parceiros em negociação</span></div>';
 }
 
-// Meta reversa — transforma "faltam 15 clientes" em "quantos leads precisam
-// avançar por semana", calculado de verdade (não só escrito no playbook).
-// Ajuste META_CLIENTES_ALVO/META_DEADLINE se a meta combinada mudar.
-const META_CLIENTES_ALVO = 20;
-const META_DEADLINE = '2026-12-31';
+// Metas mensais (substituem a antiga meta única de 20 clientes até dezembro)
+// — meta mínima + super meta de clientes pagantes, e meta separada de
+// parceiros (indicação mútua), por mês. Ajuste aqui se a meta combinada
+// mudar outra vez.
+const METAS_MENSAIS = {
+  '2026-11': { label:'Novembro/2026', meta:2, super:4, parceiro:1 },
+  '2026-12': { label:'Dezembro/2026', meta:4, super:8, parceiro:1 }
+};
+function monthKeyOf(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
 function renderMetaReversa(){
   const el = document.getElementById('funilMetaReversa');
   if(!el) return;
-  const atuais = clients.length;
-  const faltam = Math.max(0, META_CLIENTES_ALVO - atuais);
-  if(faltam===0){ el.innerHTML = '<div class="pb-reality">🎉 Meta de '+META_CLIENTES_ALVO+' clientes atingida!</div>'; return; }
   const hoje = new Date();
-  const deadline = new Date(META_DEADLINE+'T23:59:59');
-  const diasRestantes = Math.max(1, Math.ceil((deadline-hoje)/86400000));
+  const key = monthKeyOf(hoje);
+  const metaMes = METAS_MENSAIS[key];
+  if(!metaMes){ el.innerHTML=''; return; }
+  const [y,m] = key.split('-').map(Number);
+  const inicioMes = new Date(y, m-1, 1);
+  const fimMes = new Date(y, m, 0, 23,59,59);
+  const dentroDoMes = (l) => l.stageChangedAt && new Date(l.stageChangedAt)>=inicioMes && new Date(l.stageChangedAt)<=fimMes;
+  const wonClientesMes = leads.filter(l=>l.tipo!=='parceiro' && l.stage==='won' && dentroDoMes(l)).length;
+  const wonParceirosMes = leads.filter(l=>l.tipo==='parceiro' && l.stage==='won' && dentroDoMes(l)).length;
+  const diasRestantes = Math.max(1, Math.ceil((fimMes-hoje)/86400000));
   const semanasRestantes = Math.max(1, diasRestantes/7);
-  const won = leads.filter(l=>l.stage==='won').length;
-  const fechados = won + leads.filter(l=>l.stage==='lost').length;
-  const winRateEstimado = fechados>=3 ? (won/fechados) : 0.4; // sem histórico suficiente ainda — usa a referência do playbook (2-3 leads fecham 1, ~35-50%)
-  const usouEstimativa = fechados<3;
-  const leadsQualNecessarios = Math.ceil(faltam/winRateEstimado);
-  const leadsPorSemana = Math.ceil(leadsQualNecessarios/semanasRestantes);
-  el.innerHTML = '<div class="pb-reality">📊 Faltam <strong>'+faltam+' clientes</strong> até '+deadline.toLocaleDateString('pt-BR')+' (hoje: '+atuais+'/'+META_CLIENTES_ALVO+', '+diasRestantes+' dias restantes). '+
-    'Com conversão '+(usouEstimativa?'estimada':'real')+' de ~'+Math.round(winRateEstimado*100)+'%, isso exige <strong>~'+leadsQualNecessarios+' leads</strong> qualificados fechando até lá — ou <strong>~'+leadsPorSemana+'/semana</strong> avançando de etapa a partir de agora.'+
-    (usouEstimativa?' <span style="opacity:.75">(ainda sem 3 fechamentos reais pra calcular a taxa de verdade — usando a referência do playbook.)</span>':'')+
-    '</div>';
+  const faltamMeta = Math.max(0, metaMes.meta - wonClientesMes);
+  const faltamSuper = Math.max(0, metaMes.super - wonClientesMes);
+  const faltaParceiro = Math.max(0, metaMes.parceiro - wonParceirosMes);
+  const wonTotal = leads.filter(l=>l.tipo!=='parceiro'&&l.stage==='won').length;
+  const fechadosTotal = wonTotal + leads.filter(l=>l.tipo!=='parceiro'&&l.stage==='lost').length;
+  const winRateEstimado = fechadosTotal>=3 ? (wonTotal/fechadosTotal) : 0.4; // sem histórico suficiente — usa a referência do playbook
+  const usouEstimativa = fechadosTotal<3;
+  const leadsNecessariosSuper = faltamSuper>0 ? Math.ceil(faltamSuper/winRateEstimado) : 0;
+  const porSemanaSuper = Math.ceil(leadsNecessariosSuper/semanasRestantes);
+
+  let html = '<div class="pb-reality">📊 <strong>'+metaMes.label+'</strong> — '+diasRestantes+' dias restantes. ';
+  html += faltamMeta===0
+    ? 'Meta mínima de '+metaMes.meta+' clientes batida ('+wonClientesMes+'). '
+    : 'Meta mínima: <strong>'+wonClientesMes+'/'+metaMes.meta+'</strong> clientes (faltam '+faltamMeta+'). ';
+  html += faltamSuper===0
+    ? 'Super meta de '+metaMes.super+' batida! 🎉 '
+    : 'Super meta: <strong>'+wonClientesMes+'/'+metaMes.super+'</strong> — com conversão '+(usouEstimativa?'estimada':'real')+' de ~'+Math.round(winRateEstimado*100)+'%, faltam ~<strong>'+leadsNecessariosSuper+' leads</strong> fechando (~'+porSemanaSuper+'/semana). ';
+  html += faltaParceiro===0
+    ? '🤝 Meta de parceiro do mês batida!'
+    : '🤝 Parceiro: '+wonParceirosMes+'/'+metaMes.parceiro+' fechado.';
+  if(usouEstimativa) html += ' <span style="opacity:.75">(ainda sem 3 fechamentos reais de cliente pra calcular a taxa de verdade.)</span>';
+  html += '</div>';
+  el.innerHTML = html;
 }
 
 // Motivo de perda agregado — o campo já existia (categorizado no modal),
@@ -3602,7 +3636,7 @@ function renderFunil(){
         '<div class="kanban-card-top">'+
           '<span class="kanban-dot" style="background:'+dot+'"></span>'+
           prioBadgeHtml(l)+
-          '<span class="kanban-name">'+escHtml(l.name)+'</span>'+
+          '<span class="kanban-name">'+escHtml(l.name)+(l.tipo==='parceiro'?' <span title="Parceiro — indicação mútua, não é cliente pagante" style="font-size:10px;font-weight:700;color:var(--blue);border:1px solid var(--blue);border-radius:4px;padding:0 4px">🤝 PARCEIRO</span>':'')+'</span>'+
           (agingDays>0?'<span class="kanban-aging'+(agingClass?' '+agingClass:'')+'">'+agingDays+'d</span>':'')+
         '</div>'+
         (l.resp?'<div class="kanban-resp">👤 '+escHtml(l.resp)+'</div>':'')+
@@ -3818,13 +3852,26 @@ function buildLeadModal(l){
     '</div>'+
     '<div class="modal-2col">'+
       '<div class="modal-field-group">'+
-        '<label>Honorários (R$/mês)</label>'+
-        '<input class="modal-input" id="ml_valor" placeholder="Ex: 1.500" value="'+escAttr(l?l.valor||'':'')+'">'+
+        '<label>Tipo de negociação</label>'+
+        '<select class="modal-input" id="ml_tipo">'+
+          '<option value="cliente"'+(!l||l.tipo!=='parceiro'?' selected':'')+'>💼 Cliente pagante (honorário)</option>'+
+          '<option value="parceiro"'+(l&&l.tipo==='parceiro'?' selected':'')+'>🤝 Parceiro (indicação mútua, não é honorário)</option>'+
+        '</select>'+
       '</div>'+
       '<div class="modal-field-group">'+
         '<label>Canal / Origem</label>'+
-        '<input class="modal-input" id="ml_origem" placeholder="Ex: indicação, Instagram" value="'+escAttr(l?l.origem||'':'')+'">'+
+        '<select class="modal-input" id="ml_origem">'+
+          '<option value="">— selecione —</option>'+
+          CANAIS_ORIGEM.concat(l&&l.origem&&!CANAIS_ORIGEM.includes(l.origem)?[l.origem]:[]).map(c=>'<option value="'+escAttr(c)+'"'+(l&&l.origem===c?' selected':'')+'>'+escHtml(c)+'</option>').join('')+
+        '</select>'+
       '</div>'+
+    '</div>'+
+    '<div class="modal-2col">'+
+      '<div class="modal-field-group">'+
+        '<label>Honorários (R$/mês) <span style="font-weight:400;color:var(--fg3);font-size:10px">(deixe vazio se for Parceiro)</span></label>'+
+        '<input class="modal-input" id="ml_valor" placeholder="Ex: 1.500" value="'+escAttr(l?l.valor||'':'')+'">'+
+      '</div>'+
+      '<div class="modal-field-group"></div>'+
     '</div>'+
     '<div class="modal-2col">'+
       '<div class="modal-field-group">'+
@@ -3879,6 +3926,8 @@ function saveLeadModal(){
   const _prevStageForAutomation = editingLeadId ? (leads.find(l=>l.id===editingLeadId)||{}).stage : null;
   const valor = (document.getElementById('ml_valor').value||'').trim();
   const origem = (document.getElementById('ml_origem').value||'').trim();
+  const tipoEl = document.getElementById('ml_tipo');
+  const tipo = tipoEl ? tipoEl.value : 'cliente';
   const resp = (document.getElementById('ml_resp').value||'').trim();
   const firstContact = document.getElementById('ml_fc').value;
   const dor = (document.getElementById('ml_dor').value||'').trim();
@@ -3900,14 +3949,14 @@ function saveLeadModal(){
       const prev = leads[idx];
       const stageChanged = prev.stage !== stage;
       const lostFromStage = (stage==='lost' && prev.stage!=='lost') ? prev.stage : prev.lostFromStage;
-      leads[idx] = { ...prev, name, stage, valor, origem, resp, firstContact, dor, nextStep, followUpDate, priority, prioritySource, lostReason, lostDetail, lostFromStage, checklist,
+      leads[idx] = { ...prev, name, stage, valor, origem, tipo, resp, firstContact, dor, nextStep, followUpDate, priority, prioritySource, lostReason, lostDetail, lostFromStage, checklist,
         stageChangedAt: stageChanged ? new Date().toISOString() : (prev.stageChangedAt||prev.createdAt||new Date().toISOString())
       };
     }
   } else {
     const now = new Date().toISOString();
     const lostFromStage = stage==='lost' ? 'prosp' : '';
-    leads.unshift({ id:'l_'+Date.now(), name, stage, valor, origem, resp, firstContact, dor, nextStep, followUpDate, priority, prioritySource, lostReason, lostDetail, lostFromStage, checklist, createdAt:now, stageChangedAt:now });
+    leads.unshift({ id:'l_'+Date.now(), name, stage, valor, origem, tipo, resp, firstContact, dor, nextStep, followUpDate, priority, prioritySource, lostReason, lostDetail, lostFromStage, checklist, createdAt:now, stageChangedAt:now });
   }
   save('cb3_leads', leads);
   // Automação: lead fechado → oferecer criar cliente (item 17)
