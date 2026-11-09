@@ -1462,8 +1462,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 
       <div class="sidebar-nav-group-label">Comercial &amp; Marketing</div>
       <button class="sidebar-nav-btn" onclick="switchTab('funil',this)" data-tab="funil"><span class="nav-icon">🎯</span><span class="nav-label"> CRM</span></button>
-      <button class="sidebar-nav-btn" onclick="switchTab('instagram',this)" data-tab="instagram"><span class="nav-icon">📣</span><span class="nav-label"> Planejamento de Marketing</span></button>
-      <button class="sidebar-nav-btn" onclick="switchTab('esteira',this)" data-tab="esteira"><span class="nav-icon">🪜</span><span class="nav-label"> Esteira de Produtos</span></button>
+      <button class="sidebar-nav-btn" onclick="switchTab('instagram',this)" data-tab="instagram"><span class="nav-icon">📣</span><span class="nav-label"> Planejamento</span></button>
 
       <div class="sidebar-nav-group-label">Financeiro</div>
       <button class="sidebar-nav-btn" onclick="switchTab('financeiro',this)" data-tab="financeiro"><span class="nav-icon">💰</span><span class="nav-label"> Financeiro</span></button>
@@ -1653,34 +1652,38 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 
 <!-- ═══ PLANEJAMENTO DE MARKETING ═══ -->
 <section id="tab-instagram" class="tab-panel">
-  <p class="page-title" style="margin-bottom:2px">Planejamento de Marketing</p>
-  <p class="page-sub" style="margin-bottom:16px">Calendário editorial — conteúdo, datas e campanhas</p>
-  <div class="card">
-    <div class="card-body" style="display:flex;flex-direction:column;gap:14px;align-items:center;text-align:center;padding:36px 20px">
-      <div style="font-size:40px">📣</div>
-      <div>
-        <p style="font-weight:700;font-size:15px;margin-bottom:4px">Calendário CB — 2026 · 2027</p>
-        <p style="font-size:13px;color:var(--fg2);max-width:420px;margin:0 auto">O planejamento de marketing vive no artefato abaixo. Abra pra ver ou editar o calendário completo.</p>
-      </div>
-      <a class="btn-primary" style="padding:10px 20px;text-decoration:none" href="https://claude.ai/artifact/F12Ax238BZara1WsJF9vbP" target="_blank" rel="noopener">Abrir Calendário CB ↗</a>
-      <p style="font-size:11px;color:var(--fg4);max-width:420px;margin:0 auto">Abre em outra aba — o claude.ai não permite embutir o artefato num site externo (política de segurança do próprio claude.ai), então não dá pra mostrar o calendário aqui dentro.</p>
-    </div>
-  </div>
-</section>
-
-<!-- ═══ ESTEIRA DE PRODUTOS ═══ -->
-<section id="tab-esteira" class="tab-panel">
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
     <div>
-      <p class="page-title" style="margin-bottom:2px">Esteira de Produtos</p>
-      <p class="page-sub" style="margin-bottom:0">Do conteúdo gratuito ao honorário recorrente — construída a partir das dores reais do CRM, não de persona genérica</p>
+      <p class="page-title" style="margin-bottom:2px">Planejamento</p>
+      <p class="page-sub" style="margin-bottom:0">Marketing (calendário editorial) e Esteira de Produtos (escada de valor) — tudo que prepara a captação antes do lead entrar no Funil</p>
     </div>
-    <button class="btn-primary" onclick="openNewEsteiraModal()" style="padding:10px 18px;flex-shrink:0">+ Novo item</button>
+    <div class="fin-view-tabs">
+      <button class="fin-view-tab" id="planTabMkt" onclick="planSetView('marketing')">📣 Marketing</button>
+      <button class="fin-view-tab" id="planTabEst" onclick="planSetView('esteira')">🪜 Esteira de Produtos</button>
+    </div>
   </div>
 
-  <div id="esteiraDoresBanco" style="margin-bottom:14px"></div>
+  <div id="planViewMarketing">
+    <div class="card">
+      <div class="card-body" style="display:flex;flex-direction:column;gap:14px;align-items:center;text-align:center;padding:36px 20px">
+        <div style="font-size:40px">📣</div>
+        <div>
+          <p style="font-weight:700;font-size:15px;margin-bottom:4px">Calendário CB — 2026 · 2027</p>
+          <p style="font-size:13px;color:var(--fg2);max-width:420px;margin:0 auto">O planejamento de marketing vive no artefato abaixo. Abra pra ver ou editar o calendário completo.</p>
+        </div>
+        <a class="btn-primary" style="padding:10px 20px;text-decoration:none" href="https://claude.ai/artifact/F12Ax238BZara1WsJF9vbP" target="_blank" rel="noopener">Abrir Calendário CB ↗</a>
+        <p style="font-size:11px;color:var(--fg4);max-width:420px;margin:0 auto">Abre em outra aba — o claude.ai não permite embutir o artefato num site externo (política de segurança do próprio claude.ai), então não dá pra mostrar o calendário aqui dentro.</p>
+      </div>
+    </div>
+  </div>
 
-  <div class="kanban-board" id="esteiraBoard"></div>
+  <div id="planViewEsteira">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+      <button class="btn-primary" onclick="openNewEsteiraModal()" style="padding:10px 18px;flex-shrink:0">+ Novo item</button>
+    </div>
+    <div id="esteiraDoresBanco" style="margin-bottom:14px"></div>
+    <div class="kanban-board" id="esteiraBoard"></div>
+  </div>
 </section>
 
 <!-- ═══ FUNIL ═══ -->
@@ -1863,7 +1866,8 @@ async function showApp(user) {
   const renders = [
     ['initState',initState],['initTheme',initTheme],['initSidebar',initSidebar],
     ['renderMetaBanner',renderMetaBanner],['renderRadar',renderRadar],['renderRadarDemandas',renderRadarDemandas],
-    ['renderFunil',renderFunil],['renderComercialHoje',renderComercialHoje],['renderEsteira',renderEsteira],['renderFinanceiro',renderFinanceiro],
+    ['renderFunil',renderFunil],['renderComercialHoje',renderComercialHoje],['renderEsteira',renderEsteira],
+    ['planSetView',()=>planSetView(planView)],['renderFinanceiro',renderFinanceiro],
     ['renderClientes',renderClientes],['renderClientDefaults',renderClientDefaults],['renderObligationTemplates',renderObligationTemplates],
   ];
   renders.forEach(([name,fn])=>{ try{ fn(); } catch(e){ console.error('Falha ao renderizar '+name+':', e); } });
@@ -2952,6 +2956,22 @@ let finView = 'operacional'; // 'operacional' | 'dre' | 'dfc' | 'config'
 function finSetView(v){ finView=v; renderFinanceiroTab(); }
 let editingLeadId = null, editingClientId = null;
 let editingEsteiraId = null, draggedEsteiraId = null;
+// Sub-aba dentro de "Planejamento" (Comercial & Marketing): 'marketing' =
+// calendário editorial, 'esteira' = board da Esteira de Produtos. As duas
+// moram na mesma aba do CRM pra não fragmentar o menu lateral.
+let planView = 'marketing';
+function planSetView(v){
+  planView = v;
+  const mktEl = document.getElementById('planViewMarketing');
+  const estEl = document.getElementById('planViewEsteira');
+  const btnMkt = document.getElementById('planTabMkt');
+  const btnEst = document.getElementById('planTabEst');
+  if(mktEl) mktEl.style.display = v==='marketing' ? '' : 'none';
+  if(estEl) estEl.style.display = v==='esteira' ? '' : 'none';
+  if(btnMkt) btnMkt.classList.toggle('active', v==='marketing');
+  if(btnEst) btnEst.classList.toggle('active', v==='esteira');
+  if(v==='esteira') renderEsteira();
+}
 // Estado temporário do editor "Obrigações deste cliente" dentro do modal de
 // cliente — só é gravado em client.obligationOverrides quando Salvar é
 // clicado (saveClientModal). Reiniciado a cada abertura do modal.
@@ -3092,7 +3112,7 @@ function switchTab(name, btn) {
   document.querySelectorAll('.sidebar-nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   document.querySelectorAll('[data-tab="'+name+'"]').forEach(b => b.classList.add('active'));
-  const tabLabels = {radar:'Início',hoje:'Operação',instagram:'Planejamento de Marketing',funil:'CRM',clientes:'Clientes',financeiro:'Financeiro'};
+  const tabLabels = {radar:'Início',hoje:'Operação',instagram:'Planejamento',funil:'CRM',clientes:'Clientes',financeiro:'Financeiro'};
   const ind = document.getElementById('headerTabIndicator');
   if(ind){ ind.textContent = tabLabels[name]||name; }
   // Operação/Início/Clientes leem o status real da tarefa (obrigações +
@@ -3102,6 +3122,7 @@ function switchTab(name, btn) {
   if (name === 'hoje') renderOperacao();
   if (name === 'radar') renderRadar();
   if (name === 'clientes') renderClientes();
+  if (name === 'instagram') planSetView(planView);
   window.scrollTo(0,0);
 }
 
