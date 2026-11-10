@@ -35,6 +35,17 @@
   padding:10px 18px;font-size:10px;color:rgba(255,255,255,.3);
   word-break:break-all;border-top:1px solid rgba(255,255,255,.06);flex-shrink:0;
 }
+.sidebar-operator{
+  padding:10px 18px 4px;border-top:1px solid rgba(255,255,255,.06);flex-shrink:0;
+}
+.sidebar-operator label{
+  display:block;font-size:10px;color:rgba(255,255,255,.4);margin-bottom:4px;
+}
+.sidebar-operator select{
+  width:100%;padding:6px 8px;border-radius:6px;border:1px solid rgba(255,255,255,.15);
+  background:rgba(255,255,255,.08);color:#fff;font-size:12px;font-weight:600;cursor:pointer;
+}
+.sidebar-operator select option{color:#111;background:#fff}
 .sidebar-footer{padding:14px 18px;border-top:1px solid rgba(255,255,255,.08);flex-shrink:0}
 .sidebar-logout-btn{
   width:100%;padding:8px 14px;background:rgba(255,255,255,.06);
@@ -92,7 +103,7 @@
   .sidebar-nav-btn{flex-direction:column;padding:7px 10px;font-size:9px;gap:2px;border-left:none;border-bottom:3px solid transparent;justify-content:center;align-items:center;min-width:52px}
   .sidebar-nav-btn .nav-icon{font-size:17px}
   .sidebar-nav-btn.active{border-left:none;border-bottom-color:var(--gold);background:rgba(201,160,74,.1)}
-  .sidebar-user,.sidebar-footer{display:none}
+  .sidebar-user,.sidebar-footer,.sidebar-operator{display:none}
 }
 
 /* ─── LOGIN OVERLAY ─── */
@@ -1006,6 +1017,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .dem-comments-toggle:hover{color:var(--fg)}
 .dem-comments-list{margin-top:6px;display:flex;flex-direction:column;gap:5px}
 .dem-comment-item{background:var(--bg3);border-radius:6px;padding:6px 9px;font-size:11px}
+.dem-comment-sistema{background:transparent;border:1px dashed var(--border);color:var(--fg3);font-style:italic}
 .dem-comment-meta{font-size:10px;color:var(--fg3);margin-top:2px}
 .dem-comment-input-row{display:flex;gap:5px;margin-top:5px}
 .dem-comment-input{flex:1;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:12px;font-family:'Outfit',sans-serif;background:var(--bg);color:var(--fg);outline:none}
@@ -1066,6 +1078,9 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 /* ── Client Settings Cards ── */
 .client-settings-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;margin-bottom:10px;box-shadow:var(--shadow-card)}
 .csc-top{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.csc-top-clickable{cursor:pointer;border-radius:10px;margin:-6px;padding:6px;transition:background .12s}
+.csc-top-clickable:hover{background:var(--bg3)}
+.csc-chevron{font-size:13px;color:var(--fg3);flex-shrink:0;width:14px;text-align:center;margin-top:4px}
 .csc-avatar{width:44px;height:44px;border-radius:12px;background:var(--navy);color:#fff;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .csc-avatar.gold{background:linear-gradient(135deg,var(--gold),var(--gold2))}
 .csc-info{flex:1;min-width:160px}
@@ -1249,6 +1264,15 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .cs-input-sm{background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:5px 8px;font-size:12px;width:100%;color:var(--fg);font-family:'Outfit',sans-serif}
 .cs-upsell-badge{display:inline-block;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;background:var(--gold-lt);color:var(--gold2);border:1px solid var(--gold-bd)}
 .cs-checkin-alert{color:var(--red);font-size:11px;font-weight:600;margin-top:3px}
+.cs-history-wrap{margin-top:16px;border-top:1px solid var(--border2);padding-top:12px}
+.cs-obs-textarea{min-height:52px;resize:vertical;font-family:inherit}
+.cs-history-list{display:flex;flex-direction:column;gap:6px;margin-top:4px;max-height:260px;overflow-y:auto}
+.cs-history-item{background:var(--bg3);border-radius:7px;padding:7px 10px;font-size:12px}
+.cs-history-top{display:flex;gap:8px;align-items:center}
+.cs-history-nps{font-size:11px;font-weight:700;color:var(--navy);background:var(--gold-lt);border-radius:8px;padding:1px 7px}
+.cs-history-sat{color:var(--gold);font-size:12px}
+.cs-history-obs{margin-top:4px;color:var(--fg2)}
+.cs-history-meta{margin-top:4px;font-size:10px;color:var(--fg3)}
 
 /* ── Default settings section ── */
 .defaults-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow-card)}
@@ -1478,6 +1502,14 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
       <div class="sidebar-nav-group-label">Financeiro</div>
       <button class="sidebar-nav-btn" onclick="switchTab('financeiro',this)" data-tab="financeiro"><span class="nav-icon">💰</span><span class="nav-label"> Financeiro</span></button>
     </nav>
+    <div class="sidebar-operator" id="sidebarOperator">
+      <label for="operatorSelect">Operando como</label>
+      <select id="operatorSelect" onchange="setCurrentOperator(this.value)">
+        <option value="Nathan">Nathan</option>
+        <option value="Yuri">Yuri</option>
+        <option value="Equipe">Equipe</option>
+      </select>
+    </div>
     <div class="sidebar-user" id="sidebarUser"></div>
     <div class="sidebar-footer">
       <button class="sidebar-logout-btn" onclick="logout()">
@@ -1629,6 +1661,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
         <button class="oper-view-btn active" id="operBtnLista" onclick="setOperView('lista')">📋 Lista</button>
         <button class="oper-view-btn" id="operBtnKanban" onclick="setOperView('kanban')">🗂️ Kanban</button>
       </div>
+      <input type="text" id="operFiltroCliente" placeholder="🔎 Nome do cliente…" oninput="onOperFilterChange()" style="min-width:160px">
       <select id="operFiltroSetor" onchange="onOperFilterChange()">
         <option value="">Todos os setores</option>
       </select>
@@ -1730,6 +1763,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
     </div>
     <button class="btn-primary" onclick="openNewClientModal()" style="padding:10px 18px;flex-shrink:0">+ Novo Cliente</button>
   </div>
+  <input class="modal-input" id="clientFilterInput" placeholder="🔎 Buscar cliente pelo nome…" style="margin-bottom:14px" oninput="setClientFilterName(this.value)">
   <div id="clientSettingsCards"></div>
 
   <div class="section-label" style="margin-top:28px">🔐 CERTIFICADOS DIGITAIS</div>
@@ -1873,6 +1907,28 @@ async function withSessionRetry(fn, label) {
   }
 }
 
+// ───── Identidade de operador ─────
+// O login no Supabase continua único (e-mail da CB), mas os 2 sócios usam
+// o Hub — e tudo que precisa registrar "quem fez" (comentários, histórico
+// de etapa, observações de CS) precisava saber disso. Antes não sabia:
+// addOperComment() tinha author:'Nathan' fixo no código, não importava
+// quem realmente escreveu. Esse seletor fica gravado no localStorage DESTE
+// navegador/aparelho (não é um 2º login nem mexe na sessão do Supabase),
+// então cada sócio escolhe o próprio nome no computador/navegador que usa
+// e os dois podem estar no Hub ao mesmo tempo, em aparelhos diferentes, sem
+// conflito — cada registro sai assinado com quem realmente estava ali.
+function getCurrentOperator() {
+  try { return localStorage.getItem('cb3_operator') || 'Equipe'; } catch(e) { return 'Equipe'; }
+}
+function setCurrentOperator(v) {
+  try { localStorage.setItem('cb3_operator', v); } catch(e) {}
+  updateOperatorUI();
+}
+function updateOperatorUI() {
+  const sel = document.getElementById('operatorSelect');
+  if (sel) sel.value = getCurrentOperator();
+}
+
 async function initAuth() {
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
@@ -1906,6 +1962,7 @@ async function showApp(user) {
     ['renderClientes',renderClientes],['renderClientDefaults',renderClientDefaults],['renderObligationTemplates',renderObligationTemplates],
   ];
   renders.forEach(([name,fn])=>{ try{ fn(); } catch(e){ console.error('Falha ao renderizar '+name+':', e); } });
+  updateOperatorUI();
   // Início/Clientes leem o status real de obrigações+demandas da mesma
   // tabela que a Operação usa (hojeTarefas) — como essa busca é assíncrona,
   // a primeira pintura acima roda antes dela chegar. Repinta assim que os
@@ -2152,6 +2209,13 @@ const CERTS = [
 // (`requiresEmployees`). A ordem do array é a ordem de exibição.
 const OBLIG_REGIMES = ['Simples Nacional','Lucro Presumido','Lucro Real','Terceiro Setor','Imune / 3º Setor','MEI'];
 const OBLIG_SETORES = ['Fiscal','Depto. Pessoal','Contábil','Societário','Financeiro','Sucesso do Cliente','Onboarding'];
+// Lista fixa de responsáveis — usada no select do encarte de detalhe (ver
+// buildOperModal) pra impedir erro de digitação ("Nathan" vs "nathan" vs
+// "Natha") que um campo de texto livre permitia. Se uma tarefa antiga tiver
+// um valor fora dessa lista, ele aparece como opção extra automaticamente
+// (ver uso com .concat em buildOperModal) — nunca se perde um valor já
+// salvo só por não estar nessa lista.
+const OPER_RESP_OPTIONS = ['Nathan','Yuri','Equipe'];
 let obligationTemplates = [
   { id:'coleta',     label:'Coleta de dados',               desc:'NFs emitidas, extrato bancário, faturamento',               setor:'Fiscal',         prazoDia:7,  urg:'amber', regimes:['all'], requiresEmployees:false },
   { id:'ponto',      label:'Conferência de ponto',           desc:'Fechar folha ponto × registro',                             setor:'Depto. Pessoal', prazoDia:5,  urg:'amber', regimes:['all'], requiresEmployees:true  },
@@ -2386,6 +2450,7 @@ async function setTarefaStatus(id, next) {
   try {
     const { error } = await withTimeout(sb.from('tarefa').update({ status: next }).eq('id', id), 8000, 'setTarefaStatus');
     if (error) throw error;
+    if (current !== next) logOperEvent(id, 'Mudou status: '+(OPER_STATUS_LABEL[current]||current||'—')+' → '+(OPER_STATUS_LABEL[next]||next));
   } catch(e) {
     console.warn('Erro ao atualizar status da tarefa:', e);
     if (t) t.status = current;
@@ -2409,6 +2474,7 @@ async function setTarefaResp(id, resp) {
   try {
     const { error } = await withTimeout(sb.from('tarefa').update({ responsavel: resp || null }).eq('id', id), 8000, 'setTarefaResp');
     if (error) throw error;
+    if ((prev||null) !== (resp||null)) logOperEvent(id, 'Responsável: '+(prev||'—')+' → '+(resp||'—'));
   } catch(e) {
     console.warn('Erro ao atualizar responsável:', e);
     if (t) t.responsavel = prev;
@@ -2424,6 +2490,7 @@ async function setTarefaPrazo(id, prazo) {
   try {
     const { error } = await withTimeout(sb.from('tarefa').update({ prazo: prazo || null }).eq('id', id), 8000, 'setTarefaPrazo');
     if (error) throw error;
+    if ((prev||null) !== (prazo||null)) logOperEvent(id, 'Prazo: '+(prev?prev.split('-').reverse().join('/'):'—')+' → '+(prazo?prazo.split('-').reverse().join('/'):'—'));
   } catch(e) {
     console.warn('Erro ao atualizar prazo:', e);
     if (t) t.prazo = prev;
@@ -2639,6 +2706,7 @@ function setOperView(v) {
   paintOperacao();
 }
 function onOperFilterChange() {
+  operFilterCliente = document.getElementById('operFiltroCliente').value;
   operFilterSetor = document.getElementById('operFiltroSetor').value;
   operFilterResp = document.getElementById('operFiltroResp').value;
   operFilterTipo = document.getElementById('operFiltroTipo').value;
@@ -2837,11 +2905,13 @@ function paintOperacao() {
   // `base` = tudo que passa nos filtros de setor/responsável/tipo/atraso —
   // é sobre esse recorte que os indicadores de % e o painel por setor
   // trabalham (sem o filtro de status, que só vale pra visão em lista).
+  const termoCliente = (operFilterCliente||'').trim().toLowerCase();
   const base = todosItens.filter(t =>
     (!operFilterSetor || t.setor === operFilterSetor) &&
     (!operFilterResp || t.responsavel === operFilterResp) &&
     (!operFilterTipo || t.tipo === operFilterTipo) &&
-    (!operFilterAtraso || isAtrasado(t))
+    (!operFilterAtraso || isAtrasado(t)) &&
+    (!termoCliente || clienteNomeDe(t).toLowerCase().includes(termoCliente))
   );
 
   const totalBase = base.length;
@@ -3000,7 +3070,10 @@ function buildOperModal(t) {
     '</div>'+
     '<div class="modal-2col">'+
       '<div class="modal-field-group"><label>Setor</label><select class="modal-input" onchange="setTarefaSetor('+t.id+',this.value)">'+OBLIG_SETORES.map(s=>'<option value="'+escAttr(s)+'"'+(t.setor===s?' selected':'')+'>'+escHtml(s)+'</option>').join('')+'</select></div>'+
-      '<div class="modal-field-group"><label>Responsável</label><input class="modal-input" value="'+escAttr(t.responsavel||'')+'" onchange="setTarefaResp('+t.id+',this.value)"></div>'+
+      '<div class="modal-field-group"><label>Responsável</label><select class="modal-input" onchange="setTarefaResp('+t.id+',this.value)">'+
+        '<option value=""'+(!t.responsavel?' selected':'')+'>— sem responsável —</option>'+
+        OPER_RESP_OPTIONS.concat(t.responsavel&&!OPER_RESP_OPTIONS.includes(t.responsavel)?[t.responsavel]:[]).map(r=>'<option value="'+escAttr(r)+'"'+(t.responsavel===r?' selected':'')+'>'+escHtml(r)+'</option>').join('')+
+      '</select></div>'+
     '</div>'+
     '<div class="modal-2col">'+
       '<div class="modal-field-group"><label>Prazo</label><input class="modal-input" type="date" value="'+(t.prazo||'')+'" onchange="setTarefaPrazo('+t.id+',this.value)"></div>'+
@@ -3026,21 +3099,41 @@ function buildOperModal(t) {
 // abrir o encarte, sem precisar de outro clique pra revelar (era um toggle
 // escondido no rodapé do card do kanban de Demandas; agora é lateral e
 // sempre aberto enquanto o encarte estiver aberto).
+// Histórico do card — uma única sequência cronológica. Dois tipos de
+// entrada na mesma lista, pela ordem em que aconteceram: comentário manual
+// (sistema:false, escrito por alguém) e evento automático (sistema:true,
+// gerado sozinho por logOperEvent sempre que algo relevante muda — status,
+// responsável, prazo etc.). Não precisa a equipe lembrar de registrar nada;
+// o evento automático já sai com data e quem estava operando no momento.
 function buildOperComments(id) {
   const wrap = document.getElementById('operCommentCloud');
   if (!wrap) return;
   const list = commentsData[String(id)] || [];
   wrap.innerHTML =
-    '<div class="oper-comment-cloud-hd">💬 Comentários'+(list.length?' · '+list.length:'')+'</div>'+
+    '<div class="oper-comment-cloud-hd">🕐 Histórico'+(list.length?' · '+list.length:'')+'</div>'+
     '<div class="oper-comment-cloud-list">'+
       (list.length ? list.map(c=>
-        '<div class="dem-comment-item"><div>'+escHtml(c.text)+'</div><div class="dem-comment-meta">'+escHtml(c.author)+' · '+new Date(c.ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+'</div></div>'
-      ).join('') : '<p style="font-size:12px;color:var(--fg3);padding:4px 0">Nenhum comentário ainda.</p>')+
+        c.sistema
+          ? '<div class="dem-comment-item dem-comment-sistema"><div>⚙️ '+escHtml(c.text)+'</div><div class="dem-comment-meta">'+escHtml(c.author)+' · '+new Date(c.ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+'</div></div>'
+          : '<div class="dem-comment-item"><div>'+escHtml(c.text)+'</div><div class="dem-comment-meta">'+escHtml(c.author)+' · '+new Date(c.ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+'</div></div>'
+      ).join('') : '<p style="font-size:12px;color:var(--fg3);padding:4px 0">Nenhum evento ainda.</p>')+
     '</div>'+
     '<div class="dem-comment-input-row">'+
       '<input class="dem-comment-input" id="operCommentInput" placeholder="Escrever um comentário..." onkeydown="if(event.key===\'Enter\')addOperComment('+id+')">'+
       '<button class="dem-comment-send" onclick="addOperComment('+id+')">➤</button>'+
     '</div>';
+}
+// Evento automático — chamado pelos setters (status, responsável, prazo...)
+// sempre que o valor realmente muda. Entra na mesma lista dos comentários
+// manuais (commentsData), só que marcado sistema:true pra aparecer com
+// ícone diferente; a ordem cronológica (push no fim) já garante a sequência
+// pedida: comentário → mudança de card → próximo comentário já vem depois.
+function logOperEvent(id, text) {
+  const key = String(id);
+  if (!commentsData[key]) commentsData[key] = [];
+  commentsData[key].push({ id:'c_'+Date.now()+'_'+Math.random().toString(36).slice(2,6), ts:new Date().toISOString(), text, author:getCurrentOperator(), sistema:true });
+  save('cb3_comments', commentsData);
+  if (openOperTarefaId === id) buildOperComments(id);
 }
 function addOperComment(id) {
   const input = document.getElementById('operCommentInput');
@@ -3048,7 +3141,7 @@ function addOperComment(id) {
   if (!text) return;
   const key = String(id);
   if (!commentsData[key]) commentsData[key] = [];
-  commentsData[key].push({ id:'c_'+Date.now(), ts:new Date().toISOString(), text, author:'Nathan' });
+  commentsData[key].push({ id:'c_'+Date.now(), ts:new Date().toISOString(), text, author:getCurrentOperator() });
   save('cb3_comments', commentsData);
   input.value = '';
   buildOperComments(id);
@@ -3077,7 +3170,7 @@ const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho'
 // IMPORTANTE: atualize este valor (data/hora do deploy) a cada publicação
 // — é a única forma de o navegador de quem já está com o hub aberto saber
 // que existe uma versão mais nova.
-const APP_BUILD = '2026-11-09T16:10-03:00';
+const APP_BUILD = '2026-11-10T10:19-03:00';
 let appUpdateBannerShown = false;
 async function checkForNewVersion() {
   try {
@@ -3187,7 +3280,9 @@ let fecYear, fecMonth, igYear, igMonth, igSelectedDate = null, igView = 'cal';
 // Aba Operação (unifica obrigações + demandas avulsas, tudo em `tarefa`):
 // modo de visualização, filtros e item aberto no momento.
 let operView = 'lista'; // 'lista' | 'kanban'
-let operFilterSetor = '', operFilterResp = '', operFilterStatus = '', operFilterTipo = '', operFilterAtraso = false, operFilterOcultarConcl = true;
+let operFilterSetor = '', operFilterResp = '', operFilterStatus = '', operFilterTipo = '', operFilterAtraso = false, operFilterOcultarConcl = true, operFilterCliente = '';
+let clientFilterName = '';
+function setClientFilterName(v) { clientFilterName = v; renderClientes(); }
 // Itens com prazo a mais de 20 dias (obrigação do próximo mês já
 // materializada, CS recorrente trimestral/semestral pré-criado pra não
 // esquecer) ficam recolhidos por padrão tanto na lista quanto no Kanban —
@@ -5539,30 +5634,37 @@ function renderFinDFC(){
 function renderClientes(){
   const container=document.getElementById('clientSettingsCards');
   if(!container) return;
-  container.innerHTML=clients.map(c=>{
+  const termo = (clientFilterName||'').trim().toLowerCase();
+  const clientesFiltrados = termo ? clients.filter(c=>(c.name||'').toLowerCase().includes(termo)) : clients;
+  if (termo && !clientesFiltrados.length) {
+    container.innerHTML = '<div style="padding:24px;text-align:center;color:var(--fg3)">Nenhum cliente encontrado pra "'+escHtml(clientFilterName)+'".</div>';
+  } else {
+  container.innerHTML=clientesFiltrados.map(c=>{
     const steps=getSteps(c);
     const doneCount=steps.filter(s=>getStepState(c.id, s.id, fecYear, fecMonth).done).length;
     const pct=steps.length?Math.round(doneCount/steps.length*100):0;
     const driveUrl=clientDrives[c.driveKey]||'';
     const mensalidade=parseMensalidade(c);
     const barColor=pct===100?'green':pct>50?'amber':'gold';
+    const expanded = !!clientCardExpanded[c.id];
     return '<div class="client-settings-card">'+
-      '<div class="csc-top">'+
+      '<div class="csc-top csc-top-clickable" onclick="toggleClientCard('+c.id+')" title="Clique pra '+(expanded?'recolher':'ver todos os detalhes')+'">'+
+        '<span class="csc-chevron">'+(expanded?'▾':'▸')+'</span>'+
         '<div class="csc-avatar">'+escHtml(c.initials)+'</div>'+
         '<div class="csc-info">'+
           '<div class="csc-name">'+escHtml(c.name)+'</div>'+
           (c.status==='onboarding'?'<span class="health-badge amber" title="Ainda não gera obrigação recorrente — falta concluir o checklist de onboarding (transição de contabilidade, acessos, regime confirmado...)">🟡 Em onboarding</span>':'')+
           (()=>{const hs=calcHealthScore(c);const tip='Health Score: '+hs.score+'/100&#10;'+(hs.reasons.length?hs.reasons.join('&#10;'):'Tudo em ordem!');return '<span class="health-badge '+hs.color+'" title="'+tip+'">'+(hs.color==='green'?'💚':hs.color==='amber'?'🟡':'🔴')+' '+hs.score+' pts</span>';})()+
           '<div class="csc-regime">'+escHtml(c.regime)+'</div>'+
-          '<div class="csc-chips" style="margin-top:6px">'+
-            c.services.map(s=>'<span class="svc-chip">'+escHtml(s)+'</span>').join('')+
-          '</div>'+
+          (!expanded?'<div class="csc-chips" style="margin-top:6px">'+c.services.map(s=>'<span class="svc-chip">'+escHtml(s)+'</span>').join('')+'</div>':'')+
         '</div>'+
-        '<div class="csc-actions">'+
+        '<div class="csc-actions" onclick="event.stopPropagation()">'+
           '<button class="btn-sm" style="background:var(--green);color:#fff" onclick="quickRegisterContact('+c.id+')" title="Marca hoje como último contato — sem precisar abrir a aba Sucesso do Cliente">✓ Contato hoje</button>'+
           '<button class="btn-sm navy" onclick="openEditClientModal('+c.id+')">✏️ Editar</button>'+
         '</div>'+
       '</div>'+
+      (!expanded?'':
+      '<div class="csc-chips" style="margin:0 16px 10px">'+c.services.map(s=>'<span class="svc-chip">'+escHtml(s)+'</span>').join('')+'</div>'+
       '<div class="csc-body">'+
         '<div class="csc-field">'+
           '<div class="csc-field-label">Mensalidade</div>'+
@@ -5607,6 +5709,7 @@ function renderClientes(){
         const checkinLate=cs.nextCheckin&&cs.nextCheckin<todayCs;
         const daysSinceContact = cs.lastContact ? Math.floor((new Date()-new Date(cs.lastContact))/86400000) : null;
         const inactClass = daysSinceContact!==null ? (daysSinceContact>=30?'late':daysSinceContact>=15?'warn':null) : null;
+        const csHist = cs.historico || [];
         const row=findAcessoRow(c.name);
         const fieldsHtml=ACESSOS_COLS.filter(col=>col.key!=='cliente').map(col=>{
           const val=row[col.key]||'';
@@ -5641,7 +5744,8 @@ function renderClientes(){
               '<div style="margin-top:10px;text-align:right"><button class="btn-sm" type="button" onclick="openOperModal('+obTask.id+')">Abrir na Operação →</button></div>'
             : '<p style="font-size:12px;color:var(--fg3);padding:4px 0">Gerando a tarefa de onboarding na Operação… abra a aba Operação uma vez e volte aqui.</p>')+
           '</div>' : '')+
-          (open==='cs' ? '<div class="csc-tab-panel cs-grid">'+
+          (open==='cs' ? '<div class="csc-tab-panel">'+
+          '<div class="cs-grid">'+
             '<div>'+
               '<div class="cs-field-label">Satisfação</div>'+
               '<div class="cs-nps">'+
@@ -5671,12 +5775,32 @@ function renderClientes(){
               '<input type="date" class="cs-input-sm" value="'+escAttr(cs.nextCheckin||'')+'" onchange="updateCsField('+c.id+',\'nextCheckin\',this.value)">'+
               (checkinLate?'<div class="cs-checkin-alert">⚠️ Check-in atrasado!</div>':'')+
             '</div>'+
+          '</div>'+
+          '<div class="cs-history-wrap">'+
+            '<div class="cs-field-label">Registrar check-in (NPS/satisfação de hoje)</div>'+
+            '<textarea class="cs-input-sm cs-obs-textarea" id="cs_obs_'+c.id+'" placeholder="O que o cliente disse, contexto da conversa..."></textarea>'+
+            '<button class="btn-sm" type="button" onclick="registrarCsCheckin('+c.id+')" style="margin-top:6px">📌 Registrar check-in de hoje</button>'+
+            '<div class="cs-field-label" style="margin-top:14px">Histórico'+(csHist.length?' · '+csHist.length:'')+'</div>'+
+            (csHist.length ?
+              '<div class="cs-history-list">'+csHist.slice().reverse().map(h=>
+                '<div class="cs-history-item">'+
+                  '<div class="cs-history-top">'+
+                    (h.nps!=null&&h.nps>=0?'<span class="cs-history-nps">NPS '+h.nps+'</span>':'')+
+                    (h.satisfaction?'<span class="cs-history-sat">'+'★'.repeat(h.satisfaction)+'</span>':'')+
+                  '</div>'+
+                  (h.obs?'<div class="cs-history-obs">'+escHtml(h.obs)+'</div>':'')+
+                  '<div class="cs-history-meta">'+escHtml(h.autor||'—')+' · '+new Date(h.ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+'</div>'+
+                '</div>'
+              ).join('')+'</div>'
+            : '<p style="font-size:12px;color:var(--fg3);padding:4px 0">Nenhum check-in registrado ainda.</p>')+
+          '</div>'+
           '</div>' : '')+
           (open==='acessos' ? '<div class="csc-tab-panel">'+
             '<div class="onb-badge" style="color:var(--amber);margin-bottom:8px;display:block" title="Dados sensíveis — compartilhados só com a equipe logada">⚠ Confidencial — visível só pra equipe logada</div>'+
             '<div class="acc-grid">'+fieldsHtml+'</div>'+
           '</div>' : '');
-      })()+
+      })()
+      )+
     '</div>';
   }).join('');
 
@@ -5687,6 +5811,7 @@ function renderClientes(){
       '<button class="btn-primary" onclick="openNewClientModal()" style="margin-top:12px">+ Adicionar primeiro cliente</button>'+
     '</div>';
   }
+  } // fim do else (clientesFiltrados não-vazio)
 
   // Certificados
   const today = new Date(); today.setHours(0,0,0,0);
@@ -5724,6 +5849,16 @@ function renderClientes(){
 let clientOpenTab = {};
 function setClientTab(clientId, tab){
   clientOpenTab[clientId] = clientOpenTab[clientId]===tab ? null : tab;
+  renderClientes();
+}
+// Card de cliente recolhido por padrão (só nome/badges/chips) — pensando em
+// escala: com a carteira crescendo, mostrar o detalhe completo de todo
+// mundo o tempo inteiro vira uma lista gigante pra rolar. Clicar no topo do
+// card abre/fecha o resto (mensalidade, WhatsApp, fechamento, abas de
+// onboarding/CS/acessos). Estado só em memória (não precisa persistir).
+let clientCardExpanded = {};
+function toggleClientCard(id){
+  clientCardExpanded[id] = !clientCardExpanded[id];
   renderClientes();
 }
 
@@ -5765,6 +5900,28 @@ function setCsNps(clientId,val){
   csData[clientId].nps = csData[clientId].nps===val?-1:val;
   save('cb3_cs',csData);
   renderClientes();
+}
+
+// Histórico de check-in de NPS/satisfação — pedido real: antes só existia
+// o valor "atual" de NPS/satisfação (sobrescrito a cada clique), sem jeito
+// de olhar pra trás e ver como a percepção do cliente evoluiu nem quem
+// falou com ele e quando. Cada "Registrar check-in" tira uma foto do NPS e
+// satisfação do momento + a observação digitada, e empilha no histórico —
+// nunca sobrescreve os check-ins anteriores.
+function registrarCsCheckin(clientId){
+  const input = document.getElementById('cs_obs_'+clientId);
+  const obs = (input&&input.value||'').trim();
+  if(!csData[clientId]) csData[clientId]={};
+  const cs = csData[clientId];
+  const nps = cs.nps!=null?cs.nps:-1;
+  const satisfaction = cs.satisfaction||0;
+  if(!obs && nps<0 && !satisfaction){ showToast('⚠ Registre pelo menos NPS, satisfação ou uma observação antes.', 'err'); return; }
+  if(!cs.historico) cs.historico=[];
+  cs.historico.push({ ts:new Date().toISOString(), autor:getCurrentOperator(), nps, satisfaction, obs });
+  save('cb3_cs',csData);
+  if(input) input.value='';
+  renderClientes();
+  showToast('Check-in registrado!', 'ok');
 }
 
 /* ═══════════════════════════════════════════════
