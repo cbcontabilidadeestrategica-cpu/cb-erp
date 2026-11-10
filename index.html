@@ -2472,6 +2472,7 @@ async function setTarefaStatus(id, next) {
     console.warn('Erro ao atualizar status da tarefa:', e);
     if (t) t.status = current;
     paintOperacao();
+    showToast('⚠ Não foi possível salvar a mudança de status — tente de novo.', 'err');
   }
 }
 
@@ -2496,6 +2497,7 @@ async function setTarefaResp(id, resp) {
     console.warn('Erro ao atualizar responsável:', e);
     if (t) t.responsavel = prev;
     paintOperacao();
+    showToast('⚠ Não foi possível salvar o responsável — tente de novo.', 'err');
   }
 }
 
@@ -2512,6 +2514,7 @@ async function setTarefaPrazo(id, prazo) {
     console.warn('Erro ao atualizar prazo:', e);
     if (t) t.prazo = prev;
     paintOperacao();
+    showToast('⚠ Não foi possível salvar o novo prazo — tente de novo.', 'err');
   }
 }
 
@@ -2527,19 +2530,46 @@ async function setTarefaSetor(id, setor) {
     console.warn('Erro ao atualizar setor:', e);
     if (t) t.setor = prev;
     paintOperacao();
+    showToast('⚠ Não foi possível salvar o novo setor — tente de novo.', 'err');
   }
 }
 
-function setTarefaTitulo(id, titulo) {
+// Auditoria (2026-11-10): estas duas funções eram "fire-and-forget" — sem
+// timeout e sem reverter nem avisar o usuário se a gravação falhasse. O
+// título/descrição ficavam mudados só na tela, pareciam salvos, e a edição
+// se perdia silenciosamente no próximo F5. Agora seguem o mesmo padrão das
+// outras edições do card (setTarefaStatus/Resp/Prazo/Setor): timeout,
+// reverte o valor local e avisa com toast se a gravação falhar.
+async function setTarefaTitulo(id, titulo) {
   const t = hojeTarefas.find(x=>x.id===id);
+  const prev = t ? t.titulo : null;
   if (t) t.titulo = titulo;
-  sb.from('tarefa').update({ titulo }).eq('id', id).then(({error})=>{ if(error) console.warn('Erro ao salvar título:', error); });
+  try {
+    const { error } = await withTimeout(sb.from('tarefa').update({ titulo }).eq('id', id), 8000, 'setTarefaTitulo');
+    if (error) throw error;
+  } catch(e) {
+    console.warn('Erro ao salvar título:', e);
+    if (t) t.titulo = prev;
+    showToast('⚠ Não foi possível salvar o novo título — tente de novo.', 'err');
+    if (openOperTarefaId === id) buildOperModal(t);
+    paintOperacao();
+  }
 }
 
-function setTarefaDescricao(id, descricao) {
+async function setTarefaDescricao(id, descricao) {
   const t = hojeTarefas.find(x=>x.id===id);
+  const prev = t ? t.descricao : null;
   if (t) t.descricao = descricao;
-  sb.from('tarefa').update({ descricao }).eq('id', id).then(({error})=>{ if(error) console.warn('Erro ao salvar descrição:', error); });
+  try {
+    const { error } = await withTimeout(sb.from('tarefa').update({ descricao }).eq('id', id), 8000, 'setTarefaDescricao');
+    if (error) throw error;
+  } catch(e) {
+    console.warn('Erro ao salvar descrição:', e);
+    if (t) t.descricao = prev;
+    showToast('⚠ Não foi possível salvar a nova descrição — tente de novo.', 'err');
+    if (openOperTarefaId === id) buildOperModal(t);
+    paintOperacao();
+  }
 }
 
 // Onboarding → ativo é uma mão única: fecha 100% do checklist, o cliente
@@ -2678,6 +2708,14 @@ async function renderOperacao() {
     );
     if (error) throw error;
     hojeTarefas = data || [];
+    // Auditoria (2026-11-10): o .limit(1000) acima é um teto de segurança
+    // contra uma busca gigante, não um paginador — hoje a base tem ~150
+    // tarefas, longe disso. Mas se um dia bater 1000, isso cortaria tarefas
+    // de forma invisível (sem erro, sem toast, só "faltando"). Esse aviso
+    // garante que isso não passa batido quando acontecer.
+    if (hojeTarefas.length >= 1000) {
+      showToast('⚠ Atenção: o número de tarefas atingiu o limite de busca (1000) — pode haver tarefas não exibidas. Avise a equipe técnica.', 'err', 9000);
+    }
   } catch(e) {
     console.warn('renderOperacao erro:', e);
     // Bug real encontrado: antes disso, uma falha aqui (inclusive travar sem
@@ -3239,7 +3277,7 @@ const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho'
 // IMPORTANTE: atualize este valor (data/hora do deploy) a cada publicação
 // — é a única forma de o navegador de quem já está com o hub aberto saber
 // que existe uma versão mais nova.
-const APP_BUILD = '2026-11-10T10:41-03:00';
+const APP_BUILD = '2026-11-10T11:05-03:00';
 let appUpdateBannerShown = false;
 async function checkForNewVersion() {
   try {
