@@ -2314,6 +2314,7 @@ async function materializeObligations(targetYear, targetMonth) {
           prazo: `${ym}-${String(s.prazoDia).padStart(2,'0')}`,
           status: 'pendente',
           origem: 'obrigacao_auto',
+          sop: { step_id: s.id }, // fonte confiável pra deleteOperObrigacao() identificar o template, sem depender de parsear o legacy_id
         });
       });
     });
@@ -2582,6 +2583,56 @@ async function deleteOperDemanda(id) {
   paintOperacao();
   try { const { error } = await withTimeout(sb.from('tarefa').delete().eq('id', id), 8000, 'deleteOperDemanda'); if (error) throw error; }
   catch(e) { console.warn('Erro ao remover demanda:', e); showToast('⚠ Não foi possível remover no servidor — pode reaparecer ao atualizar.', 'err'); }
+}
+
+// Identifica a qual item de `obligationTemplates` (ou obrigação extra
+// custom) uma linha de `tarefa` automática pertence. legacy_id é sempre
+// `obr_<clienteId>_<stepId>_<ano-mês>` — mas stepId pode ter underscore
+// dentro (ex. obrigação custom: 'custom_1794244155124'), então a extração
+// usa o meio "guloso" entre o clienteId (sempre numérico) e o ano-mês
+// final (sempre \d{4}-\d{2}), em vez de só dar .split('_'). sop.step_id,
+// quando existe (materializações novas), é a fonte mais confiável; o
+// regex é só o fallback pras linhas antigas que não têm esse campo ainda.
+function obligStepIdOf(t) {
+  if (t && t.sop && t.sop.step_id) return t.sop.step_id;
+  const m = t && t.legacy_id && t.legacy_id.match(/^obr_\d+_(.+)_\d{4}-\d{2}$/);
+  return m ? m[1] : null;
+}
+
+// Pedido real do usuário: obrigação automática materializada por engano
+// (ex. "Contábil" gerado pra cliente que não contratou isso) obrigava a
+// pedir ajuda pra mexer direto no banco — não tinha jeito, pela própria
+// interface, de desativar aquilo de vez. Diferente de deleteOperDemanda():
+// aqui não basta apagar a linha, porque ela nasce de volta no próximo ciclo
+// de materializeObligations() enquanto o setor continuar valendo pra esse
+// cliente. Então: (1) marca esse step como desativado pra sempre pra esse
+// cliente (mesmo obligationOverrides.disabled que a tela de "Obrigações
+// padrão" já usa) e (2) apaga a(s) linha(s) já materializadas desse step
+// (mês atual + o próximo, se já tiver sido criado).
+async function deleteOperObrigacao(id) {
+  const t = hojeTarefas.find(x=>x.id===id);
+  if (!t) return;
+  const stepId = obligStepIdOf(t);
+  if (!stepId) { showToast('⚠ Não consegui identificar essa obrigação pra desativar — avise a equipe técnica.', 'err'); return; }
+  const c = clients.find(x=>x.id===t.cliente_id);
+  if (!c) { showToast('⚠ Cliente dessa tarefa não encontrado.', 'err'); return; }
+  if (!confirm('Desativar "'+t.titulo+'" pra '+clienteNomeDe(t)+'?\n\nEla some agora e não vai mais ser gerada nos próximos meses. Pra reativar, use "Obrigações padrão" no cadastro do cliente.')) return;
+  if (!c.obligationOverrides) c.obligationOverrides = { disabled:[], extra:[] };
+  if (!c.obligationOverrides.disabled) c.obligationOverrides.disabled = [];
+  if (!c.obligationOverrides.disabled.includes(stepId)) c.obligationOverrides.disabled.push(stepId);
+  save('cb3_clients', clients);
+  const idsToDelete = hojeTarefas.filter(x=>x.cliente_id===t.cliente_id && obligStepIdOf(x)===stepId).map(x=>x.id);
+  hojeTarefas = hojeTarefas.filter(x=>!idsToDelete.includes(x.id));
+  closeOperModal();
+  paintOperacao();
+  try {
+    const { error } = await withSessionRetry(() => withTimeout(sb.from('tarefa').delete().in('id', idsToDelete), 8000, 'deleteOperObrigacao'), 'deleteOperObrigacao');
+    if (error) throw error;
+    showToast('Obrigação desativada pra '+clienteNomeDe(t)+'.', 'ok');
+  } catch(e) {
+    console.warn('Erro ao remover obrigação:', e);
+    showToast('⚠ Desativei pro futuro, mas pode não ter apagado a tarefa já criada — confira depois de atualizar.', 'err');
+  }
 }
 
 async function renderOperacao() {
@@ -3091,7 +3142,9 @@ function buildOperModal(t) {
       '<div class="modal-field-group"><label>Data de conclusão</label><input class="modal-input" type="date" value="'+((t.sop&&t.sop.data_conclusao)||'')+'" onchange="patchTarefaSop('+t.id+',{data_conclusao:this.value})"></div>'+
       '<div class="modal-field-group"><label>Observação final</label><input class="modal-input" value="'+escAttr((t.sop&&t.sop.obs)||'')+'" onchange="setTarefaConclObs('+t.id+',this.value)"></div>'+
     '</div>'+
-    (tipoInfoOf(t).removivel ? '<div class="modal-danger-zone"><button class="btn-danger" onclick="deleteOperDemanda('+t.id+')">🗑 Remover esta demanda</button></div>' : '');
+    (tipoInfoOf(t).removivel ? '<div class="modal-danger-zone"><button class="btn-danger" onclick="deleteOperDemanda('+t.id+')">🗑 Remover esta demanda</button></div>'
+      : t.origem==='obrigacao_auto' ? '<div class="modal-danger-zone"><button class="btn-danger" onclick="deleteOperObrigacao('+t.id+')" title="Desativa essa obrigação pra este cliente — não gera mais nos próximos meses">🚫 Desativar esta obrigação</button></div>'
+      : '');
   buildOperComments(t.id);
 }
 
@@ -3170,7 +3223,7 @@ const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho'
 // IMPORTANTE: atualize este valor (data/hora do deploy) a cada publicação
 // — é a única forma de o navegador de quem já está com o hub aberto saber
 // que existe uma versão mais nova.
-const APP_BUILD = '2026-11-10T10:19-03:00';
+const APP_BUILD = '2026-11-10T10:35-03:00';
 let appUpdateBannerShown = false;
 async function checkForNewVersion() {
   try {
