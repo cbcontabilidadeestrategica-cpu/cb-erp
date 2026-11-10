@@ -1766,7 +1766,10 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
   <input class="modal-input" id="clientFilterInput" placeholder="🔎 Buscar cliente pelo nome…" style="margin-bottom:14px" oninput="setClientFilterName(this.value)">
   <div id="clientSettingsCards"></div>
 
-  <div class="section-label" style="margin-top:28px">🔐 CERTIFICADOS DIGITAIS</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:28px;margin-bottom:4px">
+    <div class="section-label" style="margin-top:0">🔐 CERTIFICADOS DIGITAIS</div>
+    <button class="btn-sm navy" onclick="openNewCertModal()">+ Novo certificado</button>
+  </div>
   <div class="card">
     <div class="table-scroll">
       <table class="cert-table" id="certTable"></table>
@@ -1846,6 +1849,21 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
     <div class="modal-footer">
       <button class="btn-secondary" onclick="closeClientModal()">Cancelar</button>
       <button class="btn-primary" onclick="saveClientModal()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- CERTIFICADO MODAL -->
+<div class="modal-overlay hidden" id="certModal" onclick="if(event.target===this)closeCertModal()">
+  <div class="modal-card">
+    <div class="modal-header">
+      <span class="modal-title" id="modalCertTitle">Certificado Digital</span>
+      <button class="modal-close" onclick="closeCertModal()">×</button>
+    </div>
+    <div class="modal-body" id="modalCertBody"></div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeCertModal()">Cancelar</button>
+      <button class="btn-primary" onclick="saveCertModal()">Salvar</button>
     </div>
   </div>
 </div>
@@ -1972,6 +1990,9 @@ async function showApp(user) {
     try{ renderRadarDemandas(); }catch(e){ console.error('Falha ao repintar demandas do Início:', e); }
     try{ renderClientes(); }catch(e){ console.error('Falha ao repintar Clientes:', e); }
   }).catch(e=>console.error('Falha ao carregar Operação:', e));
+  // Certificados — busca independente da de Operação (tabela própria, sem
+  // relação com hojeTarefas), repinta a tabela assim que chegar.
+  loadCertificados().then(renderCertTable).catch(e=>console.error('Falha ao carregar certificados:', e));
 }
 
 // ───── Controle de chaves "sujas" (gravadas localmente mas ainda não
@@ -2190,15 +2211,10 @@ const CLIENTS_SEED = [
 ];
 let clients = []; // carregado em initState — use 'clients' em todo o código
 
-// Certificados Digitais — importado da planilha "Certificados Digitais"
-const CERTS = [
-  { cliente:"Cozinha Caseira",        tipo:"A1 PJ", validade:"27/03/2027", cnpj:"48.851.690/0001-19", status:"ok" },
-  { cliente:"GM Joias",               tipo:"A1 PJ", validade:"18/06/2027", cnpj:"66.263.800/0001-03", status:"ok" },
-  { cliente:"Lidera Planejados",      tipo:"A1 PJ", validade:"27/08/2027", cnpj:"67.775.614/0001-16", status:"ok" },
-  { cliente:"Jurema",                 tipo:"A1 PF", validade:"05/06/2027", cnpj:"62.566.355/0001-08", status:"ok" },
-  { cliente:"Kitanda Paraíso",        tipo:"A1 PJ", validade:"16/07/2027", cnpj:"13.304.762/0001-23", status:"ok" },
-  { cliente:"Yuri Chavante Antunes",  tipo:"A1 PJ", validade:"02/07/2027", cnpj:"64.505.679/0001-53", status:"ok" },
-];
+// Certificados Digitais: migrado pra tabela própria no Supabase
+// (`certificado`) — ver loadCertificados()/renderCertTable() mais abaixo.
+// Os 6 certificados que viviam fixos aqui como array (sem jeito de
+// adicionar/editar/apagar pela interface) já foram migrados pra lá.
 
 // ───── Obrigações padrão por regime (editável em Configurações de
 // Clientes → "Obrigações padrão por regime") ─────
@@ -3223,7 +3239,7 @@ const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho'
 // IMPORTANTE: atualize este valor (data/hora do deploy) a cada publicação
 // — é a única forma de o navegador de quem já está com o hub aberto saber
 // que existe uma versão mais nova.
-const APP_BUILD = '2026-11-10T10:35-03:00';
+const APP_BUILD = '2026-11-10T10:41-03:00';
 let appUpdateBannerShown = false;
 async function checkForNewVersion() {
   try {
@@ -5866,16 +5882,25 @@ function renderClientes(){
   }
   } // fim do else (clientesFiltrados não-vazio)
 
-  // Certificados
+  renderCertTable();
+}
+
+// Certificados Digitais — antes era a const CERTS fixa no código (sem
+// jeito de adicionar, editar ou apagar pela interface, pedido real do
+// usuário). Agora é a tabela `certificado` no Supabase, com o mesmo
+// padrão de cliente_id+cliente_nome que `tarefa` já usa (sem FK de verdade
+// pra cliente.id porque os clientes vivem num blob kv_store, não numa
+// tabela relacional — ver nota grande sobre isso perto de loadCertificados).
+function renderCertTable(){
+  const tableEl = document.getElementById('certTable');
+  if (!tableEl) return;
   const today = new Date(); today.setHours(0,0,0,0);
-  document.getElementById('certTable').innerHTML =
-    '<thead><tr><th>Cliente</th><th>CNPJ/CPF</th><th>Tipo</th><th>Validade</th><th>Dias restantes</th><th>Situação</th></tr></thead>'+
-    '<tbody>'+CERTS.map(cert => {
+  const ordenados = certificados.slice().sort((a,b)=>(a.validade||'9999')<(b.validade||'9999')?-1:1);
+  tableEl.innerHTML =
+    '<thead><tr><th>Cliente</th><th>CNPJ/CPF</th><th>Tipo</th><th>Validade</th><th>Dias restantes</th><th>Situação</th><th></th></tr></thead>'+
+    '<tbody>'+(ordenados.length?ordenados.map(cert => {
       let dias = null;
-      if(cert.validade) {
-        const p = cert.validade.split('/');
-        if(p.length===3){ const d = new Date(+p[2],+p[1]-1,+p[0]); dias = Math.round((d-today)/86400000); }
-      }
+      if(cert.validade) dias = Math.round((new Date(cert.validade+'T00:00:00')-today)/86400000);
       let chipClass='', chipLabel='';
       if(dias!==null){
         if(dias>90){chipClass='ok';chipLabel='🟢 Válido'}
@@ -5884,14 +5909,119 @@ function renderClientes(){
         else{chipClass='';chipLabel='🔴 Vencido'}
       } else {chipClass='';chipLabel='— Verificar'}
       return '<tr>'+
-        '<td style="font-weight:600">'+escHtml(cert.cliente)+'</td>'+
-        '<td style="font-size:11px;color:var(--fg3)">'+escHtml(cert.cnpj||'')+'</td>'+
+        '<td style="font-weight:600">'+escHtml(cert.cliente_nome)+'</td>'+
+        '<td style="font-size:11px;color:var(--fg3)">'+escHtml(cert.cnpj_cpf||'')+'</td>'+
         '<td><span class="badge muted">'+escHtml(cert.tipo)+'</span></td>'+
-        '<td>'+escHtml(cert.validade)+'</td>'+
+        '<td>'+(cert.validade?cert.validade.split('-').reverse().join('/'):'—')+'</td>'+
         '<td class="cert-days">'+(dias!==null?dias+' dias':'—')+'</td>'+
         '<td><span class="cert-status-chip '+chipClass+'">'+chipLabel+'</span></td>'+
+        '<td style="white-space:nowrap"><button class="btn-sm" title="Editar" onclick="openEditCertModal('+cert.id+')">✏️</button> <button class="btn-sm" title="Apagar" onclick="deleteCert('+cert.id+')">🗑</button></td>'+
       '</tr>';
-    }).join('')+'</tbody>';
+    }).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--fg3);padding:20px">Nenhum certificado cadastrado.</td></tr>')+'</tbody>';
+}
+
+let certificados = [];
+// Tabela `certificado` é real (não kv_store), buscada direto do Supabase
+// — diferente de clients/csData/commentsData, que vivem num blob JSON e
+// me confundiram mais cedo nessa sessão (corrigi a tabela errada da
+// primeira vez). Aqui não tem essa armadilha: é sb.from('certificado')
+// de verdade, igual tarefa.
+async function loadCertificados() {
+  try {
+    const { data, error } = await withTimeout(sb.from('certificado').select('*'), 8000, 'loadCertificados');
+    if (error) throw error;
+    certificados = data || [];
+  } catch(e) {
+    console.warn('Erro ao carregar certificados:', e);
+  }
+}
+
+let editingCertId = null;
+function openNewCertModal(){
+  editingCertId = null;
+  document.getElementById('modalCertTitle').textContent = 'Novo Certificado';
+  buildCertModal(null);
+  document.getElementById('certModal').classList.remove('hidden');
+}
+function openEditCertModal(id){
+  const cert = certificados.find(x=>x.id===id);
+  if (!cert) return;
+  editingCertId = id;
+  document.getElementById('modalCertTitle').textContent = 'Editar Certificado';
+  buildCertModal(cert);
+  document.getElementById('certModal').classList.remove('hidden');
+}
+function closeCertModal(){
+  document.getElementById('certModal').classList.add('hidden');
+}
+function buildCertModal(cert){
+  document.getElementById('modalCertBody').innerHTML =
+    '<div class="modal-field-group"><label>Cliente</label>'+
+      '<select class="modal-input" id="cert_cliente_id">'+
+        '<option value="">— Avulso (sem cliente vinculado) —</option>'+
+        clients.map(c=>'<option value="'+c.id+'"'+(cert&&cert.cliente_id===c.id?' selected':'')+'>'+escHtml(c.name)+'</option>').join('')+
+      '</select>'+
+    '</div>'+
+    '<div class="modal-field-group"><label>Nome (se avulso/sócio, sem cliente vinculado)</label>'+
+      '<input class="modal-input" id="cert_cliente_nome" placeholder="Ex: Yuri Chavante Antunes" value="'+escAttr(cert?cert.cliente_nome||'':'')+'"></div>'+
+    '<div class="modal-2col">'+
+      '<div class="modal-field-group"><label>Tipo</label><select class="modal-input" id="cert_tipo">'+
+        ['A1 PJ','A1 PF','A3 PJ','A3 PF'].map(t=>'<option value="'+t+'"'+(cert&&cert.tipo===t?' selected':'')+'>'+t+'</option>').join('')+
+      '</select></div>'+
+      '<div class="modal-field-group"><label>CNPJ/CPF</label><input class="modal-input" id="cert_cnpj" value="'+escAttr(cert?cert.cnpj_cpf||'':'')+'"></div>'+
+    '</div>'+
+    '<div class="modal-field-group"><label>Validade</label><input class="modal-input" type="date" id="cert_validade" value="'+(cert?cert.validade||'':'')+'"></div>'+
+    '<div class="modal-field-group"><label>Observação</label><textarea class="modal-input modal-textarea" id="cert_obs" rows="2">'+escHtml(cert?cert.observacao||'':'')+'</textarea></div>';
+}
+async function saveCertModal(){
+  const clienteIdRaw = document.getElementById('cert_cliente_id').value;
+  const cliente_id = clienteIdRaw ? Number(clienteIdRaw) : null;
+  const cliente = cliente_id ? clients.find(c=>c.id===cliente_id) : null;
+  const nomeDigitado = (document.getElementById('cert_cliente_nome').value||'').trim();
+  const cliente_nome = cliente ? cliente.name : nomeDigitado;
+  const tipo = document.getElementById('cert_tipo').value;
+  const cnpj_cpf = (document.getElementById('cert_cnpj').value||'').trim();
+  const validade = document.getElementById('cert_validade').value || null;
+  const observacao = (document.getElementById('cert_obs').value||'').trim();
+  const nomeEl = document.getElementById('cert_cliente_nome');
+  if (!cliente_nome) { flagRequiredField(nomeEl, 'Selecione um cliente ou preencha o nome.'); return; }
+  const row = { cliente_id, cliente_nome, tipo, cnpj_cpf, validade, observacao, updated_at: new Date().toISOString() };
+  try {
+    if (editingCertId) {
+      const { data, error } = await withSessionRetry(() => withTimeout(sb.from('certificado').update(row).eq('id', editingCertId).select().single(), 8000, 'saveCertModal:update'), 'saveCertModal');
+      if (error) throw error;
+      const idx = certificados.findIndex(x=>x.id===editingCertId);
+      if (idx>-1) certificados[idx] = data;
+    } else {
+      const { data, error } = await withSessionRetry(() => withTimeout(sb.from('certificado').insert(row).select().single(), 8000, 'saveCertModal:insert'), 'saveCertModal');
+      if (error) throw error;
+      certificados.push(data);
+    }
+    closeCertModal();
+    renderCertTable();
+    showToast('Certificado salvo!', 'ok');
+  } catch(e) {
+    console.warn('Erro ao salvar certificado:', e);
+    showToast('⚠ Não foi possível salvar o certificado no servidor.', 'err');
+  }
+}
+async function deleteCert(id){
+  const cert = certificados.find(x=>x.id===id);
+  if (!cert) return;
+  if (!confirm('Apagar o certificado de "'+cert.cliente_nome+'"? Esta ação não pode ser desfeita.')) return;
+  const prev = certificados;
+  certificados = certificados.filter(x=>x.id!==id);
+  renderCertTable();
+  try {
+    const { error } = await withSessionRetry(() => withTimeout(sb.from('certificado').delete().eq('id', id), 8000, 'deleteCert'), 'deleteCert');
+    if (error) throw error;
+    showToast('Certificado removido.', 'ok');
+  } catch(e) {
+    console.warn('Erro ao apagar certificado:', e);
+    certificados = prev;
+    renderCertTable();
+    showToast('⚠ Não foi possível apagar no servidor — tente de novo.', 'err');
+  }
 }
 
 /* Abas internas do card de cliente — qual (onboarding/cs/acessos/nenhuma)
