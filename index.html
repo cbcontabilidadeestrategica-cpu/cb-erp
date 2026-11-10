@@ -1212,6 +1212,16 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .oper-atraso-toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--fg2);cursor:pointer;white-space:nowrap;background:var(--bg3);border-radius:999px;padding:6px 12px;transition:.12s}
 .oper-atraso-toggle:has(input:checked){background:var(--navy);color:#fff}
 .oper-atraso-cliente-badge{font-size:9px;font-weight:700;background:rgba(220,38,38,.12);color:var(--red);border-radius:999px;padding:1px 6px;white-space:nowrap}
+/* Busca por cliente, no mesmo padrão "pílula" dos selects ao lado (antes
+   era um <input> solto, sem estilo nenhum, destoando do resto da barra). */
+.oper-filtro-cliente-wrap{position:relative;display:flex;align-items:center}
+.oper-filtro-cliente-wrap .ofc-icon{position:absolute;left:11px;font-size:11px;color:var(--fg3);pointer-events:none}
+#operFiltroCliente{background:var(--bg2);color:var(--fg);border:1px solid var(--border);border-radius:999px;padding:6px 28px;font-size:12px;font-family:'Outfit',sans-serif;min-width:170px;transition:border-color .12s,background .12s}
+#operFiltroCliente::placeholder{color:var(--fg3)}
+#operFiltroCliente:focus{outline:none;border-color:var(--gold);background:var(--bg)}
+.oper-filtro-cliente-wrap .ofc-clear{position:absolute;right:6px;width:16px;height:16px;border:none;border-radius:999px;background:var(--bg3);color:var(--fg3);font-size:9px;line-height:16px;cursor:pointer;display:none;padding:0}
+.oper-filtro-cliente-wrap .ofc-clear:hover{background:var(--navy);color:#fff}
+.oper-filtro-cliente-wrap.has-value .ofc-clear{display:block}
 
 /* ── Encarte de detalhe + nuvem de comentário lateral ── */
 .oper-modal-wrap{display:flex;gap:14px;align-items:flex-start;max-width:900px;width:100%}
@@ -1661,7 +1671,11 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
         <button class="oper-view-btn active" id="operBtnLista" onclick="setOperView('lista')">📋 Lista</button>
         <button class="oper-view-btn" id="operBtnKanban" onclick="setOperView('kanban')">🗂️ Kanban</button>
       </div>
-      <input type="text" id="operFiltroCliente" placeholder="🔎 Nome do cliente…" oninput="onOperFilterChange()" style="min-width:160px">
+      <div class="oper-filtro-cliente-wrap" id="operFiltroClienteWrap">
+        <span class="ofc-icon">🔎</span>
+        <input type="text" id="operFiltroCliente" placeholder="Nome do cliente…" oninput="onOperFilterChange()">
+        <button type="button" class="ofc-clear" onclick="clearOperFiltroCliente()" title="Limpar busca">✕</button>
+      </div>
       <select id="operFiltroSetor" onchange="onOperFilterChange()">
         <option value="">Todos os setores</option>
       </select>
@@ -2812,6 +2826,8 @@ function setOperView(v) {
 }
 function onOperFilterChange() {
   operFilterCliente = document.getElementById('operFiltroCliente').value;
+  const wrap = document.getElementById('operFiltroClienteWrap');
+  if (wrap) wrap.classList.toggle('has-value', !!operFilterCliente);
   operFilterSetor = document.getElementById('operFiltroSetor').value;
   operFilterResp = document.getElementById('operFiltroResp').value;
   operFilterTipo = document.getElementById('operFiltroTipo').value;
@@ -2824,6 +2840,11 @@ function onOperFilterChange() {
   operFilterAtraso = operFilterStatus === '__atrasadas';
   operFilterOcultarConcl = document.getElementById('operFiltroOcultarConclChk').checked;
   paintOperacao();
+}
+function clearOperFiltroCliente() {
+  const input = document.getElementById('operFiltroCliente');
+  if (input) input.value = '';
+  onOperFilterChange();
 }
 function setSetorFilter(setor) {
   operFilterSetor = setor;
@@ -3277,7 +3298,7 @@ const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho'
 // IMPORTANTE: atualize este valor (data/hora do deploy) a cada publicação
 // — é a única forma de o navegador de quem já está com o hub aberto saber
 // que existe uma versão mais nova.
-const APP_BUILD = '2026-11-10T11:05-03:00';
+const APP_BUILD = '2026-11-10T11:20-03:00';
 let appUpdateBannerShown = false;
 async function checkForNewVersion() {
   try {
@@ -3427,7 +3448,26 @@ function planSetView(v){
 // clicado (saveClientModal). Reiniciado a cada abertura do modal.
 let modalObligDisabled = new Set();
 let modalObligExtra = [];
-let clientDefaults = { regime:'Simples Nacional', services:['Fiscal','Contábil'] };
+const CLIENT_REGIMES = ['Simples Nacional','Lucro Presumido','Lucro Real','Terceiro Setor','Imune / 3º Setor','MEI'];
+// Auditoria (2026-11-10) — bug real encontrado: "Padrões de Cadastro" guardava
+// UM regime + UMA lista de serviços só, não por regime (apesar do nome da
+// seção dar a entender isso). Resultado: editar e salvar os serviços pra um
+// regime sobrescrevia o default global inteiro, e abrir "+ Novo Cliente" pra
+// QUALQUER outro regime continuava pré-preenchendo os serviços do último
+// regime salvo — parecia que "nunca salvava corretamente" quando na verdade
+// estava salvando, só que um valor só pra todos os regimes. Agora é de
+// verdade por regime: servicesByRegime guarda a lista de cada um.
+let clientDefaults = {
+  regime: 'Simples Nacional', // regime pré-selecionado ao abrir "+ Novo Cliente"
+  servicesByRegime: {
+    'Simples Nacional': ['Fiscal','Contábil'],
+    'Lucro Presumido': ['Fiscal','Contábil','Financeiro'],
+    'Lucro Real': ['Fiscal','Contábil','Financeiro','DP'],
+    'Terceiro Setor': ['Fiscal','Contábil','Societário'],
+    'Imune / 3º Setor': ['Fiscal','Contábil','Societário'],
+    'MEI': ['Fiscal'],
+  },
+};
 
 const ONBOARDING_STEPS = [
   { id:'contrato',    label:'Contrato assinado e arquivado' },
@@ -3504,7 +3544,24 @@ function initState() {
     closingData  = JSON.parse(localStorage.getItem('cb3_close')    || '{}');
     clientDrives = JSON.parse(localStorage.getItem('cb3_drives')   || '{}');
     revenues     = JSON.parse(localStorage.getItem('cb3_rev')      || '{}');
-    try { const sd=JSON.parse(localStorage.getItem('cb3_defaults')||'null'); if(sd) clientDefaults=sd; } catch(e){}
+    try {
+      const sd=JSON.parse(localStorage.getItem('cb3_defaults')||'null');
+      if(sd){
+        // Migração do formato antigo (um regime + uma lista de serviços só)
+        // pro novo (um default de serviços por cada regime). Preserva o que
+        // já tinha sido salvo pro regime que estava configurado; os demais
+        // regimes nascem com o seed padrão já definido acima.
+        if(!sd.servicesByRegime){
+          const oldServices = Array.isArray(sd.services) ? sd.services : null;
+          const oldRegime = sd.regime || clientDefaults.regime;
+          clientDefaults = { ...clientDefaults, regime: oldRegime };
+          if(oldServices) clientDefaults.servicesByRegime = { ...clientDefaults.servicesByRegime, [oldRegime]: oldServices };
+          save('cb3_defaults', clientDefaults);
+        } else {
+          clientDefaults = { ...clientDefaults, ...sd, servicesByRegime: { ...clientDefaults.servicesByRegime, ...sd.servicesByRegime } };
+        }
+      }
+    } catch(e){}
     // Obrigações padrão por regime — se a equipe já editou/criou alguma,
     // usa a versão salva; senão fica com o seed de obligationTemplates.
     try { const ot=JSON.parse(localStorage.getItem('cb3_obligation_templates')||'null'); if(ot && Array.isArray(ot) && ot.length) obligationTemplates=ot; } catch(e){}
@@ -6203,22 +6260,16 @@ function openEditClientModal(id){
 }
 function buildClientModal(c){
   const svcList=['Fiscal','Contábil','DP','Societário','Financeiro','Sucesso do Cliente'];
-  const regimes=['Simples Nacional','Lucro Presumido','Lucro Real','Terceiro Setor','Imune / 3º Setor','MEI'];
-  // Use defaults when creating new client
+  // Usa os Padrões de Cadastro (por regime) ao criar um cliente novo. Ao
+  // editar um cliente existente, usa o que ele já tem — nunca os padrões.
   const effRegime=c?c.regime:clientDefaults.regime;
-  const effSvcs=c?c.services:clientDefaults.services;
+  const effSvcs=c?c.services:(clientDefaults.servicesByRegime[effRegime]||[]);
   const svcChecks=svcList.map(s=>{
     const checked=effSvcs&&effSvcs.includes(s);
     return '<label class="modal-check-item"><input type="checkbox" class="mc_svc" value="'+escAttr(s)+'"'+(checked?' checked':'')+' onchange="renderClientObligationsSection()">'+escHtml(s)+'</label>';
   }).join('');
-  const regOpts=regimes.map(r=>'<option value="'+escAttr(r)+'"'+(effRegime===r?' selected':'')+'>'+escHtml(r)+'</option>').join('');
+  const regOpts=CLIENT_REGIMES.map(r=>'<option value="'+escAttr(r)+'"'+(effRegime===r?' selected':'')+'>'+escHtml(r)+'</option>').join('');
   document.getElementById('modalClientBody').innerHTML=
-    (!c?'<div class="modal-field-group"><label>Usar template</label>'+
-      '<div class="template-selector">'+
-        ['📋 Simples Nacional','📋 Lucro Presumido','📋 MEI / Microempreendedor','📋 Terceiro Setor'].map((t,i)=>
-          '<button class="tpl-btn" onclick="applyClientTemplate('+i+')">'+escHtml(t)+'</button>'
-        ).join('')+
-      '</div></div>':'')+
     '<div class="modal-2col">'+
       '<div class="modal-field-group">'+
         '<label>Nome da empresa</label>'+
@@ -6231,7 +6282,7 @@ function buildClientModal(c){
     '</div>'+
     '<div class="modal-field-group">'+
       '<label>Regime Tributário</label>'+
-      '<select class="modal-input" id="mc_regime" onchange="renderClientObligationsSection()">'+regOpts+'</select>'+
+      '<select class="modal-input" id="mc_regime" onchange="onMcRegimeChange(this.value)">'+regOpts+'</select>'+
     '</div>'+
     '<div class="modal-2col">'+
       '<div class="modal-field-group">'+
@@ -6261,6 +6312,18 @@ function buildClientModal(c){
       '<textarea class="modal-input" id="mc_notes" rows="3" placeholder="Observações, particularidades, histórico importante..." style="resize:vertical;min-height:72px">'+escHtml(c?c.notes||'':'')+'</textarea>'+
     '</div>'+
     (c?'<div class="modal-danger-zone"><button class="btn-danger" onclick="removeClientFromModal()">🗑 Remover este cliente</button></div>':'');
+  renderClientObligationsSection();
+}
+
+// Trocar o regime no formulário de cliente: só reaplica os serviços padrão
+// (Padrões de Cadastro) automaticamente ao CRIAR um cliente novo — nunca ao
+// editar um já existente, pra não sobrescrever os serviços reais dele só
+// por mudar o regime na tela.
+function onMcRegimeChange(regime){
+  if (!editingClientId) {
+    const svcs = clientDefaults.servicesByRegime[regime] || [];
+    document.querySelectorAll('.mc_svc').forEach(cb=>{ cb.checked = svcs.includes(cb.value); });
+  }
   renderClientObligationsSection();
 }
 
@@ -6403,35 +6466,42 @@ function closeClientModal(){
   document.getElementById('clientModal').classList.add('hidden');
 }
 /* CLIENT DEFAULTS */
+// Qual regime está sendo editado agora nesta tela (só muda o que é
+// mostrado/editado abaixo — só grava em clientDefaults quando "Salvar
+// padrões" é clicado). Começa no regime pré-selecionado atual.
+let defaultsViewRegime = clientDefaults.regime;
+function onDefRegimeChange(v){ defaultsViewRegime = v; renderClientDefaults(); }
 function renderClientDefaults(){
   const el=document.getElementById('clientDefaultsCard');
   if(!el) return;
   const svcList=['Fiscal','Contábil','DP','Societário','Financeiro','Sucesso do Cliente'];
-  const regimes=['Simples Nacional','Lucro Presumido','Lucro Real','Terceiro Setor','Imune / 3º Setor','MEI'];
+  const regime = defaultsViewRegime || clientDefaults.regime;
+  const svcAtuais = clientDefaults.servicesByRegime[regime] || [];
   el.innerHTML=
-    '<p style="font-size:13px;color:var(--fg2);margin-bottom:14px">Defina os parâmetros que serão pré-preenchidos automaticamente ao cadastrar um novo cliente.</p>'+
+    '<p style="font-size:13px;color:var(--fg2);margin-bottom:14px">Cada regime tem sua própria lista de serviços padrão — escolha o regime abaixo pra ver/editar os serviços dele. O regime escolhido aqui também é o que vem pré-selecionado ao clicar em "+ Novo Cliente".</p>'+
     '<div class="defaults-grid">'+
       '<div class="form-group">'+
-        '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--fg3);display:block;margin-bottom:6px">Regime padrão</label>'+
-        '<select id="def_regime" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-family:\'Outfit\',sans-serif;font-size:13px;color:var(--fg)">'+
-          regimes.map(r=>'<option value="'+r+'"'+(clientDefaults.regime===r?' selected':'')+'>'+r+'</option>').join('')+
+        '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--fg3);display:block;margin-bottom:6px">Editando o regime</label>'+
+        '<select id="def_regime" onchange="onDefRegimeChange(this.value)" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-family:\'Outfit\',sans-serif;font-size:13px;color:var(--fg)">'+
+          CLIENT_REGIMES.map(r=>'<option value="'+r+'"'+(regime===r?' selected':'')+'>'+r+'</option>').join('')+
         '</select>'+
       '</div>'+
     '</div>'+
     '<div style="margin-top:14px">'+
-      '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--fg3);display:block;margin-bottom:8px">Serviços padrão</label>'+
+      '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--fg3);display:block;margin-bottom:8px">Serviços padrão pra '+escHtml(regime)+'</label>'+
       '<div class="defaults-svc-grid">'+
-        svcList.map(s=>'<label class="defaults-svc-item"><input type="checkbox" class="def_svc" value="'+s+'"'+(clientDefaults.services.includes(s)?' checked':'')+'>'+s+'</label>').join('')+
+        svcList.map(s=>'<label class="defaults-svc-item"><input type="checkbox" class="def_svc" value="'+s+'"'+(svcAtuais.includes(s)?' checked':'')+'>'+s+'</label>').join('')+
       '</div>'+
     '</div>'+
     '<div class="defaults-save-row">'+
-      '<button class="btn-primary" onclick="saveClientDefaults()" style="padding:9px 18px">Salvar padrões</button>'+
+      '<button class="btn-primary" onclick="saveClientDefaults()" style="padding:9px 18px">Salvar padrões de '+escHtml(regime)+'</button>'+
       '<span class="defaults-saved-msg" id="defaultsSavedMsg">✓ Padrões salvos!</span>'+
     '</div>';
 }
 function saveClientDefaults(){
-  clientDefaults.regime=document.getElementById('def_regime').value;
-  clientDefaults.services=Array.from(document.querySelectorAll('.def_svc:checked')).map(el=>el.value);
+  const regime=document.getElementById('def_regime').value;
+  const services=Array.from(document.querySelectorAll('.def_svc:checked')).map(el=>el.value);
+  clientDefaults = { ...clientDefaults, regime, servicesByRegime: { ...clientDefaults.servicesByRegime, [regime]: services } };
   save('cb3_defaults',clientDefaults);
   const msg=document.getElementById('defaultsSavedMsg');
   if(msg){msg.classList.add('show');setTimeout(()=>msg.classList.remove('show'),2500);}
@@ -6708,25 +6778,13 @@ document.addEventListener('keydown',function(e){
 ═══════════════════════════════════════════════ */
 
 /* ═══════════════════════════════════════════════
-   FASE 4 — TEMPLATES DE CLIENTE (item 19)
+   (Os antigos botões "Usar template" de regime saíram daqui — eram uma
+   lista fixa no código, sem edição nem gravação, e viviam ao lado dos
+   Padrões de Cadastro de um jeito que confundia os dois. Substituídos pelo
+   próprio Regime Tributário do formulário: trocar o regime agora já
+   reaplica os serviços padrão daquele regime, configuráveis em "Padrões de
+   Cadastro" — ver onMcRegimeChange.)
 ═══════════════════════════════════════════════ */
-const CLIENT_TEMPLATES=[
-  {regime:'Simples Nacional',services:['Fiscal','Contábil'],employees:false},
-  {regime:'Lucro Presumido',services:['Fiscal','Contábil','Financeiro'],employees:true},
-  {regime:'MEI',services:['Fiscal'],employees:false},
-  {regime:'Terceiro Setor',services:['Fiscal','Contábil','Societário'],employees:true},
-];
-function applyClientTemplate(idx){
-  const t=CLIENT_TEMPLATES[idx];
-  if(!t) return;
-  const regime=document.getElementById('mc_regime');
-  const emp=document.getElementById('mc_employees');
-  if(regime) regime.value=t.regime;
-  if(emp) emp.checked=t.employees;
-  document.querySelectorAll('.mc_svc').forEach(cb=>{cb.checked=t.services.includes(cb.value);});
-  renderClientObligationsSection();
-  showToast('Template aplicado: '+t.regime,'ok');
-}
 
 /* ═══════════════════════════════════════════════
    FASE 4 — AUTOMAÇÃO: LEAD→CLIENTE (item 17)
