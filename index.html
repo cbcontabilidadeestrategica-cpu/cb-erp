@@ -391,6 +391,11 @@ main{flex:1;padding:14px 28px 28px;max-width:1480px;width:100%;margin:0 auto}
 .qf-filters{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
 .qf-filter-btn{padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:var(--bg2);font-size:12px;font-weight:700;cursor:pointer;color:var(--fg2)}
 .qf-filter-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+/* Caixa de seleção única substituindo vários botões de filtro (pedido:
+   consolidar os filtros do Funil num só lugar, em vez de uma fileira de
+   botões). Mesmo visual "pílula" dos botões, pra não destoar do padrão. */
+.qf-filter-select{padding:7px 14px;border-radius:20px;border:1px solid var(--border);background:var(--bg2);font-size:12px;font-weight:700;cursor:pointer;color:var(--fg2);font-family:'Outfit',sans-serif;max-width:220px}
+.qf-filter-select:focus{outline:none;border-color:var(--navy)}
 .qf-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap}
 .qf-row:last-child{border-bottom:none}
 .qf-prio-select{width:40px;height:28px;border-radius:6px;border:1px solid var(--border);font-weight:700;text-align:center;font-size:12px;cursor:pointer;background:var(--bg2);color:var(--fg)}
@@ -1758,11 +1763,13 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
   <div id="funilLostReasons"></div>
 
   <div class="qf-filters" style="margin-bottom:12px">
-    <button class="qf-filter-btn active" id="funilPrioBtnAll" onclick="setFunilPrioFilter('all')">Todos</button>
-    <button class="qf-filter-btn" id="funilPrioBtnA" onclick="setFunilPrioFilter('A')">🟡 A · Prioritário</button>
-    <button class="qf-filter-btn" id="funilPrioBtnB" onclick="setFunilPrioFilter('B')">🔵 B · Nutrição</button>
-    <button class="qf-filter-btn" id="funilPrioBtnC" onclick="setFunilPrioFilter('C')">⚪ C · Fit duvidoso</button>
-    <button class="qf-filter-btn" id="funilPrioBtnOverdue" onclick="setFunilPrioFilter('overdue')">⚠️ Atrasados</button>
+    <select class="qf-filter-select" id="funilPrioSelect" onchange="setFunilPrioFilter(this.value)">
+      <option value="all">Todos os leads</option>
+      <option value="A">🟡 A · Prioritário</option>
+      <option value="B">🔵 B · Nutrição</option>
+      <option value="C">⚪ C · Fit duvidoso</option>
+      <option value="overdue">⚠️ Atrasados</option>
+    </select>
   </div>
 
   <div class="kanban-board" id="kanbanBoard"></div>
@@ -3298,7 +3305,7 @@ const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho'
 // IMPORTANTE: atualize este valor (data/hora do deploy) a cada publicação
 // — é a única forma de o navegador de quem já está com o hub aberto saber
 // que existe uma versão mais nova.
-const APP_BUILD = '2026-11-10T11:20-03:00';
+const APP_BUILD = '2026-11-11T10:10-03:00';
 let appUpdateBannerShown = false;
 async function checkForNewVersion() {
   try {
@@ -4229,11 +4236,10 @@ function renderFunilConversao(){
 let funilPrioFilter = 'all';
 function setFunilPrioFilter(f){
   funilPrioFilter = f;
-  const map = {all:'funilPrioBtnAll', A:'funilPrioBtnA', B:'funilPrioBtnB', C:'funilPrioBtnC', overdue:'funilPrioBtnOverdue'};
-  Object.keys(map).forEach(k=>{
-    const btn = document.getElementById(map[k]);
-    if(btn) btn.classList.toggle('active', k===f);
-  });
+  // Os 5 botões separados viraram um só select (caixa de seleção) — pedido
+  // explícito de consolidar os filtros do Funil num único controle.
+  const sel = document.getElementById('funilPrioSelect');
+  if (sel) sel.value = f;
   renderFunil();
 }
 
