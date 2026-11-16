@@ -3289,7 +3289,7 @@ const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho'
 // IMPORTANTE: atualize este valor (data/hora do deploy) a cada publicação
 // — é a única forma de o navegador de quem já está com o hub aberto saber
 // que existe uma versão mais nova.
-const APP_BUILD = '2026-11-11T10:10-03:00';
+const APP_BUILD = '2026-11-16T12:00-03:00';
 let appUpdateBannerShown = false;
 async function checkForNewVersion() {
   try {
@@ -4672,69 +4672,6 @@ function openNewLeadModal(){
   document.getElementById('leadModal').classList.remove('hidden');
 }
 
-// Guia contextual por etapa — a metodologia (SDR/BANT/SPIN/Closer) aparece
-// aqui, dentro do próprio lead que está sendo trabalhado, em vez de ficar
-// num painel separado que exige lembrar de ir consultar.
-const STAGE_GUIDANCE = {
-  prosp: {
-    goal: 'Prospecção — confirmar fit e abrir a conversa (SDR + BANT)',
-    script: (dor)=> 'Pra eu te ajudar certo, posso te fazer duas perguntas rápidas? Hoje como vocês cuidam da parte fiscal/contábil, e o que fez vocês pensarem em mudar/buscar ajuda agora?',
-    hint: 'BANT: tem dor real (Necessidade)? falo com quem decide (Autoridade)? tem condição de pagar (Capacidade)? tem urgência agora (Momento)? — ESCREVA a dor no campo "Dor/Contexto" assim que descobrir; isso personaliza as próximas etapas.'
-  },
-  qual: {
-    goal: 'Qualificado — diagnóstico (SPIN Selling)',
-    script: (dor)=> 'Situação: "Como funciona hoje a gestão contábil/financeira da empresa?"\nProblema: "Onde você sente mais dificuldade ou insegurança hoje?"\nImplicação: "'+(dor?'Você comentou que '+dor+' — se isso continuar assim, o que isso custa pra você em dinheiro, tempo ou risco?':'Se isso continuar assim, o que isso custa pra você — em dinheiro, tempo ou risco?')+'"\nNecessidade: "Se você tivesse [relatório claro/previsibilidade], o que mudaria na forma como decide?"',
-    hint: 'Recapitule a dor nas palavras do cliente antes de seguir pra proposta — nunca pule direto pro preço.'
-  },
-  prop: {
-    goal: 'Proposta — recapitular e apresentar só o que resolve a dor',
-    script: (dor)=> (dor?'Resumo: "Pelo tanto que você me disse, '+dor+' — é isso mesmo, ou tem algo que deixei de fora?"':'Resumo da dor → "É isso mesmo, ou tem algo que deixei de fora?"')+' → só então apresente o pacote recomendado (escopo, honorário, prazo de início).',
-    hint: 'Nunca o "menu completo" — só o(s) serviço(s) ligado(s) à dor que ele já confirmou.',
-    ref: 'Referência rápida de honorário (ajuste pela complexidade real — não é tabela fixa): MEI/autônomo simples R$ 300–500 · Pequena Simples com poucas notas R$ 500–900 · Pequena com folha ativa R$ 900–1.500 · Médio porte/Presumido R$ 1.500–3.000+.'
-  },
-  neg: {
-    goal: 'Negociação — contornar objeção e pedir a decisão',
-    script: (dor)=> 'O que ainda falta pra vocês decidirem? Tem mais alguém envolvido na decisão? Faz sentido eu confirmar isso até [data]?',
-    hint: 'Argumente com base no diagnóstico, não em desconto. Nunca deixar "sem resposta" aberto — avança, recua, ou marca como perdido com motivo.'
-  },
-  won: { goal: 'Fechado — handoff pro pós-venda', script: null, hint: 'Confirme que o cliente foi criado (automação abaixo) — a dor diagnosticada já vai junto nas anotações do cadastro.' },
-  lost: { goal: 'Perdido — motivo registrado', script: null, hint: 'Escolha a categoria real do motivo — é isso que alimenta o relatório "por que perdemos" (ver KPIs do Funil).' }
-};
-// Cada vez que o modal abre ou troca de etapa, pega a dor JÁ DIGITADA no
-// próprio campo "Dor/Contexto" — o script deixa de ser texto genérico fixo
-// e passa a citar o que aquele lead específico disse, sempre que possível.
-function currentLeadDor(){
-  const el = document.getElementById('ml_dor');
-  return el ? (el.value||'').trim() : '';
-}
-function leadGuidanceHtml(stage, dor){
-  const g = STAGE_GUIDANCE[stage] || STAGE_GUIDANCE.prosp;
-  const scriptText = g.script ? g.script(dor||'') : '';
-  if(!scriptText && !g.hint) return '';
-  return '<div class="post-hook" style="margin-bottom:14px">'+
-    '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;color:var(--gold)">📍 '+escHtml(g.goal)+'</div>'+
-    (scriptText?'<div style="white-space:pre-wrap;margin-bottom:6px;font-size:13px">'+escHtml(scriptText)+'</div>':'')+
-    (g.hint?'<div style="font-size:11px;color:var(--fg3)">💡 '+escHtml(g.hint)+'</div>':'')+
-    (g.ref?'<div style="font-size:11px;color:var(--fg3);margin-top:4px">💰 '+escHtml(g.ref)+'</div>':'')+
-    (scriptText?'<button type="button" class="btn-secondary" style="margin-top:8px;padding:4px 10px;font-size:11px" onclick="copyLeadScript()">📋 Copiar rascunho (adapte antes de enviar)</button>':'')+
-  '</div>';
-}
-function renderLeadGuidanceBox(stage){
-  const wrap = document.getElementById('ml_guidance_wrap');
-  if(wrap) wrap.innerHTML = leadGuidanceHtml(stage, currentLeadDor());
-}
-function copyLeadScript(){
-  const sel = document.getElementById('ml_stage');
-  const stage = sel ? sel.value : 'prosp';
-  const g = STAGE_GUIDANCE[stage] || STAGE_GUIDANCE.prosp;
-  const scriptText = g.script ? g.script(currentLeadDor()) : '';
-  if(!scriptText) return;
-  if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(scriptText).then(()=>showToast('Rascunho copiado — adapte antes de enviar','ok')).catch(()=>showToast('Não foi possível copiar — selecione e copie manualmente','err'));
-  } else {
-    showToast('Copie manualmente — seu navegador não permite copiar automático aqui','err');
-  }
-}
 
 function buildLeadModal(l){
   const checks = LEAD_CHECKS.map(c=>{
@@ -4750,7 +4687,6 @@ function buildLeadModal(l){
   const isLost = l&&l.stage==='lost';
   const initialStage = l ? l.stage : 'prosp';
   document.getElementById('modalLeadBody').innerHTML =
-    '<div id="ml_guidance_wrap">'+leadGuidanceHtml(initialStage, l?l.dor||'':'')+'</div>'+
     '<div class="modal-field-group">'+
       '<label>Nome do lead</label>'+
       '<input class="modal-input" id="ml_name" placeholder="Nome da empresa ou pessoa" value="'+escAttr(l?l.name||'':'')+'">'+
@@ -4758,7 +4694,7 @@ function buildLeadModal(l){
     '<div class="modal-2col">'+
       '<div class="modal-field-group">'+
         '<label>Etapa no funil</label>'+
-        '<select class="modal-input" id="ml_stage" onchange="document.getElementById(\'ml_lost_sec\').hidden=this.value!==\'lost\';renderLeadGuidanceBox(this.value)">'+stageOpts+'</select>'+
+        '<select class="modal-input" id="ml_stage" onchange="document.getElementById(\'ml_lost_sec\').hidden=this.value!==\'lost\'">'+stageOpts+'</select>'+
       '</div>'+
       '<div class="modal-field-group">'+
         '<label>Prioridade'+(l&&l.priority&&l.prioritySource==='ai'?' <span style="color:var(--amber);font-weight:400;font-size:10px">⚠️ sugerida — confira e salve pra confirmar</span>':'')+'</label>'+
@@ -4804,12 +4740,13 @@ function buildLeadModal(l){
     '</div>'+
     '<div class="modal-field-group">'+
       '<label>Dor / Contexto</label>'+
-      '<textarea class="modal-input modal-textarea" id="ml_dor" rows="2" placeholder="Qual o problema principal que este lead quer resolver?" onblur="renderLeadGuidanceBox(document.getElementById(\'ml_stage\').value)">'+escHtml(l?l.dor||'':'')+'</textarea>'+
+      '<textarea class="modal-input modal-textarea" id="ml_dor" rows="2" placeholder="Qual o problema principal que este lead quer resolver?">'+escHtml(l?l.dor||'':'')+'</textarea>'+
     '</div>'+
     '<div class="modal-2col">'+
       '<div class="modal-field-group">'+
-        '<label>Próximo passo</label>'+
-        '<input class="modal-input" id="ml_ns" placeholder="Ex: Enviar proposta" value="'+escAttr(l?l.nextStep||'':'')+'">'+
+        '<label>Próximo passo'+(l?' <span style="font-weight:400;color:var(--fg3);font-size:10px">(histórico — cada envio fica registrado)</span>':'')+'</label>'+
+        (l ? '<div id="ml_nextstep_log"></div>'
+           : '<input class="modal-input" id="ml_ns" placeholder="Ex: Enviar proposta" value="">')+
       '</div>'+
       '<div class="modal-field-group">'+
         '<label>Follow-up em</label>'+
@@ -4836,6 +4773,43 @@ function buildLeadModal(l){
     (l?'<div class="modal-danger-zone">'+
       '<button class="btn-danger" onclick="removeLeadFromModal()">🗑 Remover este lead</button>'+
     '</div>':'');
+  if (l) buildLeadNextStepLog(l.id);
+}
+
+// Histórico de "próximo passo" por lead — cada envio fica registrado (igual
+// ao histórico da Operação), em vez de um campo de texto único que se perde
+// toda vez que alguém atualiza. Reaproveita o mesmo armazém de comentários
+// (commentsData/cb3_comments), já que é genérico por id.
+function buildLeadNextStepLog(leadId) {
+  const wrap = document.getElementById('ml_nextstep_log');
+  if (!wrap) return;
+  const list = commentsData[String(leadId)] || [];
+  wrap.innerHTML =
+    (list.length
+      ? '<div class="dem-comments-list" style="max-height:130px;overflow-y:auto;margin-bottom:6px">'+
+          list.slice().reverse().map(c=>
+            '<div class="dem-comment-item"><div>'+escHtml(c.text)+'</div><div class="dem-comment-meta">'+escHtml(c.author)+' · '+new Date(c.ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+'</div></div>'
+          ).join('')+
+        '</div>'
+      : '<p style="font-size:12px;color:var(--fg3);padding:4px 0;margin:0">Nenhum passo registrado ainda.</p>')+
+    '<div class="dem-comment-input-row">'+
+      '<input class="dem-comment-input" id="ml_ns_input" placeholder="Ex: Enviar proposta, aguardar resposta..." onkeydown="if(event.key===\'Enter\'){event.preventDefault();addLeadNextStep(\''+escAttr(leadId)+'\')}">'+
+      '<button class="dem-comment-send" type="button" onclick="addLeadNextStep(\''+escAttr(leadId)+'\')">➤</button>'+
+    '</div>';
+}
+function addLeadNextStep(leadId) {
+  const input = document.getElementById('ml_ns_input');
+  const text = (input.value||'').trim();
+  if (!text) return;
+  const key = String(leadId);
+  if (!commentsData[key]) commentsData[key] = [];
+  commentsData[key].push({ id:'c_'+Date.now(), ts:new Date().toISOString(), text, author:getCurrentOperator() });
+  save('cb3_comments', commentsData);
+  const idx = leads.findIndex(l=>l.id===leadId);
+  if (idx>-1) { leads[idx].nextStep = text; save('cb3_leads', leads); renderFunil(); }
+  input.value = '';
+  buildLeadNextStepLog(leadId);
+  showToast('Próximo passo registrado', 'ok');
 }
 
 function saveLeadModal(){
@@ -4850,7 +4824,11 @@ function saveLeadModal(){
   const resp = (document.getElementById('ml_resp').value||'').trim();
   const firstContact = document.getElementById('ml_fc').value;
   const dor = (document.getElementById('ml_dor').value||'').trim();
-  const nextStep = (document.getElementById('ml_ns').value||'').trim();
+  // 'ml_ns' só existe ao criar lead novo (sem histórico ainda) — num lead
+  // existente, o próximo passo já foi gravado direto por addLeadNextStep()
+  // quando enviado, então aqui a gente preserva o valor atual sem mexer.
+  const nsEl = document.getElementById('ml_ns');
+  const nextStep = nsEl ? (nsEl.value||'').trim() : undefined;
   const followUpDate = document.getElementById('ml_fu').value;
   const priority = (document.getElementById('ml_prio').value||'').trim();
   const lrCatEl = document.getElementById('ml_lr_cat');
@@ -4868,7 +4846,8 @@ function saveLeadModal(){
       const prev = leads[idx];
       const stageChanged = prev.stage !== stage;
       const lostFromStage = (stage==='lost' && prev.stage!=='lost') ? prev.stage : prev.lostFromStage;
-      leads[idx] = { ...prev, name, stage, valor, origem, tipo, resp, firstContact, dor, nextStep, followUpDate, priority, prioritySource, lostReason, lostDetail, lostFromStage, checklist,
+      leads[idx] = { ...prev, name, stage, valor, origem, tipo, resp, firstContact, dor, followUpDate, priority, prioritySource, lostReason, lostDetail, lostFromStage, checklist,
+        nextStep: nextStep!==undefined ? nextStep : prev.nextStep,
         stageChangedAt: stageChanged ? new Date().toISOString() : (prev.stageChangedAt||prev.createdAt||new Date().toISOString())
       };
     }
