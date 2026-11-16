@@ -1986,15 +1986,6 @@ async function initAuth() {
   });
 }
 
-// Executa cada etapa isolada: um erro em uma função nunca mais impede as outras de rodar.
-function safeRun(fn, label){
-  try { fn(); }
-  catch(e) {
-    console.error('[CB HUB] Falha em '+label+':', e);
-    try { showToast('Erro ao carregar "'+label+'" — veja o console (F12). Avise o suporte.', 'err'); } catch(e2){}
-  }
-}
-
 async function showApp(user) {
   sbUser = user;
   const uel = document.getElementById('sidebarUser');
