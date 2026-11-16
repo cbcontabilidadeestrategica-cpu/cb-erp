@@ -1619,6 +1619,15 @@ async function initAuth() {
   });
 }
 
+// Executa cada etapa isolada: um erro em uma função nunca mais impede as outras de rodar.
+function safeRun(fn, label){
+  try { fn(); }
+  catch(e) {
+    console.error('[CB HUB] Falha em '+label+':', e);
+    try { showToast('Erro ao carregar "'+label+'" — veja o console (F12). Avise o suporte.', 'err'); } catch(e2){}
+  }
+}
+
 async function showApp(user) {
   sbUser = user;
   const uel = document.getElementById('sidebarUser');
@@ -1626,10 +1635,30 @@ async function showApp(user) {
   document.getElementById('loginOverlay').style.display = 'none';
   document.getElementById('appShell').style.display = 'flex';
   await loadFromSupabase();
-  initState(); initTheme(); initSidebar(); renderMetaBanner(); renderRadar(); renderRadarDemandas();
-  renderFechamento(); renderIgCal(); renderFunil(); renderFinanceiro();
-  renderClientes(); renderClientDefaults(); renderDemandas(); renderAcessos();
+  safeRun(initState,'initState');
+  safeRun(initTheme,'initTheme');
+  safeRun(initSidebar,'initSidebar');
+  safeRun(renderMetaBanner,'renderMetaBanner');
+  safeRun(renderRadar,'renderRadar');
+  safeRun(renderRadarDemandas,'renderRadarDemandas');
+  safeRun(renderFechamento,'renderFechamento');
+  safeRun(renderIgCal,'renderIgCal');
+  safeRun(renderFunil,'renderFunil');
+  safeRun(renderFinanceiro,'renderFinanceiro');
+  safeRun(renderClientes,'renderClientes');
+  safeRun(renderClientDefaults,'renderClientDefaults');
+  safeRun(renderDemandas,'renderDemandas');
+  safeRun(renderAcessos,'renderAcessos');
 }
+
+// Rede de segurança global: qualquer erro não tratado vira um aviso visível em vez de "nada acontecer".
+window.addEventListener('error', function(e){
+  console.error('[CB HUB] Erro não tratado:', e.error||e.message);
+  try { showToast('Ocorreu um erro inesperado. Tente recarregar a página (F5).', 'err'); } catch(e2){}
+});
+window.addEventListener('unhandledrejection', function(e){
+  console.error('[CB HUB] Promise rejeitada:', e.reason);
+});
 
 async function loadFromSupabase() {
   if (!sbUser) return;
@@ -1888,7 +1917,7 @@ function initState() {
     clientDrives = JSON.parse(localStorage.getItem('cb3_drives')   || '{}');
     revenues     = JSON.parse(localStorage.getItem('cb3_rev')      || '{}');
     demandas     = seedV ? JSON.parse(localStorage.getItem('cb3_demandas') || '[]') : [];
-    try { const sd=JSON.parse(localStorage.getItem('cb3_defaults')||'null'); if(sd) clientDefaults=sd; } catch(e){}
+    try { const sd=JSON.parse(localStorage.getItem('cb3_defaults')||'null'); if(sd) clientDefaults={...clientDefaults,...sd,services:Array.isArray(sd.services)?sd.services:clientDefaults.services}; } catch(e){}
     try { onboarding=JSON.parse(localStorage.getItem('cb3_onboarding')||'{}'); } catch(e){}
     try { csData=JSON.parse(localStorage.getItem('cb3_cs')||'{}'); } catch(e){}
     try { commentsData=JSON.parse(localStorage.getItem('cb3_comments')||'{}'); } catch(e){}
@@ -2006,6 +2035,7 @@ function initState() {
   } catch(e) {}
 }
 function save(k,v){ try { localStorage.setItem(k, JSON.stringify(v)) } catch(e){} saveSupa(k,v); }
+function load(k){ try { return JSON.parse(localStorage.getItem(k)); } catch(e){ return null; } }
 
 /* ═══════════════════════════════════════════════
    TABS
@@ -2894,7 +2924,7 @@ function calcHealthScore(c){
   const cs=csData[c.id]||{};
   const nps=cs.nps!=null?cs.nps:-1;
   const daysSince=cs.lastContact?Math.floor((new Date()-new Date(cs.lastContact))/86400000):null;
-  const overdueDem=demandas.filter(d=>d.client===c.name&&d.status!=='concluido'&&d.status!=='cancelado'&&d.prazo&&new Date(d.prazo)<new Date()).length;
+  const overdueDem=demandas.filter(d=>d.cliente===c.name&&d.status!=='concluido'&&d.status!=='cancelado'&&d.prazo&&new Date(d.prazo)<new Date()).length;
   let score=100;
   const reasons=[];
   if(obPct<100){score-=20;reasons.push('Onboarding incompleto (-20)');}
@@ -3599,7 +3629,7 @@ function renderClientDefaults(){
     '<div style="margin-top:14px">'+
       '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--fg3);display:block;margin-bottom:8px">Serviços padrão</label>'+
       '<div class="defaults-svc-grid">'+
-        svcList.map(s=>'<label class="defaults-svc-item"><input type="checkbox" class="def_svc" value="'+s+'"'+(clientDefaults.services.includes(s)?' checked':'')+'>'+s+'</label>').join('')+
+        svcList.map(s=>'<label class="defaults-svc-item"><input type="checkbox" class="def_svc" value="'+s+'"'+((clientDefaults.services||[]).includes(s)?' checked':'')+'>'+s+'</label>').join('')+
       '</div>'+
     '</div>'+
     '<div class="defaults-save-row">'+
@@ -3722,7 +3752,7 @@ function quickAddDemanda(){
   const cliente=(document.getElementById('qa-cliente')||{}).value||'';
   const tipo=(document.getElementById('qa-tipo')||{}).value.trim();
   const prazo=(document.getElementById('qa-prazo')||{}).value||'';
-  if(!cliente||!tipo) return;
+  if(!cliente||!tipo){ showToast(!cliente?'Selecione um cliente.':'Informe o tipo/descrição da demanda.','err'); return; }
   demandas.unshift({
     id:'dem_'+Date.now(),
     cliente,
@@ -3787,7 +3817,7 @@ function toggleDemForm(){
 function addDemanda(){
   const data=document.getElementById('demData').value;
   const cliente=document.getElementById('demCliente').value;
-  if(!cliente){return}
+  if(!cliente){ showToast('Selecione um cliente antes de salvar.','err'); document.getElementById('demCliente').focus(); return; }
   demandas.unshift({
     id:'dem_'+Date.now(),
     data,cliente,
