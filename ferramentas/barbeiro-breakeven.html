@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quanto sua cadeira precisa faturar por dia? | CB Contabilidade Estratégica</title>
+<meta name="description" content="Calculadora gratuita de break-even pra barbeiro: descubra quanto precisa faturar por dia pra cobrir seus custos fixos e bater sua meta de lucro.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,600;0,700;1,500;1,600&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#0d1f3c; --navy2:#16305c; --gold:#c8a04a; --gold2:#e8c870;
+    --cream:#faf6ec; --cream2:#f3ecdc; --ink:#1c2433; --ink2:#5a6372;
+    --line:#e4dcc8; --red:#b42318; --green:#1a7a4a;
+    --card:#ffffff; --shadow:0 2px 14px rgba(13,31,60,.08);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--cream);color:var(--ink);font-family:'Outfit',sans-serif;line-height:1.5}
+  .wrap{max-width:720px;margin:0 auto;padding:0 18px 60px}
+  .topband{background:var(--navy);color:#fff;padding:16px 18px;text-align:center}
+  .topband .brand{font-weight:800;letter-spacing:.06em;font-size:13px;text-transform:uppercase}
+  .topband .brand span{color:var(--gold)}
+  .topband .tag{font-size:11px;color:rgba(255,255,255,.65);margin-top:2px}
+  .hero{padding:34px 0 18px;text-align:center}
+  .hero .kicker{display:inline-block;background:var(--gold);color:var(--navy);font-weight:700;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:4px 12px;border-radius:999px;margin-bottom:14px}
+  .hero h1{font-family:'Fraunces',serif;font-style:italic;font-weight:600;font-size:clamp(26px,6vw,38px);line-height:1.15;margin:0 0 10px;color:var(--navy)}
+  .hero p{color:var(--ink2);font-size:15px;max-width:500px;margin:0 auto}
+  .card{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:22px 20px;margin-bottom:18px;border:1px solid rgba(13,31,60,.05)}
+  .card h2{font-size:12px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--navy);margin:0 0 14px;display:flex;align-items:center;gap:8px}
+  .card h2 .n{background:var(--navy);color:#fff;width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:5px}
+  .field .hint{font-size:11.5px;color:var(--ink2);margin-top:4px;line-height:1.4}
+  .inputrow{position:relative}
+  .inputrow .prefix{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--ink2);font-size:14px;pointer-events:none}
+  .inputrow input{width:100%;border:1.5px solid var(--line);background:var(--cream2);border-radius:10px;padding:11px 12px 11px 30px;font-family:'Outfit',sans-serif;font-size:15px;font-weight:600;color:var(--ink);transition:border-color .15s}
+  .inputrow.pct input{padding-left:12px;padding-right:30px}
+  .inputrow.pct .suffix{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--ink2);font-size:14px}
+  .inputrow input:focus{outline:none;border-color:var(--gold)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:480px){.row2{grid-template-columns:1fr}}
+  .imposto-note{background:#fdf6e4;border:1px solid #efd99a;border-radius:10px;padding:10px 12px;font-size:12px;color:#6b4e12;margin-top:8px;line-height:1.5}
+  .result{background:linear-gradient(155deg,var(--navy),var(--navy2));color:#fff;border-radius:18px;padding:28px 22px;text-align:center;box-shadow:0 8px 28px rgba(13,31,60,.25)}
+  .result .label{font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--gold2);font-weight:700;margin-bottom:8px}
+  .result .big{font-family:'Fraunces',serif;font-weight:700;font-size:clamp(34px,10vw,52px);line-height:1}
+  .result .sub{font-size:13px;color:rgba(255,255,255,.72);margin-top:10px}
+  .breakdown{margin-top:20px;border-top:1px solid rgba(255,255,255,.15);padding-top:16px;text-align:left}
+  .breakdown .line{display:flex;justify-content:space-between;font-size:13px;padding:5px 0;color:rgba(255,255,255,.85)}
+  .breakdown .line.total{border-top:1px solid rgba(255,255,255,.2);margin-top:4px;padding-top:10px;font-weight:700;color:#fff;font-size:14px}
+  .percorte{background:rgba(255,255,255,.08);border-radius:10px;padding:12px 14px;margin-top:16px;font-size:13px}
+  .percorte b{color:var(--gold2);font-family:'Fraunces',serif;font-style:italic;font-size:17px}
+  .cta{background:var(--cream2);border:1.5px dashed var(--gold);border-radius:16px;padding:22px 20px;margin-top:18px}
+  .cta .ico{font-size:22px}
+  .cta h3{font-family:'Fraunces',serif;font-style:italic;font-weight:600;font-size:19px;color:var(--navy);margin:8px 0 8px}
+  .cta p{font-size:13.5px;color:var(--ink2);margin:0 0 16px;line-height:1.55}
+  .btn{display:inline-flex;align-items:center;gap:8px;background:var(--green);color:#fff;font-weight:700;font-size:14px;padding:12px 20px;border-radius:999px;text-decoration:none;box-shadow:0 3px 10px rgba(26,122,74,.3)}
+  .btn.secondary{background:transparent;color:var(--navy);border:1.5px solid var(--navy);box-shadow:none;margin-left:8px}
+  .disclaimer{font-size:11px;color:var(--ink2);margin-top:14px;line-height:1.6;border-top:1px solid var(--line);padding-top:12px}
+  footer{text-align:center;margin-top:30px;font-size:11.5px;color:var(--ink2)}
+  footer .fb{font-weight:800;color:var(--navy)}
+  footer .fb span{color:var(--gold)}
+</style>
+</head>
+<body>
+
+<div class="topband">
+  <div class="brand">CB <span>Contabilidade Estratégica</span></div>
+  <div class="tag">Ferramenta gratuita — sem cadastro, sem pegadinha</div>
+</div>
+
+<div class="wrap">
+  <div class="hero">
+    <span class="kicker">✂️ Pra barbeiro e barbearia</span>
+    <h1>Quanto sua cadeira precisa faturar por dia?</h1>
+    <p>Preenche os custos reais do seu dia a dia e descubra, na hora, o faturamento mínimo que cobre tudo — e ainda sobra o lucro que você quer.</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">1</span> Seus custos fixos por mês</h2>
+    <div class="field">
+      <label for="in_aluguel">Aluguel ou comissão da cadeira</label>
+      <div class="inputrow"><span class="prefix">R$</span><input type="number" id="in_aluguel" inputmode="decimal" placeholder="0" min="0"></div>
+    </div>
+    <div class="field">
+      <label for="in_produtos">Produtos (pomada, lâmina, toalha, navalha...)</label>
+      <div class="inputrow"><span class="prefix">R$</span><input type="number" id="in_produtos" inputmode="decimal" placeholder="0" min="0"></div>
+    </div>
+    <div class="field">
+      <label for="in_luz">Luz, água e outras contas fixas da barbearia</label>
+      <div class="inputrow"><span class="prefix">R$</span><input type="number" id="in_luz" inputmode="decimal" placeholder="0" min="0"></div>
+      <div class="hint">Se você paga uma parte proporcional (não a conta inteira), coloca só a sua parte.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">2</span> Sua operação</h2>
+    <div class="row2">
+      <div class="field">
+        <label for="in_dias">Dias trabalhados no mês</label>
+        <div class="inputrow"><input type="number" id="in_dias" inputmode="numeric" placeholder="24" min="1" max="31"></div>
+      </div>
+      <div class="field">
+        <label for="in_cortes">Cortes/atendimentos por dia (opcional)</label>
+        <div class="inputrow"><input type="number" id="in_cortes" inputmode="numeric" placeholder="Ex: 8" min="0"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">3</span> Sua meta de lucro</h2>
+    <div class="field">
+      <label for="in_lucro">Quanto você quer que sobre no seu bolso por mês</label>
+      <div class="inputrow"><span class="prefix">R$</span><input type="number" id="in_lucro" inputmode="decimal" placeholder="0" min="0"></div>
+      <div class="hint">Isso é lucro de verdade — depois de pagar tudo acima. Não confunda com o que você tira pra viver sem sobrar nada.</div>
+    </div>
+    <div class="field" style="margin-bottom:0">
+      <label for="in_imposto">Alíquota de imposto estimada</label>
+      <div class="inputrow pct"><input type="number" id="in_imposto" inputmode="decimal" placeholder="6" min="0" max="100" value="6"><span class="suffix">%</span></div>
+      <div class="imposto-note">⚠️ <b>Isso aqui é só uma estimativa didática</b>, não a conta oficial. A alíquota real do seu MEI ou Simples Nacional depende do seu enquadramento e pode ser bem diferente disso — é exatamente esse o tipo de número que a CB calcula certinho, de graça, no fim desta página.</div>
+    </div>
+  </div>
+
+  <div class="result" id="resultBox">
+    <div class="label">Você precisa faturar por dia</div>
+    <div class="big" id="outDia">R$ 0</div>
+    <div class="sub">pra cobrir seus custos fixos, seu imposto estimado e ainda bater sua meta de lucro</div>
+    <div class="breakdown">
+      <div class="line"><span>Custo fixo (aluguel + produtos + luz)</span><span id="outFixo">R$ 0</span></div>
+      <div class="line"><span>Imposto estimado</span><span id="outImposto">R$ 0</span></div>
+      <div class="line"><span>Sua meta de lucro</span><span id="outLucro">R$ 0</span></div>
+      <div class="line total"><span>Faturamento necessário no mês</span><span id="outMes">R$ 0</span></div>
+    </div>
+    <div class="percorte" id="percorteBox" style="display:none">
+      Com <span id="outCortesNum">0</span> cortes/dia, isso dá <b id="outPorCorte">R$ 0</b> por corte, em média.
+    </div>
+  </div>
+
+  <div class="cta">
+    <div class="ico">🎁</div>
+    <h3>Essa alíquota de imposto foi um chute educado — a real, a CB calcula de graça.</h3>
+    <p>Sem compromisso, sem proposta nenhuma agora: manda a sua última guia (DAS do MEI ou do Simples) que a gente te diz, certinho, qual é a sua alíquota efetiva real — e se tem algum enquadramento melhor pro seu caso. Isso sozinho já pode mudar a conta que você acabou de fazer aqui em cima.</p>
+    <a class="btn" id="btnWhats" href="#" target="_blank" rel="noopener">💬 Falar com a CB no WhatsApp</a>
+    <a class="btn secondary" href="mailto:cbcontabilidadeestrategica@gmail.com?subject=Quero%20calcular%20minha%20al%C3%ADquota%20real%20(barbeiro)">E-mail</a>
+    <div class="disclaimer">
+      Essa calculadora é 100% gratuita e livre pra usar, mesmo que você nunca feche nada com a CB — o objetivo é te ajudar a decidir melhor. Nenhum valor de economia de imposto é prometido aqui: toda estimativa de imposto real exige olhar seu faturamento e enquadramento de verdade, caso a caso.
+    </div>
+  </div>
+
+  <footer>
+    <div class="fb">CB <span>Contabilidade Estratégica</span></div>
+    Contabilidade consultiva pra quem decide com número real, não no feeling.
+  </footer>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────
+// MOTOR GENÉRICO DE BREAK-EVEN (custo fixo + variável% + imposto% + margem)
+// Reaproveitável pra qualquer segmento da Esteira de Reciprocidade —
+// só muda a config (rótulos dos campos, variável%, etc.), a fórmula é a
+// mesma. Config do Barbeiro é a única ativa nesta página; os próximos
+// segmentos (Farmácia, Hamburgueria...) reusam este mesmo motor numa
+// página própria, com sua própria config.
+// ─────────────────────────────────────────────────────────────────
+function calcularBreakEven({ custoFixoMensal, custoVariavelPercent = 0, impostoPercent = 0, lucroAlvoMensal, diasUteis, atendimentosDia }) {
+  const percentuais = Math.max(0, Math.min(99, (custoVariavelPercent + impostoPercent)));
+  const divisor = 1 - (percentuais / 100);
+  const faturamentoMes = divisor > 0 ? (custoFixoMensal + lucroAlvoMensal) / divisor : 0;
+  const impostoValor = faturamentoMes * (impostoPercent / 100);
+  const variavelValor = faturamentoMes * (custoVariavelPercent / 100);
+  const faturamentoDia = diasUteis > 0 ? faturamentoMes / diasUteis : 0;
+  const porAtendimento = (atendimentosDia && atendimentosDia > 0) ? faturamentoDia / atendimentosDia : null;
+  return { faturamentoMes, faturamentoDia, impostoValor, variavelValor, porAtendimento };
+}
+
+function fmtBRL(v) {
+  if (!isFinite(v) || v < 0) v = 0;
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+}
+
+function lerNum(id) {
+  const el = document.getElementById(id);
+  const v = parseFloat((el.value || '0').replace(',', '.'));
+  return isFinite(v) ? v : 0;
+}
+
+function recalcular() {
+  const custoFixoMensal = lerNum('in_aluguel') + lerNum('in_produtos') + lerNum('in_luz');
+  const impostoPercent = lerNum('in_imposto');
+  const lucroAlvoMensal = lerNum('in_lucro');
+  const diasUteis = lerNum('in_dias') || 24;
+  const atendimentosDia = lerNum('in_cortes');
+
+  const r = calcularBreakEven({ custoFixoMensal, custoVariavelPercent: 0, impostoPercent, lucroAlvoMensal, diasUteis, atendimentosDia });
+
+  document.getElementById('outDia').textContent = fmtBRL(r.faturamentoDia);
+  document.getElementById('outFixo').textContent = fmtBRL(custoFixoMensal);
+  document.getElementById('outImposto').textContent = fmtBRL(r.impostoValor);
+  document.getElementById('outLucro').textContent = fmtBRL(lucroAlvoMensal);
+  document.getElementById('outMes').textContent = fmtBRL(r.faturamentoMes);
+
+  const pc = document.getElementById('percorteBox');
+  if (atendimentosDia > 0 && r.porAtendimento !== null) {
+    pc.style.display = 'block';
+    document.getElementById('outCortesNum').textContent = atendimentosDia;
+    document.getElementById('outPorCorte').textContent = fmtBRL(r.porAtendimento);
+  } else {
+    pc.style.display = 'none';
+  }
+}
+
+['in_aluguel','in_produtos','in_luz','in_dias','in_cortes','in_lucro','in_imposto'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', recalcular);
+});
+recalcular();
+
+// WhatsApp — número oficial da CB. Edite WHATS_NUM (só dígitos, com DDI 55)
+// se o número mudar.
+const WHATS_NUM = '55XXXXXXXXXXX'; // TODO: confirmar número real da CB
+// Links pessoais por lead (?lead=bomtom) — só pra referência manual de quem
+// recebeu qual link (não é rastreamento automático, não há backend). Ajuda
+// a personalizar a mensagem padrão do WhatsApp com o nome, de forma honesta
+// (a pessoa pode mudar antes de enviar).
+const LEAD_NOMES = { bomtom:'Bom Tom', lenilsobarbeiro:'Lenilso Barbeiro', brenobarbeiro:'Breno Barbeiro', djalmacastro:'Djalma Castro' };
+const params = new URLSearchParams(location.search);
+const leadTag = params.get('lead') || '';
+const nomeLead = LEAD_NOMES[leadTag] || '';
+const msg = encodeURIComponent('Oi! ' + (nomeLead ? 'Aqui é da ' + nomeLead + '. ' : '') + 'Usei a calculadora de break-even de cadeira da CB e queria saber minha alíquota real.');
+document.getElementById('btnWhats').href = 'https://wa.me/' + WHATS_NUM + '?text=' + msg;
+</script>
+</body>
+</html>
