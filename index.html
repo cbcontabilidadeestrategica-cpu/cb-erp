@@ -3289,7 +3289,7 @@ const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho'
 // IMPORTANTE: atualize este valor (data/hora do deploy) a cada publicação
 // — é a única forma de o navegador de quem já está com o hub aberto saber
 // que existe uma versão mais nova.
-const APP_BUILD = '2026-11-16T12:00-03:00';
+const APP_BUILD = '2026-11-16T13:10-03:00';
 let appUpdateBannerShown = false;
 async function checkForNewVersion() {
   try {
@@ -3964,19 +3964,36 @@ const LEAD_PRIORITY = {
   A:{
     label:'A · Prioritário', color:'var(--gold)',
     cadence: 'Contato em até 24h · follow-up a cada 2-3 dias',
+    cadenceDays: 3,
     regra: 'Atenção pessoal de Nathan/Yuri, sem terceirizar. Nunca deixar passar de 3 dias sem contato — "sem resposta" virar ligação, não só mensagem. Se parar de responder por 5+ dias, decidir: insiste mais uma vez ou marca como perdido com motivo (não deixa parado sem decisão).'
   },
   B:{
     label:'B · Nutrição', color:'var(--blue)',
     cadence: 'Follow-up semanal (a cada 7 dias)',
+    cadenceDays: 7,
     regra: 'Pode ser nutrição leve — compartilhar conteúdo/isca relevante em vez de abordagem direta toda hora. Reavaliar fit a cada 2-3 semanas: se continuar sem sinal de interesse real, rebaixar pra C.'
   },
   C:{
     label:'C · Fit duvidoso', color:'var(--fg3)',
     cadence: 'Contato pontual (mensal) ou nutrição passiva',
+    cadenceDays: 30,
     regra: 'Sem esforço ativo constante — prioridade é confirmar se há fit real (enriquecer dado) ou arquivar. Pode entrar só na nutrição passiva (grupo de MEI, conteúdo de Instagram) em vez de follow-up direto. Sem resposta em 30 dias → perdido com motivo, não fica parado indefinidamente.'
   },
 };
+// Prioridade default pra lead ainda sem classificação A/B/C (não fica de
+// fora da triagem de atraso só por não ter sido classificado ainda).
+const LEAD_DEFAULT_CADENCE_DAYS = 10;
+// Urgência real de follow-up: olha a última vez que um follow-up foi de
+// fato REGISTRADO (histórico ml_followup, não a data agendada em
+// l.followUpDate) contra a cadência esperada pra prioridade daquele lead
+// (regra A/B/C). overdueDays > 0 = atrasado (quanto maior, mais atrasado).
+function leadFollowUpUrgency(l){
+  const cadenceDays = (LEAD_PRIORITY[l.priority]&&LEAD_PRIORITY[l.priority].cadenceDays) || LEAD_DEFAULT_CADENCE_DAYS;
+  const fuList = commentsData['fu_'+String(l.id)] || [];
+  const lastTs = fuList.length ? fuList[fuList.length-1].ts : (l.createdAt || l.stageChangedAt || null);
+  const daysSince = lastTs ? (Date.now()-new Date(lastTs).getTime())/86400000 : cadenceDays*3;
+  return { cadenceDays, daysSince, overdueDays: daysSince-cadenceDays, fuCount: fuList.length };
+}
 // Motivo de perda categorizado — texto livre não vira relatório. O
 // detalhe (lostDetail) continua livre, mas a categoria (lostReason)
 // agora é fixa pra dar pra somar "perdemos X% por preço" de verdade.
@@ -4302,6 +4319,11 @@ function renderFunil(){
     let cols = leads.filter(l=>l.stage===stage);
     if(funilPrioFilter==='A'||funilPrioFilter==='B'||funilPrioFilter==='C') cols = cols.filter(l=>l.priority===funilPrioFilter);
     else if(funilPrioFilter==='overdue') cols = cols.filter(l=>l.followUpDate && l.followUpDate<todayStr0);
+    const isOpenStage = stage!=='won' && stage!=='lost';
+    // Mais atrasado no follow-up (considerando a cadência A/B/C) sobe pro
+    // topo da coluna, com alerta — quem acabou de ser feito desce, fora do
+    // caminho. Pedido do usuário: triagem real de quem precisa de atenção.
+    if(isOpenStage) cols = cols.slice().sort((a,b)=>leadFollowUpUrgency(b).overdueDays-leadFollowUpUrgency(a).overdueDays);
     const cards = cols.map(l=>{
       const dot = STAGE_DOT[stage]||'var(--fg3)';
       const chk = getCheckCount(l);
@@ -4310,6 +4332,7 @@ function renderFunil(){
       const agingClass = agingDays>=21?'late':agingDays>=10?'warn':'';
       const todayStr = new Date().toISOString().slice(0,10);
       const fuOverdue = l.followUpDate && l.followUpDate < todayStr;
+      const fuUrgency = isOpenStage ? leadFollowUpUrgency(l) : null;
       const nextCheck = LEAD_CHECKS.find(c=>!(l.checklist&&l.checklist[c.id]));
       const canAdvance = STAGE_ORDER.indexOf(l.stage) < STAGE_ORDER.length-3;
       return '<div class="kanban-card" draggable="true" ondragstart="dragLeadStart(event,\''+escAttr(l.id)+'\')" onclick="openLeadModal(\''+escAttr(l.id)+'\')">'+
@@ -4323,6 +4346,9 @@ function renderFunil(){
         (l.valor?'<div class="kanban-valor">💰 R$ '+escHtml(l.valor)+'/mês</div>':'')+
         '<div class="kanban-chk">☑ '+chk+' atividades</div>'+
         (l.dor?'<div class="kanban-dor">💬 '+escHtml(l.dor)+'</div>':'')+
+        (fuUrgency && fuUrgency.overdueDays>0 ?
+          '<div class="kanban-follow overdue">⏰ Follow-up atrasado '+Math.floor(fuUrgency.overdueDays)+'d <span style="opacity:.7">(cadência '+fuUrgency.cadenceDays+'d'+(l.priority?' · prioridade '+l.priority:'')+')</span></div>'
+        : '')+
         (l.nextStep||l.followUpDate?
           '<div class="kanban-follow'+(fuOverdue?' overdue':'')+'">'+
             (fuOverdue?'⚠️':'📅')+' '+(l.nextStep?escHtml(l.nextStep):'')+
@@ -4744,13 +4770,19 @@ function buildLeadModal(l){
     '</div>'+
     '<div class="modal-2col">'+
       '<div class="modal-field-group">'+
-        '<label>Próximo passo'+(l?' <span style="font-weight:400;color:var(--fg3);font-size:10px">(histórico — cada envio fica registrado)</span>':'')+'</label>'+
-        (l ? '<div id="ml_nextstep_log"></div>'
-           : '<input class="modal-input" id="ml_ns" placeholder="Ex: Enviar proposta" value="">')+
+        '<label>Próximo passo</label>'+
+        (l ?
+          '<button type="button" class="dem-comments-toggle" onclick="toggleLeadLog(\'ml_nextstep_wrap\')" id="ml_nextstep_summary">📝 carregando…</button>'+
+          '<div id="ml_nextstep_wrap" class="dem-comments-wrap" hidden><div id="ml_nextstep_log"></div></div>'
+        : '<input class="modal-input" id="ml_ns" placeholder="Ex: Enviar proposta" value="">')+
       '</div>'+
       '<div class="modal-field-group">'+
         '<label>Follow-up em</label>'+
         '<input class="modal-input" type="date" id="ml_fu" value="'+escAttr(l?l.followUpDate||'':'')+'">'+
+        (l ?
+          '<button type="button" class="dem-comments-toggle" style="margin-top:6px" onclick="toggleLeadLog(\'ml_followup_wrap\')" id="ml_followup_summary">📞 carregando…</button>'+
+          '<div id="ml_followup_wrap" class="dem-comments-wrap" hidden><div id="ml_followup_log"></div></div>'
+        : '')+
       '</div>'+
     '</div>'+
     '<div id="ml_lost_sec"'+(isLost?'':' hidden')+'>'+
@@ -4773,17 +4805,31 @@ function buildLeadModal(l){
     (l?'<div class="modal-danger-zone">'+
       '<button class="btn-danger" onclick="removeLeadFromModal()">🗑 Remover este lead</button>'+
     '</div>':'');
-  if (l) buildLeadNextStepLog(l.id);
+  if (l) { buildLeadNextStepLog(l.id); buildLeadFollowUpLog(l.id); }
+}
+
+function toggleLeadLog(wrapId) {
+  const el = document.getElementById(wrapId);
+  if (el) el.hidden = !el.hidden;
+}
+function fmtLogDate(ts) {
+  return new Date(ts).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
 }
 
 // Histórico de "próximo passo" por lead — cada envio fica registrado (igual
 // ao histórico da Operação), em vez de um campo de texto único que se perde
-// toda vez que alguém atualiza. Reaproveita o mesmo armazém de comentários
+// toda vez que alguém atualiza. Fica recolhido por padrão (o resumo no botão
+// já mostra quantos registros e o mais recente, sem precisar abrir) pra não
+// deixar o modal do lead extenso. Reaproveita o mesmo armazém de comentários
 // (commentsData/cb3_comments), já que é genérico por id.
 function buildLeadNextStepLog(leadId) {
+  const summary = document.getElementById('ml_nextstep_summary');
   const wrap = document.getElementById('ml_nextstep_log');
-  if (!wrap) return;
   const list = commentsData[String(leadId)] || [];
+  if (summary) summary.textContent = list.length
+    ? '📝 '+list.length+' passo'+(list.length!==1?'s':'')+' registrado'+(list.length!==1?'s':'')+' · último em '+fmtLogDate(list[list.length-1].ts)+' ▾'
+    : '📝 Nenhum passo registrado ainda ▾';
+  if (!wrap) return;
   wrap.innerHTML =
     (list.length
       ? '<div class="dem-comments-list" style="max-height:130px;overflow-y:auto;margin-bottom:6px">'+
@@ -4810,6 +4856,45 @@ function addLeadNextStep(leadId) {
   input.value = '';
   buildLeadNextStepLog(leadId);
   showToast('Próximo passo registrado', 'ok');
+}
+
+// Histórico de follow-ups realizados — pedido do usuário pra conseguir ver
+// QUANTOS follow-ups já rolaram com aquele lead e QUANDO, em vez de só a
+// data do próximo (campo "Follow-up em", que continua existindo pra
+// alimentar os alertas de atraso). Guardado à parte (prefixo 'fu_') pra não
+// se misturar com o histórico de "próximo passo" no mesmo armazém genérico.
+function buildLeadFollowUpLog(leadId) {
+  const summary = document.getElementById('ml_followup_summary');
+  const wrap = document.getElementById('ml_followup_log');
+  const list = commentsData['fu_'+String(leadId)] || [];
+  if (summary) summary.textContent = list.length
+    ? '📞 '+list.length+' follow-up'+(list.length!==1?'s':'')+' feito'+(list.length!==1?'s':'')+' · último em '+fmtLogDate(list[list.length-1].ts)+' ▾'
+    : '📞 Nenhum follow-up registrado ainda ▾';
+  if (!wrap) return;
+  wrap.innerHTML =
+    (list.length
+      ? '<div class="dem-comments-list" style="max-height:130px;overflow-y:auto;margin-bottom:6px">'+
+          list.slice().reverse().map(c=>
+            '<div class="dem-comment-item"><div>'+(c.text?escHtml(c.text):'Follow-up realizado')+'</div><div class="dem-comment-meta">'+escHtml(c.author)+' · '+new Date(c.ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+'</div></div>'
+          ).join('')+
+        '</div>'
+      : '<p style="font-size:12px;color:var(--fg3);padding:4px 0;margin:0">Nenhum follow-up registrado ainda.</p>')+
+    '<div class="dem-comment-input-row">'+
+      '<input class="dem-comment-input" id="ml_fu_input" placeholder="Nota opcional (ex: sem resposta, remarcou p/ sexta...)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addLeadFollowUp(\''+escAttr(leadId)+'\')}">'+
+      '<button class="dem-comment-send" type="button" onclick="addLeadFollowUp(\''+escAttr(leadId)+'\')">➤ Registrar</button>'+
+    '</div>';
+}
+function addLeadFollowUp(leadId) {
+  const input = document.getElementById('ml_fu_input');
+  const text = (input.value||'').trim();
+  const key = 'fu_'+String(leadId);
+  if (!commentsData[key]) commentsData[key] = [];
+  commentsData[key].push({ id:'c_'+Date.now(), ts:new Date().toISOString(), text, author:getCurrentOperator() });
+  save('cb3_comments', commentsData);
+  input.value = '';
+  buildLeadFollowUpLog(leadId);
+  renderFunil(); // reordena o Kanban: este lead sai do topo, quem está mais atrasado sobe
+  showToast('Follow-up registrado', 'ok');
 }
 
 function saveLeadModal(){
