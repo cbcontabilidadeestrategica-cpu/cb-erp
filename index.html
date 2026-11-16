@@ -1762,6 +1762,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
   <div id="funilLostReasons"></div>
 
   <div class="qf-filters" style="margin-bottom:12px">
+    <input type="search" class="qf-filter-select" id="funilSearchInput" placeholder="🔍 Buscar lead/cliente..." autocomplete="off" oninput="setFunilSearch(this.value)" style="cursor:text;max-width:200px">
     <select class="qf-filter-select" id="funilPrioSelect" onchange="setFunilPrioFilter(this.value)">
       <option value="all">Todos os leads</option>
       <option value="A">🟡 A · Prioritário</option>
@@ -3289,7 +3290,7 @@ const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho'
 // IMPORTANTE: atualize este valor (data/hora do deploy) a cada publicação
 // — é a única forma de o navegador de quem já está com o hub aberto saber
 // que existe uma versão mais nova.
-const APP_BUILD = '2026-11-16T13:10-03:00';
+const APP_BUILD = '2026-11-16T13:45-03:00';
 let appUpdateBannerShown = false;
 async function checkForNewVersion() {
   try {
@@ -4243,6 +4244,14 @@ function setFunilPrioFilter(f){
   if (sel) sel.value = f;
   renderFunil();
 }
+// Busca por nome — remove acento/caixa pra achar "joao" mesmo digitando
+// "João" ou vice-versa.
+let funilSearchQuery = '';
+function normalizeSearch(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim(); }
+function setFunilSearch(q){
+  funilSearchQuery = normalizeSearch(q);
+  renderFunil();
+}
 
 let draggingLeadId = null;
 function dragLeadStart(ev, id){ draggingLeadId = id; try{ ev.dataTransfer.effectAllowed='move'; }catch(e){} }
@@ -4317,6 +4326,7 @@ function renderFunil(){
   const todayStr0 = new Date().toISOString().slice(0,10);
   board.innerHTML = STAGE_ORDER.map(stage=>{
     let cols = leads.filter(l=>l.stage===stage);
+    if(funilSearchQuery) cols = cols.filter(l=>normalizeSearch(l.name).includes(funilSearchQuery));
     if(funilPrioFilter==='A'||funilPrioFilter==='B'||funilPrioFilter==='C') cols = cols.filter(l=>l.priority===funilPrioFilter);
     else if(funilPrioFilter==='overdue') cols = cols.filter(l=>l.followUpDate && l.followUpDate<todayStr0);
     const isOpenStage = stage!=='won' && stage!=='lost';
