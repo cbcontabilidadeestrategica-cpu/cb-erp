@@ -1472,7 +1472,6 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
       <button id="loginBtn" class="login-btn" type="submit">Entrar</button>
     </form>
     <div id="loginMsg" class="login-msg"></div>
-    <button id="loginToggleBtn" class="login-link-btn" onclick="toggleLoginModo()">Ainda não tem conta? Criar uma</button>
   </div>
 </div>
 
@@ -2170,7 +2169,6 @@ async function logout() {
   await sb.auth.signOut();
 }
 
-let loginModo = 'entrar';
 async function doLogin() {
   const email = document.getElementById('loginEmail').value.trim();
   const senha = document.getElementById('loginSenha').value;
@@ -2179,31 +2177,14 @@ async function doLogin() {
   if (!email || !senha) return;
   btnEl.disabled = true; btnEl.textContent = 'Aguarde…'; msgEl.textContent = '';
   try {
-    let result;
-    if (loginModo === 'entrar') {
-      result = await sb.auth.signInWithPassword({ email, password: senha });
-    } else {
-      result = await sb.auth.signUp({ email, password: senha });
-      if (!result.error) {
-        msgEl.textContent = 'Conta criada! Verifique o e-mail ou tente entrar.';
-        loginModo = 'entrar';
-        btnEl.textContent = 'Entrar'; btnEl.disabled = false;
-        return;
-      }
-    }
+    const result = await sb.auth.signInWithPassword({ email, password: senha });
     if (result.error) throw result.error;
   } catch(err) {
     msgEl.textContent = err.message || 'Erro ao autenticar. Verifique e-mail e senha.';
   } finally {
     btnEl.disabled = false;
-    btnEl.textContent = loginModo === 'entrar' ? 'Entrar' : 'Criar conta';
+    btnEl.textContent = 'Entrar';
   }
-}
-function toggleLoginModo() {
-  loginModo = loginModo === 'entrar' ? 'cadastrar' : 'entrar';
-  document.getElementById('loginBtn').textContent = loginModo === 'entrar' ? 'Entrar' : 'Criar conta';
-  document.getElementById('loginToggleBtn').textContent = loginModo === 'entrar' ? 'Ainda não tem conta? Criar uma' : 'Já tem conta? Entrar';
-  document.getElementById('loginMsg').textContent = '';
 }
 
 /* ═══════════════════════════════════════════════
