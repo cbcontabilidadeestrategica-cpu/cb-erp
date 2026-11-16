@@ -829,7 +829,7 @@ main{flex:1;padding:14px 28px 28px;max-width:1480px;width:100%;margin:0 auto}
 .dem-add-btn:hover{background:var(--navy2)}
 .dem-form-card{background:var(--bg2);border:1px dashed var(--border);border-radius:var(--radius);padding:16px;margin-top:12px;display:none}
 .dem-form-card.visible{display:block}
-.dem-form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}
+.dem-form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px}
 .dem-form-actions{display:flex;gap:8px;margin-top:12px}
 
 /* Scrollable table wrapper */
@@ -976,7 +976,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .acc-eye:hover{color:var(--fg)}
 .acc-del{background:none;border:none;cursor:pointer;color:var(--red);font-size:14px;padding:2px 6px;opacity:.4;transition:.12s}
 .acc-del:hover{opacity:1}
-.acc-grid{margin-top:10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.acc-grid{margin-top:10px;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
 .acc-field label{display:block;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--fg3);margin-bottom:3px}
 .acc-field .acc-input,.acc-field .acc-pwd-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:6px}
 .acc-field .acc-pwd-wrap{padding:0 4px}
@@ -1093,7 +1093,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .csc-regime{font-size:11px;color:var(--fg3);margin-top:2px}
 .csc-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
 .csc-actions{display:flex;gap:6px;margin-left:auto;align-self:flex-start;flex-shrink:0}
-.csc-body{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border2)}
+.csc-body{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border2)}
 .csc-field{display:flex;flex-direction:column;gap:2px}
 .csc-field-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--fg4)}
 .csc-field-val{font-size:12px;color:var(--fg);font-weight:600}
@@ -2859,7 +2859,9 @@ async function addOperDemanda() {
   const resp = document.getElementById('operQaResp').value;
   const prazo = document.getElementById('operQaPrazo').value || null;
   let cliente_id = null, cliente_nome = 'Externo / Avulso';
-  if (clienteVal && clienteVal !== '__externo') {
+  if (clienteVal === '__interna') {
+    cliente_nome = 'CB Interna (Administrativo)';
+  } else if (clienteVal && clienteVal !== '__externo') {
     const c = clients.find(x=>String(x.id)===clienteVal);
     if (c) { cliente_id = c.id; cliente_nome = c.name; }
   }
@@ -3008,6 +3010,7 @@ function paintOperacao() {
   if (qaCliente && qaCliente.options.length === 1) {
     clients.forEach(c => { const o=document.createElement('option'); o.value=String(c.id); o.textContent=c.name; qaCliente.appendChild(o); });
     const ext = document.createElement('option'); ext.value='__externo'; ext.textContent='Externo / Avulso'; qaCliente.appendChild(ext);
+    const intr = document.createElement('option'); intr.value='__interna'; intr.textContent='CB Interna (Administrativo)'; qaCliente.appendChild(intr);
   }
   const selResp = document.getElementById('operFiltroResp');
   if (selResp && selResp.options.length === 1) {
