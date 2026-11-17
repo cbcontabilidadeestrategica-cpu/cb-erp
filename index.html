@@ -3290,7 +3290,7 @@ const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho'
 // IMPORTANTE: atualize este valor (data/hora do deploy) a cada publicação
 // — é a única forma de o navegador de quem já está com o hub aberto saber
 // que existe uma versão mais nova.
-const APP_BUILD = '2026-11-16T13:45-03:00';
+const APP_BUILD = '2026-11-17T11:15-03:00';
 let appUpdateBannerShown = false;
 async function checkForNewVersion() {
   try {
@@ -4945,6 +4945,21 @@ function saveLeadModal(){
         nextStep: nextStep!==undefined ? nextStep : prev.nextStep,
         stageChangedAt: stageChanged ? new Date().toISOString() : (prev.stageChangedAt||prev.createdAt||new Date().toISOString())
       };
+      // Achado real: quem atualiza o follow-up pelo jeito mais óbvio (mexer
+      // na data "Follow-up em" aqui em cima e clicar Salvar) esperava ver o
+      // card reordenar no Kanban — mas só o botão "Registrar" da caixa de
+      // histórico (recolhida, pouco óbvia) contava como follow-up feito pra
+      // essa conta. Agora mudar a data por aqui TAMBÉM registra no histórico
+      // e conta pra ordenação, sem precisar abrir a caixa.
+      if (followUpDate !== prev.followUpDate) {
+        const fuKey = 'fu_'+String(editingLeadId);
+        if (!commentsData[fuKey]) commentsData[fuKey] = [];
+        commentsData[fuKey].push({
+          id:'c_'+Date.now(), ts:new Date().toISOString(), author:getCurrentOperator(),
+          text: followUpDate ? 'Follow-up atualizado — novo retorno em '+followUpDate.split('-').reverse().join('/') : 'Data de follow-up removida'
+        });
+        save('cb3_comments', commentsData);
+      }
     }
   } else {
     const now = new Date().toISOString();
