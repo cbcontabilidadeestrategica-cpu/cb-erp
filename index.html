@@ -3290,7 +3290,7 @@ const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho'
 // IMPORTANTE: atualize este valor (data/hora do deploy) a cada publicação
 // — é a única forma de o navegador de quem já está com o hub aberto saber
 // que existe uma versão mais nova.
-const APP_BUILD = '2026-11-17T11:15-03:00';
+const APP_BUILD = '2026-11-17T11:20-03:00';
 let appUpdateBannerShown = false;
 async function checkForNewVersion() {
   try {
@@ -3567,6 +3567,22 @@ function initState() {
     try { pbCheck=JSON.parse(localStorage.getItem('cb3_pb_check')||'{}'); } catch(e){}
     try { esteiraItems=JSON.parse(localStorage.getItem('cb3_esteira')||'[]'); } catch(e){ esteiraItems=[]; }
     esteiraItems = esteiraItems.map((it,i)=>normalizeEsteiraItem(it,i));
+    // Seed (1x, idempotente por id) do piloto "Calculadora break-even —
+    // Barbeiro", Módulo Reciprocidade p/ Leads C (Diretor_Comercial.md,
+    // 16/11/2026). A Esteira estava sem nenhum item real — isso fecha isso.
+    if(!esteiraItems.some(it=>it.id==='es_barbeiro_breakeven')){
+      const _nowIso = new Date().toISOString();
+      esteiraItems.unshift({
+        id:'es_barbeiro_breakeven', degrau:1, tipo:'isca', status:'publicado',
+        titulo:'Calculadora break-even de cadeira — Barbeiro',
+        publico:'Barbeiro/barbearia MEI — leads C (fit duvidoso) do Funil',
+        dores:['Não sabe quanto precisa faturar por dia pra cobrir custo fixo + lucro-alvo','Alíquota de imposto real do MEI/Simples incerta'],
+        descricao:'Piloto da Estratégia de Reciprocidade para Leads C — ferramenta gratuita (ferramentas/barbeiro-breakeven.html), motor de cálculo reaproveitável por segmento (próximos: Farmácia, Hamburgueria/Espetinho). Fluxo: envia grátis → lead bate na alíquota estimada → CB oferece diagnóstico leve só daquele campo → só então, se fizer sentido, proposta paga. Engajamento de cada lead é registrado no card dele no Funil (campo "Isca de reciprocidade").',
+        notas:'Distribuída via grupo de MEI/WhatsApp e Instagram a: Bom Tom, Lenilso Barbeiro, Breno Barbeiro, Djalma Castro — com link personalizado por lead (?lead=...) só pra referência manual de quem recebeu qual link.',
+        responsavel:'Nathan', createdAt:_nowIso, updatedAt:_nowIso
+      });
+      save('cb3_esteira', esteiraItems);
+    }
     try { esteiraPlanCheck=JSON.parse(localStorage.getItem('cb3_esteira_plan_check')||'{}'); } catch(e){ esteiraPlanCheck={}; }
     try {
       const saved=JSON.parse(localStorage.getItem('cb3_acessos')||'null');
@@ -4003,6 +4019,14 @@ const LOST_REASONS = [
   'Ficou com o contador atual','Escolheu concorrente','Sem fit (porte/regime)',
   'Parou de responder','Outro'
 ];
+// Iscas de reciprocidade (Módulo: Estratégia de Reciprocidade para Leads C
+// — ver Diretor_Comercial.md, 16/11/2026). Cada isca é uma ferramenta
+// gratuita publicada em /ferramentas; antes disso não existia campo
+// estruturado pra marcar "engajou com isca de reciprocidade" — era só
+// nutrição passiva genérica sem rastro no CRM.
+const RECIPROCIDADE_ISCAS = [
+  { id:'barbeiro_breakeven', label:'🪒 Calculadora break-even — Barbeiro', url:'ferramentas/barbeiro-breakeven.html' },
+];
 
 function normalizeLead(l, i){
   if(!l.id) l.id = 'l_'+Date.now()+'_'+i;
@@ -4029,6 +4053,10 @@ function normalizeLead(l, i){
   // não é venda de honorário, não pode se misturar com meta/pipeline de
   // cliente. Ex: Matheus Araujo (permuta/indicação, não honorário padrão).
   if(l.tipo===undefined) l.tipo = 'cliente';
+  // Sinal estruturado de engajamento com isca de reciprocidade — separado
+  // do checklist fixo (LEAD_CHECKS), que é sobre o ciclo de venda em si,
+  // não sobre nutrição por conteúdo/ferramenta gratuita.
+  if(!l.reciprocidade) l.reciprocidade = { isca:'', enviadoEm:'', engajou:false, engajouEm:'', notas:'' };
   return l;
 }
 
@@ -4043,6 +4071,18 @@ function prioBadgeHtml(l){
   if(!prio) return '';
   const unconfirmed = l.prioritySource==='ai';
   return '<span title="'+escAttr(prio.label)+(unconfirmed?' (sugerida, não confirmada)':'')+'" style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:'+prio.color+';color:#fff;font-size:10px;font-weight:700;flex-shrink:0;'+(unconfirmed?'box-shadow:0 0 0 2px var(--amber)':'')+'">'+l.priority+(unconfirmed?'?':'')+'</span>';
+}
+
+// Sinal visual de reciprocidade no card — fecha o gap do playbook ("não
+// existe campo estruturado pra marcar engajou com isca de reciprocidade").
+// 🎁 apagado = isca enviada, aguardando; 🎁✅ = engajou de fato.
+function recipBadgeHtml(l){
+  const r = l.reciprocidade;
+  if(!r || !r.isca) return '';
+  const isca = RECIPROCIDADE_ISCAS.find(i=>i.id===r.isca);
+  const label = isca ? isca.label : 'Isca de reciprocidade';
+  if(r.engajou) return '<span title="'+escAttr(label)+' — engajou'+(r.engajouEm?' em '+escAttr(r.engajouEm):'')+'" style="font-size:12px">🎁✅</span>';
+  return '<span title="'+escAttr(label)+' — enviada, aguardando engajamento" style="font-size:12px;opacity:.55">🎁</span>';
 }
 
 function prioRuleHtml(p){
@@ -4349,6 +4389,7 @@ function renderFunil(){
         '<div class="kanban-card-top">'+
           '<span class="kanban-dot" style="background:'+dot+'"></span>'+
           prioBadgeHtml(l)+
+          recipBadgeHtml(l)+
           '<span class="kanban-name">'+escHtml(l.name)+(l.tipo==='parceiro'?' <span title="Parceiro — indicação mútua, não é cliente pagante" style="font-size:10px;font-weight:700;color:var(--blue);border:1px solid var(--blue);border-radius:4px;padding:0 4px">🤝 PARCEIRO</span>':'')+'</span>'+
           (agingDays>0?'<span class="kanban-aging'+(agingClass?' '+agingClass:'')+'">'+agingDays+'d</span>':'')+
         '</div>'+
@@ -4812,6 +4853,33 @@ function buildLeadModal(l){
       '<label>Checklist de atividades</label>'+
       '<div class="modal-checklist">'+checks+'</div>'+
     '</div>'+
+    '<div class="modal-field-group" style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">'+
+      '<label>🎁 Isca de reciprocidade <span style="font-weight:400;color:var(--fg3);font-size:10px">(Estratégia para Leads C — ver Diretor Comercial)</span></label>'+
+      '<select class="modal-input" id="ml_rec_isca">'+
+        '<option value="">— nenhuma enviada —</option>'+
+        RECIPROCIDADE_ISCAS.map(i=>'<option value="'+i.id+'"'+(l&&l.reciprocidade&&l.reciprocidade.isca===i.id?' selected':'')+'>'+i.label+'</option>').join('')+
+      '</select>'+
+    '</div>'+
+    '<div class="modal-2col">'+
+      '<div class="modal-field-group">'+
+        '<label>Enviada em</label>'+
+        '<input class="modal-input" type="date" id="ml_rec_enviado" value="'+escAttr(l&&l.reciprocidade?l.reciprocidade.enviadoEm||'':'')+'">'+
+      '</div>'+
+      '<div class="modal-field-group">'+
+        '<label class="modal-check-item" style="margin-top:22px">'+
+          '<input type="checkbox" id="ml_rec_engajou"'+(l&&l.reciprocidade&&l.reciprocidade.engajou?' checked':'')+' onchange="document.getElementById(\'ml_rec_engajou_data\').hidden=!this.checked">'+
+          '<span>Engajou (abriu/usou/respondeu)</span>'+
+        '</label>'+
+      '</div>'+
+    '</div>'+
+    '<div class="modal-field-group" id="ml_rec_engajou_data"'+(l&&l.reciprocidade&&l.reciprocidade.engajou?'':' hidden')+'>'+
+      '<label>Engajou em</label>'+
+      '<input class="modal-input" type="date" id="ml_rec_engajou_em" value="'+escAttr(l&&l.reciprocidade?l.reciprocidade.engajouEm||'':'')+'">'+
+    '</div>'+
+    '<div class="modal-field-group">'+
+      '<label>Notas da reciprocidade</label>'+
+      '<textarea class="modal-input modal-textarea" id="ml_rec_notas" rows="2" placeholder="Ex: respondeu no WhatsApp perguntando sobre a alíquota real">'+escHtml(l&&l.reciprocidade?l.reciprocidade.notas||'':'')+'</textarea>'+
+    '</div>'+
     (l?'<div class="modal-danger-zone">'+
       '<button class="btn-danger" onclick="removeLeadFromModal()">🗑 Remover este lead</button>'+
     '</div>':'');
@@ -4932,6 +5000,15 @@ function saveLeadModal(){
   if(stage==='lost'&&!lostReason){ lrCatEl&&lrCatEl.focus(); showToast('Selecione o motivo da perda','err'); return; }
   const checklist = {};
   LEAD_CHECKS.forEach(c=>{ const el=document.getElementById('mc_'+c.id); if(el&&el.checked) checklist[c.id]=true; });
+  const recIscaEl = document.getElementById('ml_rec_isca');
+  const recEngajouEl = document.getElementById('ml_rec_engajou');
+  const reciprocidade = {
+    isca: recIscaEl ? recIscaEl.value : '',
+    enviadoEm: document.getElementById('ml_rec_enviado')?.value || '',
+    engajou: recEngajouEl ? recEngajouEl.checked : false,
+    engajouEm: document.getElementById('ml_rec_engajou_em')?.value || '',
+    notas: (document.getElementById('ml_rec_notas')?.value||'').trim()
+  };
   // Salvar o modal com uma prioridade visível conta como confirmação humana
   // dela — some o selo "sugerida" (ver prioritySource em normalizeLead).
   const prioritySource = priority ? 'manual' : '';
@@ -4941,7 +5018,7 @@ function saveLeadModal(){
       const prev = leads[idx];
       const stageChanged = prev.stage !== stage;
       const lostFromStage = (stage==='lost' && prev.stage!=='lost') ? prev.stage : prev.lostFromStage;
-      leads[idx] = { ...prev, name, stage, valor, origem, tipo, resp, firstContact, dor, followUpDate, priority, prioritySource, lostReason, lostDetail, lostFromStage, checklist,
+      leads[idx] = { ...prev, name, stage, valor, origem, tipo, resp, firstContact, dor, followUpDate, priority, prioritySource, lostReason, lostDetail, lostFromStage, checklist, reciprocidade,
         nextStep: nextStep!==undefined ? nextStep : prev.nextStep,
         stageChangedAt: stageChanged ? new Date().toISOString() : (prev.stageChangedAt||prev.createdAt||new Date().toISOString())
       };
@@ -4964,7 +5041,7 @@ function saveLeadModal(){
   } else {
     const now = new Date().toISOString();
     const lostFromStage = stage==='lost' ? 'prosp' : '';
-    leads.unshift({ id:'l_'+Date.now(), name, stage, valor, origem, tipo, resp, firstContact, dor, nextStep, followUpDate, priority, prioritySource, lostReason, lostDetail, lostFromStage, checklist, createdAt:now, stageChangedAt:now });
+    leads.unshift({ id:'l_'+Date.now(), name, stage, valor, origem, tipo, resp, firstContact, dor, nextStep, followUpDate, priority, prioritySource, lostReason, lostDetail, lostFromStage, checklist, reciprocidade, createdAt:now, stageChangedAt:now });
   }
   save('cb3_leads', leads);
   // Automação: lead fechado → oferecer criar cliente (item 17)
