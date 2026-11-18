@@ -2290,9 +2290,16 @@ function computeBaseSteps(client, templates) {
   const svcSetores = (svc && svc.length) ? new Set(svc.map(s => SERVICE_TO_SETOR[s] || s)) : null;
   return templates.filter(t => {
     const regimes = t.regimes || ['all'];
-    const isMeiOnly = regimes.includes('MEI') && !regimes.includes('all');
-    if (isMei) return isMeiOnly;
-    if (isMeiOnly) return false;
+    // Bug real encontrado: isMeiOnly tratava "MEI está na lista" como
+    // "é EXCLUSIVO de MEI" — então um template com regimes:['Simples
+    // Nacional','MEI'] (ex.: Envio do DAS) nunca aparecia pra cliente
+    // Simples Nacional, só pra MEI, mesmo listando os dois explicitamente.
+    // Exclusivo de MEI de verdade é só quando NENHUM outro regime além de
+    // MEI está listado (e não é 'all').
+    const appliesMei = regimes.includes('MEI');
+    const isMeiExclusive = appliesMei && !regimes.includes('all') && regimes.length === 1;
+    if (isMei) return appliesMei;
+    if (isMeiExclusive) return false;
     const appliesByRegime = regimes.includes('all') || regimes.includes(regime);
     if (!appliesByRegime) return false;
     if (t.requiresEmployees && !client.hasEmployees) return false;
@@ -2310,7 +2317,24 @@ function getSteps(client) {
   const ov = (client && client.obligationOverrides) || {};
   const disabled = new Set(ov.disabled || []);
   const kept = base.filter(s => !disabled.has(s.id));
-  const extra = (ov.extra || []).map(e => ({ id:e.id, label:e.label, desc:e.desc||'', prazoDia:e.prazoDia, urg:e.urg||'amber', setor:e.setor||'Fiscal', custom:true }));
+  // Bug real encontrado (quebra no fluxo cadastro → Operação): "🚫
+  // Desativar esta obrigação" dentro da Operação chama deleteOperObrigacao,
+  // que grava o id em obligationOverrides.disabled e promete "não vai mais
+  // ser gerada nos próximos meses" — mas isso só valia pra obrigação de
+  // PADRÃO (kept, acima). Uma obrigação INDIVIDUAL do cliente (extra) nunca
+  // era filtrada por disabled aqui, então ela ressuscitava sozinha no mês
+  // seguinte mesmo depois de "desativada". Agora os dois lados respeitam a
+  // mesma lista de desativadas.
+  const extra = (ov.extra || [])
+    .filter(e => !disabled.has(e.id))
+    // Mesmo bug, outro ângulo: se uma obrigação individual foi cadastrada
+    // (ex.: "Envio do DAS" de um cliente específico) e DEPOIS essa mesma
+    // obrigação passou a vir pelo padrão do regime (porque o regime/serviço
+    // mudou, ou o padrão foi remodelado), as duas coexistiam e duplicavam
+    // o card todo mês. Uma individual cujo sourceId já está ativa no
+    // padrão vigente agora é tratada como redundante e não duplica.
+    .filter(e => !(e.sourceId && kept.some(s=>s.id===e.sourceId)))
+    .map(e => ({ id:e.id, label:e.label, desc:e.desc||'', prazoDia:e.prazoDia, urg:e.urg||'amber', setor:e.setor||'Fiscal', custom:true }));
   return [...kept, ...extra];
 }
 
@@ -3306,7 +3330,7 @@ const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho'
 // IMPORTANTE: atualize este valor (data/hora do deploy) a cada publicação
 // — é a única forma de o navegador de quem já está com o hub aberto saber
 // que existe uma versão mais nova.
-const APP_BUILD = '2026-11-18T15:30-03:00';
+const APP_BUILD = '2026-11-18T16:45-03:00';
 let appUpdateBannerShown = false;
 async function checkForNewVersion() {
   try {
@@ -6856,10 +6880,19 @@ function renderClientObligationsSection(){
         (s.desc?'<div style="font-size:11px;color:var(--fg3);margin-top:2px">'+escHtml(s.desc)+'</div>':'')+
       '</span></label>';
   }).join('') || '<p style="font-size:12px;color:var(--fg3);margin:4px 0">Nenhuma obrigação padrão pra esse regime/configuração.</p>';
-  const extraHtml = modalObligExtra.map((e,i)=>
-    '<div class="oblig-client-extra-row"><div><strong>'+escHtml(e.label)+'</strong> · '+escHtml(e.setor)+' · dia '+e.prazoDia+(e.desc?' · '+escHtml(e.desc):'')+'</div>'+
-    '<button class="oblig-remove-btn" onclick="removeModalObligExtra('+i+')" title="Remover">🗑</button></div>'
-  ).join('');
+  // Avisa quando uma obrigação individual virou redundante — o padrão do
+  // regime passou a cobrir a mesma coisa (ex.: regime/serviço mudou, ou o
+  // padrão foi remodelado depois) — é exatamente isso que duplicava o card
+  // na Operação todo mês até essa obrigação individual ser removida aqui.
+  const baseAtivaIds = new Set(base.filter(s=>!modalObligDisabled.has(s.id)).map(s=>s.id));
+  const extraHtml = modalObligExtra.map((e,i)=>{
+    const redundante = e.sourceId && baseAtivaIds.has(e.sourceId);
+    return '<div class="oblig-client-extra-row"'+(redundante?' style="border-color:var(--amber)"':'')+'>'+
+      '<div><strong>'+escHtml(e.label)+'</strong> · '+escHtml(e.setor)+' · dia '+e.prazoDia+(e.desc?' · '+escHtml(e.desc):'')+
+      (redundante?'<div style="font-size:11px;color:var(--amber);margin-top:2px">⚠️ Já incluída pelo padrão do regime — mantê-la aqui não duplica a tarefa, mas pode remover pra simplificar.</div>':'')+
+      '</div>'+
+      '<button class="oblig-remove-btn" onclick="removeModalObligExtra('+i+')" title="Remover">🗑</button></div>';
+  }).join('');
   const usedIds = new Set([...base.map(s=>s.id), ...modalObligExtra.map(e=>e.sourceId).filter(Boolean)]);
   const catalogOpts = obligationTemplates.filter(t=>!usedIds.has(t.id)).map(t=>'<option value="'+escAttr(t.id)+'">'+escHtml(t.label)+'</option>').join('');
   const existing = editingClientId ? clients.find(c=>c.id===editingClientId) : null;
