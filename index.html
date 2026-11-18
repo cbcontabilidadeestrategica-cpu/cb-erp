@@ -2727,16 +2727,14 @@ async function renderOperacao() {
   const lista = document.getElementById('operLista');
   if (!lista) return;
   if (!sbUser) { lista.innerHTML = '<p style="padding:16px;color:var(--fg2)">Faça login para ver as tarefas.</p>'; return; }
-  // Sem a aba Obrigações/Agenda de antes, não existe mais nenhum lugar que
-  // force a materialização do mês seguinte — então a própria Operação cobre
-  // o mês atual + o próximo a cada vez que é aberta (upsert idempotente,
-  // barato de repetir), pra nunca faltar obrigação quando o mês virar.
+  // Pedido real do usuário: obrigação é por competência — o que é do mês
+  // que ainda não chegou não deve existir na Operação antes da hora. Só
+  // materializa o mês ATUAL aqui; o mês seguinte nasce sozinho quando
+  // alguém abrir a Operação já dentro dele (upsert idempotente, então não
+  // tem custo repetir). Antes isso também pré-gerava o próximo mês inteiro
+  // com antecedência — foi removido de propósito.
   try {
-    const now = new Date();
-    let ny = now.getFullYear(), nm = now.getMonth()+1;
-    if (nm > 11) { nm = 0; ny++; }
     await materializeObligations();
-    await materializeObligations(ny, nm);
     await materializeOnboarding();
     await materializeCsRecorrente();
   } catch(e) { console.warn('materializeObligations (Operação) falhou:', e); }
@@ -3330,7 +3328,7 @@ const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho'
 // IMPORTANTE: atualize este valor (data/hora do deploy) a cada publicação
 // — é a única forma de o navegador de quem já está com o hub aberto saber
 // que existe uma versão mais nova.
-const APP_BUILD = '2026-11-18T16:45-03:00';
+const APP_BUILD = '2026-11-18T18:00-03:00';
 let appUpdateBannerShown = false;
 async function checkForNewVersion() {
   try {
@@ -6964,9 +6962,13 @@ function saveClientModal(){
   const notes=(document.getElementById('mc_notes').value||'').trim();
   const contractRenewal=(document.getElementById('mc_renewal').value||'');
   const obligationOverrides={ disabled:Array.from(modalObligDisabled), extra:modalObligExtra.map(e=>({...e})) };
+  let prevClientSnapshot = null;
   if(editingClientId){
     const idx=clients.findIndex(c=>c.id===editingClientId);
-    if(idx>-1) clients[idx]={...clients[idx],name,initials,regime,mensalidade,whatsapp,hasEmployees,acompanhaCompras,services,notes,contractRenewal,obligationOverrides};
+    if(idx>-1){
+      prevClientSnapshot = {...clients[idx]};
+      clients[idx]={...clients[idx],name,initials,regime,mensalidade,whatsapp,hasEmployees,acompanhaCompras,services,notes,contractRenewal,obligationOverrides};
+    }
   } else {
     const newId=Date.now();
     // Nasce em onboarding — ainda não tem transição de contabilidade feita
@@ -6987,6 +6989,41 @@ function saveClientModal(){
   renderFinanceiro();
   renderMetaBanner();
   showToast(isNew ? 'Cliente adicionado com sucesso!' : 'Cliente atualizado com sucesso!', 'ok');
+  // Pedido real do usuário: o cadastro ("Obrigações deste cliente") e a
+  // Operação não conversavam — desmarcar uma obrigação ali só valia pros
+  // PRÓXIMOS meses a gerar; a tarefa pendente que já existia na Operação
+  // ficava esquecida lá, fora do que foi configurado. Agora salvar o
+  // cadastro já remove da Operação o que deixou de se aplicar.
+  if (prevClientSnapshot) {
+    const idxNow = clients.findIndex(c=>c.id===editingClientId);
+    if (idxNow>-1) syncObrigacoesAposSalvarCliente(prevClientSnapshot, clients[idxNow]);
+  }
+}
+async function syncObrigacoesAposSalvarCliente(prevClient, newClient) {
+  const prevIds = new Set(getSteps(prevClient).map(s=>s.id));
+  const newIds = new Set(getSteps(newClient).map(s=>s.id));
+  const removidos = [...prevIds].filter(id=>!newIds.has(id));
+  if (!removidos.length) return;
+  const nowYM = new Date().toISOString().slice(0,7);
+  // Nunca mexe em tarefa concluída (histórico real de trabalho feito) nem
+  // em competência já passada — só o que ainda está pendente/em andamento
+  // pra hoje em diante é que deixou de fazer sentido.
+  const idsToDelete = hojeTarefas.filter(t=>
+    t.cliente_id===newClient.id && t.tipo==='obrigacao' && t.status!=='concluido' &&
+    removidos.includes(obligStepIdOf(t)) &&
+    (!t.prazo || t.prazo.slice(0,7) >= nowYM)
+  ).map(t=>t.id);
+  if (!idsToDelete.length) return;
+  hojeTarefas = hojeTarefas.filter(t=>!idsToDelete.includes(t.id));
+  paintOperacao();
+  try {
+    const { error } = await withSessionRetry(() => withTimeout(sb.from('tarefa').delete().in('id', idsToDelete), 8000, 'syncObrigacoesAposSalvarCliente'), 'syncObrigacoesAposSalvarCliente');
+    if (error) throw error;
+    showToast('Operação atualizada: '+idsToDelete.length+' tarefa(s) removida(s) por não se aplicar(em) mais a '+escHtml(newClient.name)+'.', 'ok');
+  } catch(e) {
+    console.warn('Erro ao sincronizar obrigações desativadas com a Operação:', e);
+    showToast('⚠ Cadastro salvo, mas não consegui limpar a Operação. Recarregue e confira.', 'err');
+  }
 }
 function removeClientFromModal(){
   if(!editingClientId) return;
