@@ -3336,7 +3336,7 @@ const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho'
 // IMPORTANTE: atualize este valor (data/hora do deploy) a cada publicação
 // — é a única forma de o navegador de quem já está com o hub aberto saber
 // que existe uma versão mais nova.
-const APP_BUILD = '2026-11-18T19:15-03:00';
+const APP_BUILD = '2026-11-18T20:00-03:00';
 let appUpdateBannerShown = false;
 async function checkForNewVersion() {
   try {
@@ -6379,6 +6379,7 @@ let finPanelPeriodo = 'mes';
 let finPanelFilial = 'all';
 let finPanelCustomStart = '';
 let finPanelCustomEnd = '';
+let finPanelAddingFilial = false;
 
 function fmtMesAno(ym){ const [y,m]=String(ym).split('-').map(Number); return (MONTHS_PT[m-1]||'').slice(0,3)+'/'+y; }
 function ymAdd(ym, delta){
@@ -6452,8 +6453,34 @@ function openFinanceiroPanel(clienteId){
   finPanelClienteId = clienteId;
   finPanelPeriodo = 'mes';
   finPanelFilial = 'all';
+  finPanelAddingFilial = false;
   document.getElementById('financeiroPanelModal').classList.remove('hidden');
   renderFinanceiroPanel();
+}
+function toggleAddFilialForm(){
+  finPanelAddingFilial = !finPanelAddingFilial;
+  renderFinanceiroPanel();
+  if (finPanelAddingFilial) setTimeout(()=>document.getElementById('finNovaFilialInput')?.focus(), 50);
+}
+async function addFilialPanel(){
+  const input = document.getElementById('finNovaFilialInput');
+  const nome = (input.value||'').trim();
+  if (!nome) { flagRequiredField(input, 'Informe o nome da filial.'); return; }
+  if (filiaisDoCliente(finPanelClienteId).some(f=>f.nome.toLowerCase()===nome.toLowerCase())) {
+    showToast('Já existe uma filial com esse nome.', 'err'); return;
+  }
+  try {
+    const { data, error } = await sb.from('filial').insert({ cliente_id: finPanelClienteId, nome, is_matriz:false }).select().single();
+    if (error) throw error;
+    filiais.push(data);
+    finPanelAddingFilial = false;
+    finPanelFilial = String(data.id);
+    showToast('Filial "'+nome+'" adicionada!', 'ok');
+    renderFinanceiroPanel();
+  } catch(e) {
+    console.error('Erro ao adicionar filial:', e);
+    showToast('⚠ Erro ao adicionar filial. Tente de novo.', 'err');
+  }
 }
 function closeFinanceiroPanel(){
   document.getElementById('financeiroPanelModal').classList.add('hidden');
@@ -6520,7 +6547,15 @@ function renderFinanceiroPanel(){
         '<span style="align-self:center;font-size:12px;color:var(--fg3)">até</span>'+
         '<input type="month" class="qf-filter-select" style="cursor:text" value="'+escAttr(finPanelCustomEnd)+'" onchange="setFinPanelCustomEnd(this.value)">'
       : '')+
+      '<button type="button" class="btn-sm" onclick="toggleAddFilialForm()">+ Nova filial</button>'+
     '</div>'+
+    (finPanelAddingFilial ?
+      '<div class="dem-comment-input-row" style="margin:-6px 0 14px">'+
+        '<input class="dem-comment-input" id="finNovaFilialInput" placeholder="Nome da filial (ex: Loja Zona Sul)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addFilialPanel()}">'+
+        '<button class="dem-comment-send" type="button" onclick="addFilialPanel()">Adicionar</button>'+
+        '<button class="btn-sm" type="button" onclick="toggleAddFilialForm()">Cancelar</button>'+
+      '</div>'
+    : '')+
     '<div style="font-size:11px;color:var(--fg3);margin:-4px 0 14px">Período consultado: '+fmtMesAno(start)+' a '+fmtMesAno(end)+'</div>'+
     '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px">'+
       '<div class="stat-tile"><span class="stat-num gold">'+fmtBRL(ind.faturamentoTotal)+'</span><span class="stat-label">Faturamento no período · '+ind.competenciasComRegistro+' competência'+(ind.competenciasComRegistro!==1?'s':'')+'</span></div>'+
