@@ -1874,6 +1874,17 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
   </div>
 </div>
 
+<!-- FATURAMENTO E COMPRAS — painel do cliente (Parte 5) -->
+<div class="modal-overlay hidden" id="financeiroPanelModal" onclick="if(event.target===this)closeFinanceiroPanel()">
+  <div class="modal-card" style="max-width:920px;width:95%">
+    <div class="modal-header">
+      <span class="modal-title" id="finPanelTitle">Faturamento e compras</span>
+      <button class="modal-close" onclick="closeFinanceiroPanel()">×</button>
+    </div>
+    <div class="modal-body" id="finPanelBody" style="max-height:75vh;overflow-y:auto"></div>
+  </div>
+</div>
+
 <!-- CERTIFICADO MODAL -->
 <div class="modal-overlay hidden" id="certModal" onclick="if(event.target===this)closeCertModal()">
   <div class="modal-card">
@@ -2014,6 +2025,9 @@ async function showApp(user) {
   // Certificados — busca independente da de Operação (tabela própria, sem
   // relação com hojeTarefas), repinta a tabela assim que chegar.
   loadCertificados().then(renderCertTable).catch(e=>console.error('Falha ao carregar certificados:', e));
+  // Faturamento e compras — mesma lógica: busca independente, não trava a
+  // pintura inicial da Operação/Clientes nem depende dela.
+  Promise.all([loadFiliais(), loadFinanceiroRegistros()]).catch(e=>console.error('Falha ao carregar faturamento/compras:', e));
 }
 
 // ───── Controle de chaves "sujas" (gravadas localmente mas ainda não
@@ -2144,6 +2158,7 @@ async function mirrorToRelational(k, v) {
     const rows = v.map(c => ({
       id: c.id, nome: c.name, iniciais: c.initials || null, regime: c.regime || null,
       nivel: c.nivel || null, servicos: c.services || [], tem_funcionarios: !!c.hasEmployees,
+      acompanha_compras: !!c.acompanhaCompras,
       mensalidade: c.mensalidade || 0, whatsapp: c.whatsapp || '', cnpj: c.cnpj || '',
       data_inicio: c.dataInicio || null, drive_key: c.driveKey || null,
       updated_at: new Date().toISOString(),
@@ -3198,6 +3213,7 @@ function buildOperModal(t) {
       '<div class="modal-field-group"><label>Status</label><select class="modal-input" onchange="setTarefaStatus('+t.id+',this.value)">'+OPER_STATUS_ORDER.map(k=>'<option value="'+k+'"'+(t.status===k?' selected':'')+'>'+OPER_STATUS_LABEL[k]+'</option>').join('')+'</select></div>'+
     '</div>'+
     '<div class="modal-field-group"><label>Descrição</label><textarea class="modal-input modal-textarea" rows="2" onchange="setTarefaDescricao('+t.id+',this.value)">'+escHtml(t.descricao||'')+'</textarea></div>'+
+    (isSimplesDeclaracaoTarefa(t) ? financeiroFormHtml(t) : '')+
     (atrasado ?
       '<div class="modal-field-group" style="background:rgba(220,38,38,.08);border-radius:8px;padding:10px">'+
         '<label style="color:var(--red)">🔴 Atrasada — motivo</label>'+
@@ -3290,7 +3306,7 @@ const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho'
 // IMPORTANTE: atualize este valor (data/hora do deploy) a cada publicação
 // — é a única forma de o navegador de quem já está com o hub aberto saber
 // que existe uma versão mais nova.
-const APP_BUILD = '2026-11-18T10:00-03:00';
+const APP_BUILD = '2026-11-18T15:30-03:00';
 let appUpdateBannerShown = false;
 async function checkForNewVersion() {
   try {
@@ -5979,7 +5995,7 @@ function renderClientes(){
           (!expanded?'<div class="csc-chips" style="margin-top:6px">'+c.services.map(s=>'<span class="svc-chip">'+escHtml(s)+'</span>').join('')+'</div>':'')+
         '</div>'+
         '<div class="csc-actions" onclick="event.stopPropagation()">'+
-          '<button class="btn-sm" style="background:var(--green);color:#fff" onclick="quickRegisterContact('+c.id+')" title="Marca hoje como último contato — sem precisar abrir a aba Sucesso do Cliente">✓ Contato hoje</button>'+
+          '<button class="btn-sm" style="background:var(--green);color:#fff" onclick="openFinanceiroPanel('+c.id+')" title="Faturamento e compras registrados nas declarações do Simples Nacional">💰 Faturamento e compras</button>'+
           '<button class="btn-sm navy" onclick="openEditClientModal('+c.id+')">✏️ Editar</button>'+
         '</div>'+
       '</div>'+
@@ -6185,6 +6201,337 @@ async function loadCertificados() {
   } catch(e) {
     console.warn('Erro ao carregar certificados:', e);
   }
+}
+
+/* ═══════════════════════════════════════════════
+   FATURAMENTO E COMPRAS (filial + financeiro_registro)
+   Tabelas reais no Supabase, mesmo padrão de certificado/tarefa.
+═══════════════════════════════════════════════ */
+let filiais = [];
+let financeiroRegistros = [];
+async function loadFiliais() {
+  try {
+    const { data, error } = await withTimeout(sb.from('filial').select('*'), 8000, 'loadFiliais');
+    if (error) throw error;
+    filiais = data || [];
+  } catch(e) { console.warn('Erro ao carregar filiais:', e); }
+}
+async function loadFinanceiroRegistros() {
+  try {
+    const { data, error } = await withTimeout(sb.from('financeiro_registro').select('*'), 8000, 'loadFinanceiroRegistros');
+    if (error) throw error;
+    financeiroRegistros = data || [];
+  } catch(e) { console.warn('Erro ao carregar financeiro_registro:', e); }
+}
+function filiaisDoCliente(clienteId) { return filiais.filter(f=>f.cliente_id===clienteId); }
+// Toda empresa tem pelo menos a Matriz (seedada na criação da tabela e,
+// pra cliente novo, aqui mesmo na hora que precisar pela 1ª vez) — então
+// o seletor nunca fica sem nenhuma opção.
+async function matrizDoCliente(clienteId) {
+  let fs = filiaisDoCliente(clienteId);
+  let matriz = fs.find(f=>f.is_matriz) || fs[0];
+  if (matriz) return matriz;
+  try {
+    const { data, error } = await sb.from('filial').insert({ cliente_id: clienteId, nome:'Matriz', is_matriz:true }).select().single();
+    if (error) throw error;
+    filiais.push(data);
+    return data;
+  } catch(e) { console.warn('Erro ao criar filial Matriz:', e); return null; }
+}
+
+// Seção "Faturamento e compras da competência" — só aparece dentro da
+// demanda que É a declaração do Simples Nacional (identificada pelo
+// step_id do template, 'ponto' — ver obligationTemplates/materializeObligations).
+// Não cria outra tela pra isso: os valores são registrados aqui mesmo,
+// uma única vez, e consultados depois no painel do cliente.
+function isSimplesDeclaracaoTarefa(t) {
+  return !!(t && ((t.sop && t.sop.step_id === 'ponto') || t.titulo === 'Declarar o Simples Nacional'));
+}
+function financeiroFormHtml(t) {
+  const cliente = clients.find(c => c.id === t.cliente_id);
+  if (!cliente) return '<p style="font-size:12px;color:var(--fg3)">Sem cliente vinculado — não é possível registrar faturamento aqui.</p>';
+  const fs = filiaisDoCliente(t.cliente_id);
+  if (!fs.length) return '<p style="font-size:12px;color:var(--fg3)">Carregando filiais…</p>';
+  // Competência default = mês de referência da obrigação (ex.: prazo em
+  // novembro → competência outubro), igual à regra de competenciaOf usada
+  // no resto do app — mas o campo fica livre pra corrigir se precisar.
+  let compDefault = new Date().toISOString().slice(0,7);
+  if (t.prazo) {
+    const [y,m] = t.prazo.split('-').map(Number);
+    const c = competenciaOf(y, m-1);
+    compDefault = c.year+'-'+String(c.month+1).padStart(2,'0');
+  }
+  const existing = financeiroRegistros.find(r=>r.tarefa_id===t.id)
+    || financeiroRegistros.find(r=>r.cliente_id===t.cliente_id && String(r.competencia).slice(0,7)===compDefault);
+  const compVal = existing ? String(existing.competencia).slice(0,7) : compDefault;
+  const matriz = fs.find(f=>f.is_matriz) || fs[0];
+  const filialVal = existing ? existing.filial_id : matriz.id;
+  return '<div class="modal-field-group" style="background:var(--bg3);border-radius:8px;padding:10px;margin-bottom:4px">'+
+    '<label style="font-weight:700">💰 Faturamento e compras da competência</label>'+
+    '<div class="modal-2col" style="margin-top:6px">'+
+      '<div class="modal-field-group"><label>Competência</label><input class="modal-input" type="month" id="fin_competencia" value="'+escAttr(compVal)+'"></div>'+
+      '<div class="modal-field-group"><label>Filial</label><select class="modal-input" id="fin_filial"'+(fs.length<=1?' disabled':'')+'>'+
+        fs.map(f=>'<option value="'+f.id+'"'+(String(f.id)===String(filialVal)?' selected':'')+'>'+escHtml(f.nome)+'</option>').join('')+
+      '</select></div>'+
+    '</div>'+
+    '<div class="modal-2col">'+
+      '<div class="modal-field-group"><label>Faturamento bruto (R$)</label><input class="modal-input" id="fin_faturamento" placeholder="0,00" value="'+(existing?Number(existing.faturamento).toLocaleString('pt-BR',{minimumFractionDigits:2}):'')+'"></div>'+
+      (cliente.acompanhaCompras
+        ? '<div class="modal-field-group"><label>Compras (R$)</label><input class="modal-input" id="fin_compras" placeholder="0,00" value="'+(existing&&existing.compras!=null?Number(existing.compras).toLocaleString('pt-BR',{minimumFractionDigits:2}):'')+'"></div>'
+        : '<div class="modal-field-group"></div>')+
+    '</div>'+
+    '<div class="modal-field-group"><label>Observações (opcional)</label><textarea class="modal-input modal-textarea" rows="2" id="fin_obs">'+escHtml(existing?existing.observacoes||'':'')+'</textarea></div>'+
+    (existing ? '<div style="font-size:11px;color:var(--fg3);margin-bottom:6px">Último registro: '+escHtml(existing.responsavel||'—')+' · '+new Date(existing.updated_at||existing.created_at).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+'</div>' : '')+
+    '<button type="button" class="btn-primary" id="finSaveBtn" onclick="saveFinanceiroRegistro('+t.id+')">'+(existing?'Salvar correção':'Salvar registro')+'</button>'+
+  '</div>';
+}
+async function saveFinanceiroRegistro(tarefaId) {
+  const t = hojeTarefas.find(x=>x.id===tarefaId);
+  if (!t || !t.cliente_id) return;
+  const compEl = document.getElementById('fin_competencia');
+  const filialEl = document.getElementById('fin_filial');
+  const fatEl = document.getElementById('fin_faturamento');
+  const comprasEl = document.getElementById('fin_compras');
+  const obsEl = document.getElementById('fin_obs');
+  if (!compEl.value) { flagRequiredField(compEl, 'Informe a competência.'); return; }
+  if (!filialEl.value) { flagRequiredField(filialEl, 'Selecione a filial.'); return; }
+  const faturamento = parseLeadValor(fatEl.value);
+  const compras = comprasEl ? (comprasEl.value.trim() ? parseLeadValor(comprasEl.value) : null) : null;
+  const competencia = compEl.value+'-01';
+  const filial_id = parseInt(filialEl.value, 10);
+  const btn = document.getElementById('finSaveBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Salvando…'; }
+  try {
+    const existing = financeiroRegistros.find(r=>r.cliente_id===t.cliente_id && r.filial_id===filial_id && String(r.competencia).slice(0,7)===compEl.value);
+    const payload = {
+      cliente_id: t.cliente_id, filial_id, competencia, faturamento, compras,
+      observacoes: (obsEl.value||'').trim(), tarefa_id: t.id, responsavel: getCurrentOperator(),
+      updated_at: new Date().toISOString()
+    };
+    // Histórico só grava quando um valor de verdade muda — reabrir e salvar
+    // sem alterar nada não precisa virar uma entrada de "correção" (Parte 10.2).
+    if (existing && (Number(existing.faturamento)!==faturamento || Number(existing.compras||0)!==Number(compras||0))) {
+      await withTimeout(sb.from('financeiro_registro_historico').insert({
+        registro_id: existing.id, faturamento_anterior: existing.faturamento, compras_anterior: existing.compras,
+        faturamento_novo: faturamento, compras_novo: compras, responsavel: getCurrentOperator()
+      }), 8000, 'financeiroHistorico');
+    }
+    const { data, error } = await withTimeout(
+      sb.from('financeiro_registro').upsert(payload, { onConflict: 'cliente_id,filial_id,competencia' }).select().single(),
+      8000, 'upsertFinanceiroRegistro'
+    );
+    if (error) throw error;
+    const idx = financeiroRegistros.findIndex(r=>r.id===data.id);
+    if (idx>-1) financeiroRegistros[idx]=data; else financeiroRegistros.push(data);
+    showToast(existing?'Correção salva!':'Faturamento registrado!', 'ok');
+    buildOperModal(t); // repinta a seção já com o valor salvo, sem mexer em status/setor da demanda
+  } catch(e) {
+    console.error('Erro ao salvar financeiro_registro:', e);
+    showToast('⚠ Erro ao salvar o registro financeiro. Tente de novo.', 'err');
+  } finally {
+    if (btn) { btn.disabled = false; }
+  }
+}
+
+/* ═══ PAINEL "FATURAMENTO E COMPRAS" DO CLIENTE (Partes 5/6/7/8/9) ═══
+   Só consulta o que foi registrado na Operação (financeiroRegistros) —
+   nenhum valor é digitado aqui, é só leitura/filtro/gráfico. */
+const FIN_PERIODOS = [
+  {v:'mes',   l:'Este mês'},
+  {v:'3m',    l:'Últimos 3 meses'},
+  {v:'6m',    l:'Últimos 6 meses'},
+  {v:'12m',   l:'Últimos 12 meses'},
+  {v:'ano',   l:'Este ano'},
+  {v:'custom',l:'Período personalizado'},
+];
+let finPanelClienteId = null;
+let finPanelPeriodo = 'mes';
+let finPanelFilial = 'all';
+let finPanelCustomStart = '';
+let finPanelCustomEnd = '';
+
+function fmtMesAno(ym){ const [y,m]=String(ym).split('-').map(Number); return (MONTHS_PT[m-1]||'').slice(0,3)+'/'+y; }
+function ymAdd(ym, delta){
+  let [y,m]=ym.split('-').map(Number); m = m-1+delta;
+  y += Math.floor(m/12); m = ((m%12)+12)%12;
+  return y+'-'+String(m+1).padStart(2,'0');
+}
+function finPeriodoRange(){
+  const now = new Date();
+  const curYM = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  if (finPanelPeriodo==='mes') return { start: curYM, end: curYM };
+  if (finPanelPeriodo==='3m') return { start: ymAdd(curYM,-2), end: curYM };
+  if (finPanelPeriodo==='6m') return { start: ymAdd(curYM,-5), end: curYM };
+  if (finPanelPeriodo==='12m') return { start: ymAdd(curYM,-11), end: curYM };
+  if (finPanelPeriodo==='ano') return { start: now.getFullYear()+'-01', end: curYM };
+  if (finPanelPeriodo==='custom') return { start: finPanelCustomStart||curYM, end: finPanelCustomEnd||curYM };
+  return { start: curYM, end: curYM };
+}
+function finMesesDoIntervalo(start, end){
+  const meses=[]; let ym=start, guard=0;
+  while(ym<=end && guard<240){ meses.push(ym); ym=ymAdd(ym,1); guard++; }
+  return meses;
+}
+function finRegistrosDoCliente(){
+  return financeiroRegistros.filter(r=>r.cliente_id===finPanelClienteId);
+}
+function finRegistrosFiltrados(){
+  const {start,end} = finPeriodoRange();
+  return finRegistrosDoCliente().filter(r=>{
+    const ym = String(r.competencia).slice(0,7);
+    if (ym<start||ym>end) return false;
+    if (finPanelFilial!=='all' && String(r.filial_id)!==String(finPanelFilial)) return false;
+    return true;
+  });
+}
+// Cobertura (Parte 8.4): nao conta mes anterior ao inicio do cliente, nem
+// mes futuro, como "pendente" — so os meses que realmente deveriam ter
+// registro entram no denominador.
+function finCobertura(){
+  const cliente = clients.find(c=>c.id===finPanelClienteId);
+  const {start,end} = finPeriodoRange();
+  const nowYM = new Date().toISOString().slice(0,7);
+  let startEff = start, endEff = end>nowYM ? nowYM : end;
+  if (cliente && cliente.dataInicio) {
+    const dIni = String(cliente.dataInicio).slice(0,7);
+    if (dIni>startEff) startEff = dIni;
+  }
+  if (startEff>endEff) return { esperadas:0, registradas:0 };
+  const meses = finMesesDoIntervalo(startEff, endEff);
+  const regsCliente = financeiroRegistros.filter(r=>r.cliente_id===finPanelClienteId && (finPanelFilial==='all'||String(r.filial_id)===String(finPanelFilial)));
+  const registradas = meses.filter(ym=>regsCliente.some(r=>String(r.competencia).slice(0,7)===ym)).length;
+  return { esperadas: meses.length, registradas };
+}
+// Acumulado anual (Parte 8.3) — sempre jan→mês atual do ano corrente,
+// independente do filtro de período principal (por isso é calculado à parte).
+function finAcumuladoAnual(){
+  const now = new Date();
+  const start = now.getFullYear()+'-01', end = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  const regs = finRegistrosDoCliente().filter(r=>{
+    const ym = String(r.competencia).slice(0,7);
+    if (ym<start||ym>end) return false;
+    if (finPanelFilial!=='all' && String(r.filial_id)!==String(finPanelFilial)) return false;
+    return true;
+  });
+  return {
+    faturamento: regs.reduce((s,r)=>s+Number(r.faturamento||0),0),
+    compras: regs.reduce((s,r)=>s+Number(r.compras||0),0),
+  };
+}
+function openFinanceiroPanel(clienteId){
+  finPanelClienteId = clienteId;
+  finPanelPeriodo = 'mes';
+  finPanelFilial = 'all';
+  document.getElementById('financeiroPanelModal').classList.remove('hidden');
+  renderFinanceiroPanel();
+}
+function closeFinanceiroPanel(){
+  document.getElementById('financeiroPanelModal').classList.add('hidden');
+  finPanelClienteId = null;
+}
+function setFinPanelPeriodo(v){
+  finPanelPeriodo = v;
+  if (v==='custom' && !finPanelCustomStart) {
+    const n = new Date().toISOString().slice(0,7);
+    finPanelCustomStart = ymAdd(n,-2); finPanelCustomEnd = n;
+  }
+  renderFinanceiroPanel();
+}
+function setFinPanelFilial(v){ finPanelFilial = v; renderFinanceiroPanel(); }
+function setFinPanelCustomStart(v){ finPanelCustomStart = v; renderFinanceiroPanel(); }
+function setFinPanelCustomEnd(v){ finPanelCustomEnd = v; renderFinanceiroPanel(); }
+function abrirDemandaDeOrigem(tarefaId){
+  if (!tarefaId) return;
+  closeFinanceiroPanel();
+  switchTab('hoje', null);
+  setTimeout(()=>openOperModal(tarefaId), 150);
+}
+function renderFinanceiroPanel(){
+  const cliente = clients.find(c=>c.id===finPanelClienteId);
+  const body = document.getElementById('finPanelBody');
+  if (!body) return;
+  if (!cliente) { body.innerHTML = '<p style="color:var(--fg3)">Cliente não encontrado.</p>'; return; }
+  const fs = filiaisDoCliente(finPanelClienteId);
+  const { start, end } = finPeriodoRange();
+  const regs = finRegistrosFiltrados();
+  const meses = finMesesDoIntervalo(start, end);
+  const porMes = meses.map(ym=>{
+    const rs = regs.filter(r=>String(r.competencia).slice(0,7)===ym);
+    return {
+      ym, qtd: rs.length, regs: rs,
+      faturamento: rs.reduce((s,r)=>s+Number(r.faturamento||0),0),
+      compras: rs.reduce((s,r)=>s+Number(r.compras||0),0),
+    };
+  });
+  const ind = {
+    faturamentoTotal: regs.reduce((s,r)=>s+Number(r.faturamento||0),0),
+    comprasTotal: regs.reduce((s,r)=>s+Number(r.compras||0),0),
+    competenciasComRegistro: new Set(regs.map(r=>String(r.competencia).slice(0,7))).size,
+  };
+  const cobertura = finCobertura();
+  const anual = finAcumuladoAnual();
+  const maxVal = Math.max(1, ...porMes.map(m=>Math.max(m.faturamento, cliente.acompanhaCompras?m.compras:0)));
+  const nowYM = new Date().toISOString().slice(0,7);
+
+  document.getElementById('finPanelTitle').textContent = '💰 '+cliente.name+' — Faturamento e compras';
+
+  body.innerHTML =
+    '<div style="font-size:12px;color:var(--fg3);margin-bottom:10px">'+escHtml(cliente.cnpj||'sem CNPJ cadastrado')+(cliente.regime?' · '+escHtml(cliente.regime):'')+'</div>'+
+    '<div class="qf-filters">'+
+      '<select class="qf-filter-select" onchange="setFinPanelPeriodo(this.value)">'+
+        FIN_PERIODOS.map(p=>'<option value="'+p.v+'"'+(finPanelPeriodo===p.v?' selected':'')+'>'+p.l+'</option>').join('')+
+      '</select>'+
+      (fs.length>1 ? '<select class="qf-filter-select" onchange="setFinPanelFilial(this.value)">'+
+        '<option value="all"'+(finPanelFilial==='all'?' selected':'')+'>Todas as filiais (consolidado)</option>'+
+        fs.map(f=>'<option value="'+f.id+'"'+(String(finPanelFilial)===String(f.id)?' selected':'')+'>'+escHtml(f.nome)+'</option>').join('')+
+      '</select>' : '')+
+      (finPanelPeriodo==='custom' ?
+        '<input type="month" class="qf-filter-select" style="cursor:text" value="'+escAttr(finPanelCustomStart)+'" onchange="setFinPanelCustomStart(this.value)">'+
+        '<span style="align-self:center;font-size:12px;color:var(--fg3)">até</span>'+
+        '<input type="month" class="qf-filter-select" style="cursor:text" value="'+escAttr(finPanelCustomEnd)+'" onchange="setFinPanelCustomEnd(this.value)">'
+      : '')+
+    '</div>'+
+    '<div style="font-size:11px;color:var(--fg3);margin:-4px 0 14px">Período consultado: '+fmtMesAno(start)+' a '+fmtMesAno(end)+'</div>'+
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px">'+
+      '<div class="stat-tile"><span class="stat-num gold">'+fmtBRL(ind.faturamentoTotal)+'</span><span class="stat-label">Faturamento no período · '+ind.competenciasComRegistro+' competência'+(ind.competenciasComRegistro!==1?'s':'')+'</span></div>'+
+      (cliente.acompanhaCompras ? '<div class="stat-tile"><span class="stat-num amber">'+fmtBRL(ind.comprasTotal)+'</span><span class="stat-label">Compras no período</span></div>' : '')+
+      '<div class="stat-tile"><span class="stat-num">'+cobertura.registradas+' de '+cobertura.esperadas+'</span><span class="stat-label">Competências com registro</span></div>'+
+      '<div class="stat-tile"><span class="stat-num green">'+fmtBRL(anual.faturamento)+'</span><span class="stat-label">Acumulado '+new Date().getFullYear()+' (jan–atual)</span></div>'+
+    '</div>'+
+    '<div class="mrr-chart-section" style="margin-bottom:16px">'+
+      '<div class="mrr-chart-title"><span>📊 Evolução mensal</span>'+(cliente.acompanhaCompras?'<span style="font-size:10px;color:var(--fg3);font-weight:400">dourado = faturamento, pontilhado = compras</span>':'')+'</div>'+
+      (porMes.length ? '<div class="mrr-bars-wrap">'+
+        porMes.map(m=>{
+          const hF = Math.max(2, Math.round(m.faturamento/maxVal*76));
+          const hC = cliente.acompanhaCompras ? Math.max(2, Math.round(m.compras/maxVal*76)) : 0;
+          const semDados = m.qtd===0 && m.ym<=nowYM;
+          const tip = fmtMesAno(m.ym)+': '+(semDados?'sem dados':fmtBRL(m.faturamento)+(cliente.acompanhaCompras?' · Compras '+fmtBRL(m.compras):''));
+          return '<div class="mrr-bar-item" title="'+escAttr(tip)+'">'+
+            '<div style="flex:1;display:flex;align-items:flex-end;gap:2px;width:100%">'+
+              '<div class="mrr-bar-fill mrr-current" style="height:'+(semDados?2:hF)+'px;flex:1;opacity:'+(semDados?.2:1)+'"></div>'+
+              (cliente.acompanhaCompras?'<div class="mrr-bar-fill mrr-proj" style="height:'+(semDados?2:hC)+'px;flex:1"></div>':'')+
+            '</div>'+
+            '<div class="mrr-bar-lbl">'+fmtMesAno(m.ym).slice(0,3)+'</div>'+
+          '</div>';
+        }).join('')+
+      '</div>' : '<p style="font-size:12px;color:var(--fg3)">Sem competências no período selecionado.</p>')+
+    '</div>'+
+    '<div class="table-scroll"><table class="oblig-table">'+
+      '<thead><tr><th>Competência</th><th>Faturamento</th>'+(cliente.acompanhaCompras?'<th>Compras</th>':'')+'<th>Registros</th><th>Situação</th><th></th></tr></thead>'+
+      '<tbody>'+
+        (porMes.length ? porMes.map(m=>{
+          const situacao = m.qtd ? '✅ Registrado' : (m.ym>nowYM ? '⏳ Futuro' : '⚪ Pendente');
+          return '<tr>'+
+            '<td>'+fmtMesAno(m.ym)+'</td>'+
+            '<td>'+(m.qtd?fmtBRL(m.faturamento):'—')+'</td>'+
+            (cliente.acompanhaCompras?'<td>'+(m.qtd?fmtBRL(m.compras):'—')+'</td>':'')+
+            '<td>'+m.qtd+'</td>'+
+            '<td>'+situacao+'</td>'+
+            '<td>'+(m.regs.length===1&&m.regs[0].tarefa_id?'<button class="btn-sm" onclick="abrirDemandaDeOrigem('+m.regs[0].tarefa_id+')">Abrir demanda</button>':'')+'</td>'+
+          '</tr>';
+        }).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--fg3);padding:16px">Nenhuma competência no período.</td></tr>')+
+      '</tbody>'+
+    '</table></div>';
 }
 
 let editingCertId = null;
@@ -6455,6 +6802,10 @@ function buildClientModal(c){
       '<label class="modal-check-item"><input type="checkbox" id="mc_employees" onchange="renderClientObligationsSection()"'+(c&&c.hasEmployees?' checked':'')+'>Sim, cliente tem funcionários registrados</label>'+
     '</div>'+
     '<div class="modal-field-group">'+
+      '<label>Acompanhamento financeiro</label>'+
+      '<label class="modal-check-item"><input type="checkbox" id="mc_acompanha_compras"'+(c&&c.acompanhaCompras?' checked':'')+'>Cliente comercial — também acompanhar Compras (além de Faturamento)</label>'+
+    '</div>'+
+    '<div class="modal-field-group">'+
       '<label>Serviços contratados</label>'+
       '<div class="modal-checklist">'+svcChecks+'</div>'+
     '</div>'+
@@ -6575,13 +6926,14 @@ function saveClientModal(){
   const mensalidade=parseFloat(document.getElementById('mc_mensalidade').value)||0;
   const whatsapp=document.getElementById('mc_whatsapp').value.trim();
   const hasEmployees=document.getElementById('mc_employees').checked;
+  const acompanhaCompras=document.getElementById('mc_acompanha_compras').checked;
   const services=Array.from(document.querySelectorAll('.mc_svc:checked')).map(el=>el.value);
   const notes=(document.getElementById('mc_notes').value||'').trim();
   const contractRenewal=(document.getElementById('mc_renewal').value||'');
   const obligationOverrides={ disabled:Array.from(modalObligDisabled), extra:modalObligExtra.map(e=>({...e})) };
   if(editingClientId){
     const idx=clients.findIndex(c=>c.id===editingClientId);
-    if(idx>-1) clients[idx]={...clients[idx],name,initials,regime,mensalidade,whatsapp,hasEmployees,services,notes,contractRenewal,obligationOverrides};
+    if(idx>-1) clients[idx]={...clients[idx],name,initials,regime,mensalidade,whatsapp,hasEmployees,acompanhaCompras,services,notes,contractRenewal,obligationOverrides};
   } else {
     const newId=Date.now();
     // Nasce em onboarding — ainda não tem transição de contabilidade feita
@@ -6592,7 +6944,7 @@ function saveClientModal(){
     // csCicloInicio ancora o ciclo trimestral/semestral de Sucesso do
     // Cliente na data de hoje — o 1º check-in dele vence 3 meses a partir
     // do cadastro, não no fim do trimestre civil (ver materializeCsRecorrente).
-    clients.push({id:newId,name,initials,regime,mensalidade,whatsapp,hasEmployees,services,notes,contractRenewal,obligationOverrides,driveKey:'drive_'+newId,status:'onboarding',csCicloInicio:new Date().toISOString().slice(0,10)});
+    clients.push({id:newId,name,initials,regime,mensalidade,whatsapp,hasEmployees,acompanhaCompras,services,notes,contractRenewal,obligationOverrides,driveKey:'drive_'+newId,status:'onboarding',csCicloInicio:new Date().toISOString().slice(0,10)});
   }
   const isNew = !editingClientId;
   save('cb3_clients',clients);
