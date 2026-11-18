@@ -3290,7 +3290,7 @@ const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho'
 // IMPORTANTE: atualize este valor (data/hora do deploy) a cada publicação
 // — é a única forma de o navegador de quem já está com o hub aberto saber
 // que existe uma versão mais nova.
-const APP_BUILD = '2026-11-17T11:20-03:00';
+const APP_BUILD = '2026-11-18T10:00-03:00';
 let appUpdateBannerShown = false;
 async function checkForNewVersion() {
   try {
@@ -6683,7 +6683,6 @@ function renderObligationTemplates(){
       '<td><input class="oblig-inline-input" style="min-width:160px" value="'+escAttr(t.desc||'')+'" onchange="updateObligationTemplate(\''+t.id+'\',\'desc\',this.value)"></td>'+
       '<td><select class="oblig-inline-input" onchange="updateObligationTemplate(\''+t.id+'\',\'setor\',this.value)">'+OBLIG_SETORES.map(s=>'<option value="'+escAttr(s)+'"'+(t.setor===s?' selected':'')+'>'+escHtml(s)+'</option>').join('')+'</select></td>'+
       '<td><input class="oblig-inline-input" style="width:56px" type="number" min="1" max="31" value="'+t.prazoDia+'" onchange="updateObligationTemplate(\''+t.id+'\',\'prazoDia\',this.value)"></td>'+
-      '<td><select class="oblig-inline-input" onchange="updateObligationTemplate(\''+t.id+'\',\'urg\',this.value)"><option value="amber"'+(t.urg!=='red'?' selected':'')+'>🟡 Atenção</option><option value="red"'+(t.urg==='red'?' selected':'')+'>🔴 Crítico</option></select></td>'+
       '<td style="min-width:260px"><label class="oblig-regime-chip"><input type="checkbox"'+(isAll?' checked':'')+' onchange="toggleObligationAllRegimes(\''+t.id+'\',this.checked)">Todos</label>'+regimeChips+'</td>'+
       '<td style="text-align:center"><input type="checkbox"'+(t.requiresEmployees?' checked':'')+' onchange="toggleObligationRequiresEmployees(\''+t.id+'\',this.checked)"></td>'+
       '<td><button class="oblig-remove-btn" onclick="removeObligationTemplate(\''+t.id+'\')" title="Remover">🗑</button></td>'+
@@ -6692,7 +6691,7 @@ function renderObligationTemplates(){
   el.innerHTML=
     '<p style="font-size:13px;color:var(--fg2);margin-bottom:14px">Essas são as obrigações geradas automaticamente, por regime e por ter ou não funcionários. Edite, remova ou crie novas aqui — valem para todos os clientes que se encaixarem na regra. Para uma exceção pontual de um cliente específico, use "Obrigações deste cliente" dentro do cadastro dele.</p>'+
     '<div class="table-scroll"><table class="oblig-table">'+
-      '<thead><tr><th>Obrigação</th><th>Observação</th><th>Setor</th><th>Dia prazo</th><th>Urgência</th><th>Aplica-se a</th><th>Só c/ funcionários</th><th></th></tr></thead>'+
+      '<thead><tr><th>Obrigação</th><th>Observação</th><th>Setor</th><th>Dia prazo</th><th>Aplica-se a</th><th>Só c/ funcionários</th><th></th></tr></thead>'+
       '<tbody>'+rows+'</tbody>'+
     '</table></div>'+
     '<button class="btn-secondary" style="margin-top:12px" onclick="addObligationTemplate()">+ Nova obrigação padrão</button>';
