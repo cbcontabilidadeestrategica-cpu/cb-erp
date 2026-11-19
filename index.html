@@ -2158,7 +2158,7 @@ async function mirrorToRelational(k, v) {
     const rows = v.map(c => ({
       id: c.id, nome: c.name, iniciais: c.initials || null, regime: c.regime || null,
       nivel: c.nivel || null, servicos: c.services || [], tem_funcionarios: !!c.hasEmployees,
-      acompanha_compras: !!c.acompanhaCompras,
+      tipo_negocio: c.tipoNegocio || 'Serviço', acompanha_compras: !!c.acompanhaCompras,
       mensalidade: c.mensalidade || 0, whatsapp: c.whatsapp || '', cnpj: c.cnpj || '',
       data_inicio: c.dataInicio || null, drive_key: c.driveKey || null,
       updated_at: new Date().toISOString(),
@@ -2250,6 +2250,10 @@ const OBLIG_SETORES = ['Fiscal','Depto. Pessoal','Contábil','Societário','Fina
 // (ver uso com .concat em buildOperModal) — nunca se perde um valor já
 // salvo só por não estar nessa lista.
 const OPER_RESP_OPTIONS = ['Nathan','Yuri','Equipe'];
+// Tipo de negócio é dado real do cadastro, não um checkbox solto —
+// "acompanha compras" é só uma consequência disso (Comércio/Misto sim,
+// Serviço não), calculada a partir daqui em vez de perguntada à parte.
+const TIPO_NEGOCIO_OPTS = ['Serviço','Comércio','Misto'];
 // Responsável padrão por setor (ex.: Nathan cuida de Fiscal, Yuri de Depto.
 // Pessoal) — usado por materializeObligations() pra já nascer com
 // responsável preenchido. Editável na tela de Padrões de Cadastro.
@@ -3341,7 +3345,7 @@ const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho'
 // IMPORTANTE: atualize este valor (data/hora do deploy) a cada publicação
 // — é a única forma de o navegador de quem já está com o hub aberto saber
 // que existe uma versão mais nova.
-const APP_BUILD = '2026-11-19T09:30-03:00';
+const APP_BUILD = '2026-11-19T10:15-03:00';
 let appUpdateBannerShown = false;
 async function checkForNewVersion() {
   try {
@@ -6878,8 +6882,11 @@ function buildClientModal(c){
       '<label class="modal-check-item"><input type="checkbox" id="mc_employees" onchange="renderClientObligationsSection()"'+(c&&c.hasEmployees?' checked':'')+'>Sim, cliente tem funcionários registrados</label>'+
     '</div>'+
     '<div class="modal-field-group">'+
-      '<label>Acompanhamento financeiro</label>'+
-      '<label class="modal-check-item"><input type="checkbox" id="mc_acompanha_compras"'+(c&&c.acompanhaCompras?' checked':'')+'>Cliente comercial — também acompanhar Compras (além de Faturamento)</label>'+
+      '<label>Tipo de negócio</label>'+
+      '<select class="modal-input" id="mc_tipo_negocio">'+
+        TIPO_NEGOCIO_OPTS.map(t=>'<option value="'+escAttr(t)+'"'+((c?c.tipoNegocio||'Serviço':'Serviço')===t?' selected':'')+'>'+escHtml(t)+'</option>').join('')+
+      '</select>'+
+      '<p style="font-size:11px;color:var(--fg3);margin:4px 0 0">Comércio e Misto passam a acompanhar Compras (além de Faturamento) no painel financeiro.</p>'+
     '</div>'+
     '<div class="modal-field-group">'+
       '<label>Serviços contratados</label>'+
@@ -7021,7 +7028,8 @@ function saveClientModal(){
   const mensalidade=parseFloat(document.getElementById('mc_mensalidade').value)||0;
   const whatsapp=document.getElementById('mc_whatsapp').value.trim();
   const hasEmployees=document.getElementById('mc_employees').checked;
-  const acompanhaCompras=document.getElementById('mc_acompanha_compras').checked;
+  const tipoNegocio=document.getElementById('mc_tipo_negocio').value;
+  const acompanhaCompras=tipoNegocio!=='Serviço';
   const services=Array.from(document.querySelectorAll('.mc_svc:checked')).map(el=>el.value);
   const notes=(document.getElementById('mc_notes').value||'').trim();
   const contractRenewal=(document.getElementById('mc_renewal').value||'');
@@ -7031,7 +7039,7 @@ function saveClientModal(){
     const idx=clients.findIndex(c=>c.id===editingClientId);
     if(idx>-1){
       prevClientSnapshot = {...clients[idx]};
-      clients[idx]={...clients[idx],name,initials,regime,mensalidade,whatsapp,hasEmployees,acompanhaCompras,services,notes,contractRenewal,obligationOverrides};
+      clients[idx]={...clients[idx],name,initials,regime,mensalidade,whatsapp,hasEmployees,tipoNegocio,acompanhaCompras,services,notes,contractRenewal,obligationOverrides};
     }
   } else {
     const newId=Date.now();
@@ -7043,7 +7051,7 @@ function saveClientModal(){
     // csCicloInicio ancora o ciclo trimestral/semestral de Sucesso do
     // Cliente na data de hoje — o 1º check-in dele vence 3 meses a partir
     // do cadastro, não no fim do trimestre civil (ver materializeCsRecorrente).
-    clients.push({id:newId,name,initials,regime,mensalidade,whatsapp,hasEmployees,acompanhaCompras,services,notes,contractRenewal,obligationOverrides,driveKey:'drive_'+newId,status:'onboarding',csCicloInicio:new Date().toISOString().slice(0,10)});
+    clients.push({id:newId,name,initials,regime,mensalidade,whatsapp,hasEmployees,tipoNegocio,acompanhaCompras,services,notes,contractRenewal,obligationOverrides,driveKey:'drive_'+newId,status:'onboarding',csCicloInicio:new Date().toISOString().slice(0,10)});
   }
   const isNew = !editingClientId;
   save('cb3_clients',clients);
