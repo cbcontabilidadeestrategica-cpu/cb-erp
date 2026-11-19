@@ -3345,7 +3345,7 @@ const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho'
 // IMPORTANTE: atualize este valor (data/hora do deploy) a cada publicação
 // — é a única forma de o navegador de quem já está com o hub aberto saber
 // que existe uma versão mais nova.
-const APP_BUILD = '2026-11-19T10:15-03:00';
+const APP_BUILD = '2026-11-19T10:45-03:00';
 let appUpdateBannerShown = false;
 async function checkForNewVersion() {
   try {
@@ -7229,11 +7229,28 @@ function renderObligationTemplates(){
     '</table></div>'+
     '<button class="btn-secondary" style="margin-top:12px" onclick="addObligationTemplate()">+ Nova obrigação padrão</button>';
 }
-function setObligRespPadrao(setor, resp){
+async function setObligRespPadrao(setor, resp){
   obligRespPadrao = { ...obligRespPadrao, [setor]: resp||undefined };
   if(!resp) delete obligRespPadrao[setor];
   save('cb3_resp_padrao', obligRespPadrao);
-  showToast('Responsável padrão de '+setor+' atualizado.', 'ok');
+  if (!resp) { showToast('Responsável padrão de '+setor+' removido.', 'ok'); return; }
+  // Pedido real do usuário: só valer pra geração futura não bastava — ele
+  // esperava ver a Operação já atualizada na hora. Aplica agora em quem
+  // ainda não tem responsável (nunca sobrescreve atribuição manual já
+  // feita, nunca mexe em tarefa concluída).
+  hojeTarefas.forEach(t=>{
+    if (t.tipo==='obrigacao' && t.setor===setor && t.status!=='concluido' && !t.responsavel) t.responsavel = resp;
+  });
+  try { paintOperacao(); } catch(e){}
+  try {
+    const { error } = await sb.from('tarefa').update({ responsavel: resp })
+      .eq('setor', setor).eq('tipo','obrigacao').neq('status','concluido').is('responsavel', null);
+    if (error) throw error;
+    showToast('Responsável padrão de '+setor+' definido — já aplicado nas tarefas pendentes sem responsável.', 'ok');
+  } catch(e) {
+    console.warn('Erro ao aplicar responsável padrão retroativamente:', e);
+    showToast('⚠ Padrão salvo, mas não consegui atualizar as tarefas já existentes. Recarregue e tente de novo.', 'err');
+  }
 }
 function updateObligationTemplate(id, field, value){
   const t = obligationTemplates.find(x=>x.id===id);
