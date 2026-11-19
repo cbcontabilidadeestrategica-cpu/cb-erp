@@ -3345,7 +3345,7 @@ const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho'
 // IMPORTANTE: atualize este valor (data/hora do deploy) a cada publicação
 // — é a única forma de o navegador de quem já está com o hub aberto saber
 // que existe uma versão mais nova.
-const APP_BUILD = '2026-11-19T10:45-03:00';
+const APP_BUILD = '2026-11-19T11:10-03:00';
 let appUpdateBannerShown = false;
 async function checkForNewVersion() {
   try {
@@ -4912,33 +4912,6 @@ function buildLeadModal(l){
       '<label>Checklist de atividades</label>'+
       '<div class="modal-checklist">'+checks+'</div>'+
     '</div>'+
-    '<div class="modal-field-group" style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">'+
-      '<label>🎁 Isca de reciprocidade <span style="font-weight:400;color:var(--fg3);font-size:10px">(Estratégia para Leads C — ver Diretor Comercial)</span></label>'+
-      '<select class="modal-input" id="ml_rec_isca">'+
-        '<option value="">— nenhuma enviada —</option>'+
-        RECIPROCIDADE_ISCAS.map(i=>'<option value="'+i.id+'"'+(l&&l.reciprocidade&&l.reciprocidade.isca===i.id?' selected':'')+'>'+i.label+'</option>').join('')+
-      '</select>'+
-    '</div>'+
-    '<div class="modal-2col">'+
-      '<div class="modal-field-group">'+
-        '<label>Enviada em</label>'+
-        '<input class="modal-input" type="date" id="ml_rec_enviado" value="'+escAttr(l&&l.reciprocidade?l.reciprocidade.enviadoEm||'':'')+'">'+
-      '</div>'+
-      '<div class="modal-field-group">'+
-        '<label class="modal-check-item" style="margin-top:22px">'+
-          '<input type="checkbox" id="ml_rec_engajou"'+(l&&l.reciprocidade&&l.reciprocidade.engajou?' checked':'')+' onchange="document.getElementById(\'ml_rec_engajou_data\').hidden=!this.checked">'+
-          '<span>Engajou (abriu/usou/respondeu)</span>'+
-        '</label>'+
-      '</div>'+
-    '</div>'+
-    '<div class="modal-field-group" id="ml_rec_engajou_data"'+(l&&l.reciprocidade&&l.reciprocidade.engajou?'':' hidden')+'>'+
-      '<label>Engajou em</label>'+
-      '<input class="modal-input" type="date" id="ml_rec_engajou_em" value="'+escAttr(l&&l.reciprocidade?l.reciprocidade.engajouEm||'':'')+'">'+
-    '</div>'+
-    '<div class="modal-field-group">'+
-      '<label>Notas da reciprocidade</label>'+
-      '<textarea class="modal-input modal-textarea" id="ml_rec_notas" rows="2" placeholder="Ex: respondeu no WhatsApp perguntando sobre a alíquota real">'+escHtml(l&&l.reciprocidade?l.reciprocidade.notas||'':'')+'</textarea>'+
-    '</div>'+
     (l?'<div class="modal-danger-zone">'+
       '<button class="btn-danger" onclick="removeLeadFromModal()">🗑 Remover este lead</button>'+
     '</div>':'');
@@ -5059,15 +5032,9 @@ function saveLeadModal(){
   if(stage==='lost'&&!lostReason){ lrCatEl&&lrCatEl.focus(); showToast('Selecione o motivo da perda','err'); return; }
   const checklist = {};
   LEAD_CHECKS.forEach(c=>{ const el=document.getElementById('mc_'+c.id); if(el&&el.checked) checklist[c.id]=true; });
-  const recIscaEl = document.getElementById('ml_rec_isca');
-  const recEngajouEl = document.getElementById('ml_rec_engajou');
-  const reciprocidade = {
-    isca: recIscaEl ? recIscaEl.value : '',
-    enviadoEm: document.getElementById('ml_rec_enviado')?.value || '',
-    engajou: recEngajouEl ? recEngajouEl.checked : false,
-    engajouEm: document.getElementById('ml_rec_engajou_em')?.value || '',
-    notas: (document.getElementById('ml_rec_notas')?.value||'').trim()
-  };
+  // Campo de "Isca de reciprocidade" saiu do modal (poluía o card) — mantém
+  // o valor já salvo do lead intacto em vez de zerá-lo a cada edição.
+  const reciprocidade = editingLeadId ? (getLeadById(editingLeadId)||{}).reciprocidade : undefined;
   // Salvar o modal com uma prioridade visível conta como confirmação humana
   // dela — some o selo "sugerida" (ver prioritySource em normalizeLead).
   const prioritySource = priority ? 'manual' : '';
