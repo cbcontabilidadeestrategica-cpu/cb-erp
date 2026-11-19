@@ -2250,6 +2250,10 @@ const OBLIG_SETORES = ['Fiscal','Depto. Pessoal','Contábil','Societário','Fina
 // (ver uso com .concat em buildOperModal) — nunca se perde um valor já
 // salvo só por não estar nessa lista.
 const OPER_RESP_OPTIONS = ['Nathan','Yuri','Equipe'];
+// Responsável padrão por setor (ex.: Nathan cuida de Fiscal, Yuri de Depto.
+// Pessoal) — usado por materializeObligations() pra já nascer com
+// responsável preenchido. Editável na tela de Padrões de Cadastro.
+let obligRespPadrao = {};
 let obligationTemplates = [
   { id:'coleta',     label:'Coleta de dados',               desc:'NFs emitidas, extrato bancário, faturamento',               setor:'Fiscal',         prazoDia:7,  urg:'amber', regimes:['all'], requiresEmployees:false },
   { id:'ponto',      label:'Conferência de ponto',           desc:'Fechar folha ponto × registro',                             setor:'Depto. Pessoal', prazoDia:5,  urg:'amber', regimes:['all'], requiresEmployees:true  },
@@ -2372,6 +2376,7 @@ async function materializeObligations(targetYear, targetMonth) {
           prazo: `${ym}-${String(s.prazoDia).padStart(2,'0')}`,
           status: 'pendente',
           origem: 'obrigacao_auto',
+          responsavel: obligRespPadrao[s.setor||'Fiscal'] || null,
           sop: { step_id: s.id }, // fonte confiável pra deleteOperObrigacao() identificar o template, sem depender de parsear o legacy_id
         });
       });
@@ -3336,7 +3341,7 @@ const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho'
 // IMPORTANTE: atualize este valor (data/hora do deploy) a cada publicação
 // — é a única forma de o navegador de quem já está com o hub aberto saber
 // que existe uma versão mais nova.
-const APP_BUILD = '2026-11-18T20:00-03:00';
+const APP_BUILD = '2026-11-19T09:30-03:00';
 let appUpdateBannerShown = false;
 async function checkForNewVersion() {
   try {
@@ -3603,6 +3608,10 @@ function initState() {
     // Obrigações padrão por regime — se a equipe já editou/criou alguma,
     // usa a versão salva; senão fica com o seed de obligationTemplates.
     try { const ot=JSON.parse(localStorage.getItem('cb3_obligation_templates')||'null'); if(ot && Array.isArray(ot) && ot.length) obligationTemplates=ot; } catch(e){}
+    // Responsável padrão por setor — quem normalmente cuida daquele setor
+    // pra todo cliente, pra obrigação já nascer com responsável definido em
+    // vez de sempre exigir escolher manualmente card por card na Operação.
+    try { const rp=JSON.parse(localStorage.getItem('cb3_resp_padrao')||'null'); if(rp) obligRespPadrao={...rp}; } catch(e){}
     // Plano de contas e dados básicos do Financeiro — mesmo padrão: usa o
     // que já foi salvo, senão fica no seed acima.
     try { const pc=JSON.parse(localStorage.getItem('cb3_plano_contas')||'null'); if(pc && Array.isArray(pc) && pc.length) planoContas=pc; } catch(e){}
@@ -6803,6 +6812,7 @@ function openNewClientModal(){
   editingClientId=null;
   modalObligDisabled=new Set();
   modalObligExtra=[];
+  clientObligCollapsed=true;
   document.getElementById('modalClientTitle').textContent='Novo Cliente';
   buildClientModal(null);
   // Inject defaults banner
@@ -6822,6 +6832,7 @@ function openEditClientModal(id){
   const ov = c.obligationOverrides || {};
   modalObligDisabled = new Set(ov.disabled || []);
   modalObligExtra = (ov.extra || []).map(e=>({...e}));
+  clientObligCollapsed = true;
   document.getElementById('modalClientTitle').textContent=c.name;
   buildClientModal(c);
   document.getElementById('clientModal').classList.remove('hidden');
@@ -6938,26 +6949,36 @@ function renderClientObligationsSection(){
   const catalogOpts = obligationTemplates.filter(t=>!usedIds.has(t.id)).map(t=>'<option value="'+escAttr(t.id)+'">'+escHtml(t.label)+'</option>').join('');
   const existing = editingClientId ? clients.find(c=>c.id===editingClientId) : null;
   const aindaEmOnboarding = !editingClientId || (existing && existing.status==='onboarding');
+  const ativasCount = base.filter(s=>!modalObligDisabled.has(s.id)).length + modalObligExtra.length;
   wrap.innerHTML =
     '<label>Obrigações deste cliente</label>'+
-    '<p style="font-size:11px;color:var(--fg3);margin:-2px 0 8px">Geradas pelo regime, funcionários e serviços contratados marcados acima — só aparece obrigação de um setor contratado. Desmarque o que não se aplica a este cliente, ou adicione uma exclusiva dele.</p>'+
-    (aindaEmOnboarding?'<p style="font-size:11px;color:var(--gold2);background:var(--gold-lt);border-radius:6px;padding:6px 8px;margin:0 0 8px">🚀 Essa lista é a prévia — essas obrigações só começam a virar tarefa real na Operação depois que o checklist de onboarding do cliente for concluído (transição de contabilidade, acessos, regime confirmado...).</p>':'')+
-    baseHtml + extraHtml +
-    '<div class="oblig-add-form">'+
-      '<select id="mc_oblig_pick" class="modal-input" onchange="onObligPickChange()">'+
-        '<option value="">+ Escolher obrigação existente…</option>'+catalogOpts+
-        '<option value="__custom">✏️ Obrigação personalizada…</option>'+
-      '</select>'+
-      '<div id="mc_oblig_custom_fields" style="display:none;flex-direction:column;gap:6px">'+
-        '<input class="modal-input" id="mc_oblig_c_label" placeholder="Nome da obrigação">'+
-        '<input class="modal-input" id="mc_oblig_c_desc" placeholder="Observação (opcional)">'+
-        '<div class="modal-2col">'+
-          '<select class="modal-input" id="mc_oblig_c_setor">'+OBLIG_SETORES.map(s=>'<option value="'+escAttr(s)+'">'+escHtml(s)+'</option>').join('')+'</select>'+
-          '<input class="modal-input" id="mc_oblig_c_prazo" type="number" min="1" max="31" placeholder="Dia do prazo" value="20">'+
+    '<p style="font-size:11px;color:var(--fg3);margin:-2px 0 8px">Geradas pelo regime, funcionários e serviços contratados marcados acima — só aparece obrigação de um setor contratado.</p>'+
+    '<button type="button" class="dem-comments-toggle" onclick="toggleClientObligCollapsed()">📋 '+ativasCount+' obrigaç'+(ativasCount!==1?'ões ativas':'ão ativa')+(modalObligExtra.length?' · '+modalObligExtra.length+' individual'+(modalObligExtra.length!==1?'is':''):'')+(clientObligCollapsed?' ▾':' ▴')+'</button>'+
+    '<div id="mc_oblig_detail"'+(clientObligCollapsed?' hidden':'')+' style="margin-top:8px">'+
+      (aindaEmOnboarding?'<p style="font-size:11px;color:var(--gold2);background:var(--gold-lt);border-radius:6px;padding:6px 8px;margin:0 0 8px">🚀 Essa lista é a prévia — essas obrigações só começam a virar tarefa real na Operação depois que o checklist de onboarding do cliente for concluído (transição de contabilidade, acessos, regime confirmado...).</p>':'')+
+      '<p style="font-size:11px;color:var(--fg3);margin:0 0 8px">Desmarque o que não se aplica a este cliente, ou adicione uma exclusiva dele.</p>'+
+      baseHtml + extraHtml +
+      '<div class="oblig-add-form">'+
+        '<select id="mc_oblig_pick" class="modal-input" onchange="onObligPickChange()">'+
+          '<option value="">+ Escolher obrigação existente…</option>'+catalogOpts+
+          '<option value="__custom">✏️ Obrigação personalizada…</option>'+
+        '</select>'+
+        '<div id="mc_oblig_custom_fields" style="display:none;flex-direction:column;gap:6px">'+
+          '<input class="modal-input" id="mc_oblig_c_label" placeholder="Nome da obrigação">'+
+          '<input class="modal-input" id="mc_oblig_c_desc" placeholder="Observação (opcional)">'+
+          '<div class="modal-2col">'+
+            '<select class="modal-input" id="mc_oblig_c_setor">'+OBLIG_SETORES.map(s=>'<option value="'+escAttr(s)+'">'+escHtml(s)+'</option>').join('')+'</select>'+
+            '<input class="modal-input" id="mc_oblig_c_prazo" type="number" min="1" max="31" placeholder="Dia do prazo" value="20">'+
+          '</div>'+
+          '<button class="btn-secondary" type="button" onclick="addModalObligCustom()">Adicionar</button>'+
         '</div>'+
-        '<button class="btn-secondary" type="button" onclick="addModalObligCustom()">Adicionar</button>'+
       '</div>'+
     '</div>';
+}
+let clientObligCollapsed = true;
+function toggleClientObligCollapsed(){
+  clientObligCollapsed = !clientObligCollapsed;
+  renderClientObligationsSection();
 }
 function onObligPickChange(){
   const sel = document.getElementById('mc_oblig_pick');
@@ -7178,13 +7199,33 @@ function renderObligationTemplates(){
       '<td><button class="oblig-remove-btn" onclick="removeObligationTemplate(\''+t.id+'\')" title="Remover">🗑</button></td>'+
     '</tr>';
   }).join('');
+  const respRow = OBLIG_SETORES.map(s=>
+    '<div class="form-group" style="min-width:150px">'+
+      '<label style="font-size:10px;color:var(--fg3)">'+escHtml(s)+'</label>'+
+      '<select class="modal-input" onchange="setObligRespPadrao(\''+escAttr(s)+'\',this.value)">'+
+        '<option value="">— sem padrão —</option>'+
+        OPER_RESP_OPTIONS.map(r=>'<option value="'+escAttr(r)+'"'+(obligRespPadrao[s]===r?' selected':'')+'>'+escHtml(r)+'</option>').join('')+
+      '</select>'+
+    '</div>'
+  ).join('');
   el.innerHTML=
+    '<div class="defaults-card" style="margin-bottom:16px">'+
+      '<label style="font-weight:700">👤 Responsável padrão por setor</label>'+
+      '<p style="font-size:11px;color:var(--fg3);margin:2px 0 10px">Quem normalmente cuida de cada setor — a obrigação já nasce com isso preenchido, em vez de sempre precisar escolher na Operação. Vale pra geração futura; não muda tarefa já criada.</p>'+
+      '<div class="dem-form-grid">'+respRow+'</div>'+
+    '</div>'+
     '<p style="font-size:13px;color:var(--fg2);margin-bottom:14px">Essas são as obrigações geradas automaticamente, por regime e por ter ou não funcionários. Edite, remova ou crie novas aqui — valem para todos os clientes que se encaixarem na regra. Para uma exceção pontual de um cliente específico, use "Obrigações deste cliente" dentro do cadastro dele.</p>'+
     '<div class="table-scroll"><table class="oblig-table">'+
       '<thead><tr><th>Obrigação</th><th>Observação</th><th>Setor</th><th>Dia prazo</th><th>Aplica-se a</th><th>Só c/ funcionários</th><th></th></tr></thead>'+
       '<tbody>'+rows+'</tbody>'+
     '</table></div>'+
     '<button class="btn-secondary" style="margin-top:12px" onclick="addObligationTemplate()">+ Nova obrigação padrão</button>';
+}
+function setObligRespPadrao(setor, resp){
+  obligRespPadrao = { ...obligRespPadrao, [setor]: resp||undefined };
+  if(!resp) delete obligRespPadrao[setor];
+  save('cb3_resp_padrao', obligRespPadrao);
+  showToast('Responsável padrão de '+setor+' atualizado.', 'ok');
 }
 function updateObligationTemplate(id, field, value){
   const t = obligationTemplates.find(x=>x.id===id);
