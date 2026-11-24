@@ -1106,14 +1106,20 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .btn-sm.navy:hover{background:var(--navy2)}
 
 /* ── Demanda Kanban ── */
-.dem-kanban{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:8px}
-@media(max-width:1200px){.dem-kanban{grid-template-columns:repeat(3,1fr)}}
+/* 6 colunas desde que "Demandas Urgentes" entrou (achado real 24/11: com
+   repeat(5,1fr) a 6ª coluna sobrava sozinha numa 2ª linha, sem bater com
+   nenhuma da 1ª — ficava flutuando fora da estrutura do quadro). */
+.dem-kanban{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:8px}
+@media(max-width:1400px){.dem-kanban{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:760px){.dem-kanban{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:440px){.dem-kanban{grid-template-columns:1fr}}
 .dem-kan-col{background:var(--bg3);border-radius:var(--radius);padding:12px}
-.dem-kan-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.dem-kan-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)}
 .dem-kan-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--fg2)}
+.dem-kan-header-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
 .dem-kan-count{font-size:16px;font-weight:900;font-variant-numeric:tabular-nums;color:var(--navy)}
+.dem-kan-col-move{background:none;border:none;cursor:pointer;color:var(--fg3);font-size:11px;padding:2px;line-height:1;border-radius:4px}
+.dem-kan-col-move:hover{background:var(--bg2);color:var(--fg1)}
 .dem-kan-cards{display:flex;flex-direction:column;gap:7px;min-height:60px}
 .dem-kan-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;transition:.12s;cursor:default}
 .dem-kan-card:hover{box-shadow:var(--shadow)}
@@ -3285,14 +3291,16 @@ function paintOperacao() {
     // flag que dá pra ligar/desligar arrastando.
     const itensUrgentes = base.filter(t => isAtrasado(t) && !(t.sop && t.sop.atraso_cliente));
     const idsUrgentes = new Set(itensUrgentes.map(t=>t.id));
-    const colCorById = { atraso_cliente: corCliente, urgentes: corUrgente };
-    const colBodyById = {
-      atraso_cliente:
-        '<div class="dem-kan-header"><span class="dem-kan-title" style="color:'+corCliente+'">👤 Atraso do cliente</span><span class="dem-kan-count" style="color:'+corCliente+'">'+itensCliente.length+'</span></div>'+
-        '<div class="dem-kan-cards" ondragover="event.preventDefault()" ondrop="operDropOnAtrasoCliente(event)">'+(itensCliente.map(renderOperKanbanCard).join('')||'<div class="dem-kan-empty">Vazio</div>')+'</div>',
-      urgentes:
-        '<div class="dem-kan-header"><span class="dem-kan-title" style="color:'+corUrgente+'">🔥 Demandas Urgentes</span><span class="dem-kan-count" style="color:'+corUrgente+'">'+itensUrgentes.length+'</span></div>'+
-        '<div class="dem-kan-cards">'+(itensUrgentes.map(renderOperKanbanCard).join('')||'<div class="dem-kan-empty">Vazio</div>')+'</div>',
+    // Cada coluna vira só os dados (cor/título/contagem/cards) — o
+    // cabeçalho com as setas de reordenar só é montado no final, depois
+    // de saber a posição de cada uma na ordem configurável.
+    const colDataById = {
+      atraso_cliente: { cor: corCliente, titulo: '👤 Atraso do cliente', count: itensCliente.length,
+        cardsHtml: itensCliente.map(renderOperKanbanCard).join('')||'<div class="dem-kan-empty">Vazio</div>',
+        dropAttr: ' ondragover="event.preventDefault()" ondrop="operDropOnAtrasoCliente(event)"' },
+      urgentes: { cor: corUrgente, titulo: '🔥 Demandas Urgentes', count: itensUrgentes.length,
+        cardsHtml: itensUrgentes.map(renderOperKanbanCard).join('')||'<div class="dem-kan-empty">Vazio</div>',
+        dropAttr: '' },
     };
     OPER_STATUS_ORDER.forEach(key => {
       const items = base.filter(t=>t.status===key && !idsCliente.has(t.id) && !idsUrgentes.has(t.id));
@@ -3314,20 +3322,23 @@ function paintOperacao() {
         }
         if (!cardsHtml) cardsHtml = '<div class="dem-kan-empty">Vazio</div>';
       }
-      colCorById[key] = OPER_STATUS_COLOR[key];
-      colBodyById[key] =
-        '<div class="dem-kan-header"><span class="dem-kan-title" style="color:'+OPER_STATUS_COLOR[key]+'">'+OPER_STATUS_LABEL[key]+'</span><span class="dem-kan-count" style="color:'+OPER_STATUS_COLOR[key]+'">'+items.length+'</span></div>'+
-        '<div class="dem-kan-cards" ondragover="event.preventDefault()" ondrop="operDropOnCol(event,\''+key+'\')">'+cardsHtml+'</div>';
+      colDataById[key] = { cor: OPER_STATUS_COLOR[key], titulo: OPER_STATUS_LABEL[key], count: items.length,
+        cardsHtml, dropAttr: ' ondragover="event.preventDefault()" ondrop="operDropOnCol(event,\''+key+'\')"' };
     });
-    // Ordem configurável (ver moveOperKanCol) — setas só aparecem nas
-    // pontas quando dá pra mover pra aquele lado.
+    // Ordem configurável (ver moveOperKanCol) — setas de mover ficam dentro
+    // do próprio cabeçalho (ao lado da contagem), só aparecem nas pontas
+    // quando dá pra mover pra aquele lado.
     const order = getOperKanColOrder();
     kanbanEl.innerHTML = order.map((id,idx) => {
-      const leftBtn = idx>0 ? '<button type="button" onclick="moveOperKanCol(\''+id+'\',-1)" title="Mover coluna pra esquerda" style="background:none;border:none;cursor:pointer;color:var(--fg3);font-size:10px;padding:0 3px;line-height:1">◀</button>' : '<span style="display:inline-block;width:14px"></span>';
-      const rightBtn = idx<order.length-1 ? '<button type="button" onclick="moveOperKanCol(\''+id+'\',1)" title="Mover coluna pra direita" style="background:none;border:none;cursor:pointer;color:var(--fg3);font-size:10px;padding:0 3px;line-height:1">▶</button>' : '<span style="display:inline-block;width:14px"></span>';
-      return '<div class="dem-kan-col" style="border-top:3px solid '+(colCorById[id]||'var(--border)')+'">'+
-        '<div style="display:flex;justify-content:flex-end;gap:2px;padding:2px 4px 0">'+leftBtn+rightBtn+'</div>'+
-        (colBodyById[id]||'')+
+      const d = colDataById[id]; if (!d) return '';
+      const leftBtn = idx>0 ? '<button type="button" onclick="moveOperKanCol(\''+id+'\',-1)" title="Mover coluna pra esquerda" class="dem-kan-col-move">◀</button>' : '';
+      const rightBtn = idx<order.length-1 ? '<button type="button" onclick="moveOperKanCol(\''+id+'\',1)" title="Mover coluna pra direita" class="dem-kan-col-move">▶</button>' : '';
+      return '<div class="dem-kan-col" style="border-top:3px solid '+d.cor+'">'+
+        '<div class="dem-kan-header">'+
+          '<span class="dem-kan-title" style="color:'+d.cor+'">'+d.titulo+'</span>'+
+          '<span class="dem-kan-header-right">'+leftBtn+'<span class="dem-kan-count" style="color:'+d.cor+'">'+d.count+'</span>'+rightBtn+'</span>'+
+        '</div>'+
+        '<div class="dem-kan-cards"'+d.dropAttr+'>'+d.cardsHtml+'</div>'+
       '</div>';
     }).join('');
   }
@@ -3481,7 +3492,7 @@ const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho'
 // IMPORTANTE: atualize este valor (data/hora do deploy) a cada publicação
 // — é a única forma de o navegador de quem já está com o hub aberto saber
 // que existe uma versão mais nova.
-const APP_BUILD = '2026-11-24T15:40-03:00';
+const APP_BUILD = '2026-11-24T16:20-03:00';
 let appUpdateBannerShown = false;
 async function checkForNewVersion() {
   try {
