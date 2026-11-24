@@ -2028,6 +2028,14 @@ async function showApp(user) {
   // Faturamento e compras — mesma lógica: busca independente, não trava a
   // pintura inicial da Operação/Clientes nem depende dela.
   Promise.all([loadFiliais(), loadFinanceiroRegistros()]).catch(e=>console.error('Falha ao carregar faturamento/compras:', e));
+  // Leads — mesma lógica: a 1ª pintura acima roda com `leads` ainda vazio
+  // (fonte agora é só public.lead, buscado aqui), repinta assim que chegar.
+  loadLeads().then(()=>{
+    try{ renderFunil(); }catch(e){ console.error('Falha ao repintar Funil:', e); }
+    try{ renderMetaBanner(); }catch(e){ console.error('Falha ao repintar meta:', e); }
+    try{ renderComercialHoje(); }catch(e){ console.error('Falha ao repintar Comercial Hoje:', e); }
+    try{ renderEsteira(); }catch(e){ console.error('Falha ao repintar Esteira:', e); }
+  }).catch(e=>console.error('Falha ao carregar leads:', e));
 }
 
 // ───── Controle de chaves "sujas" (gravadas localmente mas ainda não
@@ -2165,17 +2173,13 @@ async function mirrorToRelational(k, v) {
     }));
     if (rows.length) await sb.from('cliente').upsert(rows, { onConflict: 'id' });
   }
-  if (k === 'cb3_leads' && Array.isArray(v)) {
-    const rows = v.map(l => ({
-      id: l.id, nome: l.name, estagio: l.stage || null,
-      valor: l.valor ? parseFloat(String(l.valor).replace(/\./g,'').replace(',','.')) || null : null,
-      origem: l.origem || null, responsavel: l.resp || null,
-      primeiro_contato: l.firstContact || null, dor: l.dor || null,
-      proximo_passo: l.nextStep || null, data_followup: l.followUpDate || null,
-      motivo_perda: l.lostReason || null, checklist: l.checklist || {},
-    }));
-    if (rows.length) await sb.from('lead').upsert(rows, { onConflict: 'id' });
-  }
+  // Nota (atualizada): leads saíram do espelhamento kv_store→relacional —
+  // `public.lead` virou a própria fonte de dados (ver loadLeads()/
+  // persistLead()/deleteLeadRow()), não mais um espelho unidirecional do
+  // array em cb3_leads. Isso fechou um bug real: uma atualização direta via
+  // SQL em `lead` nunca voltava pro kv_store, então a tela continuava
+  // mostrando o dado antigo — e o próximo save() da tela sobrescrevia a
+  // edição feita via SQL de volta pro valor velho.
   // Nota (atualizada): demandas pontuais agora SÃO a própria tabela
   // `tarefa` (tipo:'demanda') — não há mais um array `demandas` separado
   // nem espelhamento entre dois lugares. Ver renderOperacao()/paintOperacao().
@@ -3345,7 +3349,7 @@ const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho'
 // IMPORTANTE: atualize este valor (data/hora do deploy) a cada publicação
 // — é a única forma de o navegador de quem já está com o hub aberto saber
 // que existe uma versão mais nova.
-const APP_BUILD = '2026-11-19T11:10-03:00';
+const APP_BUILD = '2026-11-24T14:25-03:00';
 let appUpdateBannerShown = false;
 async function checkForNewVersion() {
   try {
@@ -3578,7 +3582,6 @@ function initState() {
         if (!c.csCicloInicio) { c.csCicloInicio=todayISO; changed=true; }
       });
       if (changed) save('cb3_clients', clients); }
-    leads        = seedV ? JSON.parse(localStorage.getItem('cb3_leads') || '[]') : null;
     igEvents     = JSON.parse(localStorage.getItem('cb3_ig_events') || '[]');
     // Migração: remove os eventos genéricos "s_ob_*" que duplicavam as
     // obrigações reais por cliente (já materializadas em `tarefa` e
@@ -3681,25 +3684,8 @@ function initState() {
       save('cb3_ig_events', igEvents);
     }
 
-    // Seed leads do CRM Comercial — reseed se versão < 8
-    if(!leads || parseInt(seedV||'0') < 8) {
-      leads = [
-        { id:'l1',  name:'Pai de PV',            stage:'qual',  valor:'9.720',  origem:'indicação',          resp:'Yuri',   dor:'Simples Nacional desenquadrado — Regularização + Assessoria Contábil',            checklist:{contato1:true,reuniao:true}, firstContact:'' },
-        { id:'l2',  name:'Dona Rosélia',          stage:'prop',  valor:'30.000', origem:'indicação',          resp:'Nathan', dor:'Desgosto com antigo contador; falta de segurança e acompanhamento',               checklist:{contato1:true,reuniao:true,dor:true,proposta:true}, firstContact:'' },
-        { id:'l3',  name:'JM Distribuidora',      stage:'qual',  valor:'8.400',  origem:'indicação',          resp:'Nathan', dor:'Sem segurança das informações financeiras — Lucro Real',                          checklist:{contato1:true}, firstContact:'' },
-        { id:'l4',  name:'Angela Rações',         stage:'qual',  valor:'30.000', origem:'indicação',          resp:'Nathan', dor:'Empresa que deveria estar no Lucro Real e segue no Simples por falta de suporte', checklist:{contato1:true}, firstContact:'' },
-        { id:'l5',  name:'Bom Tom',               stage:'prosp', valor:'',       origem:'prospecção ativa',   resp:'Nathan', dor:'Contador que só emite boleto, sem suporte real',                                  checklist:{contato1:true}, firstContact:'' },
-        { id:'l6',  name:'Lenilso Barbeiro',      stage:'prosp', valor:'',       origem:'prospecção ativa',   resp:'Nathan', dor:'Interesse no Desenvolve RN + Regularização — MEI',                               checklist:{contato1:true}, firstContact:'' },
-        { id:'l7',  name:'Breno Barbeiro',        stage:'prosp', valor:'',       origem:'prospecção ativa',   resp:'Nathan', dor:'Interesse no Desenvolve RN — MEI',                                               checklist:{contato1:true}, firstContact:'' },
-        { id:'l8',  name:'Djalma Castro',         stage:'prosp', valor:'',       origem:'prospecção ativa',   resp:'Nathan', dor:'Regularização do CNPJ — MEI',                                                    checklist:{contato1:true}, firstContact:'' },
-        { id:'l9',  name:'Rodrigo',               stage:'prosp', valor:'',       origem:'prospecção ativa',   resp:'Nathan', dor:'Não tem acompanhamento hoje — MEI',                                              checklist:{contato1:true}, firstContact:'' },
-        { id:'l10', name:'Matheus Araujo',        stage:'neg',   valor:'',       origem:'evento / networking',resp:'Nathan', dor:'Permuta de serviços — Simples Nacional',                                         checklist:{contato1:true}, firstContact:'' },
-        { id:'l11', name:'Heloyse Costa',         stage:'prosp', valor:'',       origem:'',                   resp:'Nathan', dor:'',                                                                               checklist:{}, firstContact:'' },
-        { id:'l12', name:'Daniela Rodrigues',     stage:'prosp', valor:'',       origem:'',                   resp:'Nathan', dor:'',                                                                               checklist:{}, firstContact:'' },
-      ];
-      save('cb3_leads', leads);
-    }
-    leads = leads || [];
+    // (O seed de leads que existia aqui foi retirado — leads agora vêm só
+    // de public.lead via loadLeads(), chamada em showApp().)
 
     // (O seed de `revenues` que existia aqui foi retirado — mensalidade
     // agora vem só do cadastro do cliente, ver nota em getTotal().)
@@ -4123,6 +4109,66 @@ const CANAIS_ORIGEM = ['Indicação','Parceiros','Networking','Instagram','Outro
 
 function getLeadById(id){ return leads.find(l=>l.id===id) }
 
+// `public.lead` é a fonte única dos leads (nunca mais o kv_store) — isso
+// fecha o bug de duas fontes divergentes: uma atualização via SQL direto
+// na tabela agora aparece na tela, e o inverso (editar na tela) não some
+// mais numa próxima atualização via SQL. Ver mirrorToRelational() pra nota
+// histórica do que existia antes.
+function leadRowToJs(r) {
+  return {
+    id: r.id, name: r.nome, stage: r.estagio,
+    valor: r.valor!=null ? Number(r.valor).toLocaleString('pt-BR',{maximumFractionDigits:2}) : '',
+    origem: r.origem||'', resp: r.responsavel||'',
+    firstContact: r.primeiro_contato||'', dor: r.dor||'',
+    nextStep: r.proximo_passo||'', followUpDate: r.data_followup||'',
+    lostReason: r.motivo_perda||'', lostDetail: r.detalhe_perda||'',
+    lostFromStage: r.perdido_de_estagio||'', checklist: r.checklist||{},
+    priority: r.prioridade||'', prioritySource: r.prioridade_origem||'',
+    tipo: r.tipo||'cliente', reciprocidade: r.reciprocidade||undefined,
+    createdAt: r.created_at, stageChangedAt: r.estagio_mudou_em,
+  };
+}
+function leadJsToRow(l) {
+  return {
+    id: l.id, nome: l.name, estagio: l.stage||null,
+    valor: l.valor ? parseLeadValor(l.valor) : null,
+    origem: l.origem||null, responsavel: l.resp||null,
+    primeiro_contato: l.firstContact||null, dor: l.dor||null,
+    proximo_passo: l.nextStep||null, data_followup: l.followUpDate||null,
+    motivo_perda: l.lostReason||null, detalhe_perda: l.lostDetail||null,
+    perdido_de_estagio: l.lostFromStage||null, checklist: l.checklist||{},
+    tipo: l.tipo||'cliente', prioridade: l.priority||null,
+    prioridade_origem: l.prioritySource||null, reciprocidade: l.reciprocidade||{},
+    created_at: l.createdAt||new Date().toISOString(), estagio_mudou_em: l.stageChangedAt||new Date().toISOString(),
+  };
+}
+async function loadLeads() {
+  try {
+    const { data, error } = await withTimeout(sb.from('lead').select('*'), 8000, 'loadLeads');
+    if (error) throw error;
+    leads = (data||[]).map((r,i)=>normalizeLead(leadRowToJs(r), i));
+  } catch(e) { console.warn('Erro ao carregar leads:', e); }
+}
+async function persistLead(l) {
+  if (!l) return;
+  try {
+    const { error } = await withTimeout(sb.from('lead').upsert(leadJsToRow(l), { onConflict: 'id' }), 8000, 'persistLead:'+l.id);
+    if (error) throw error;
+  } catch(e) {
+    console.error('Falha ao salvar lead no Supabase:', e);
+    showToast('⚠ Não foi possível salvar este lead no servidor. Tente de novo.', 'err', 7000);
+  }
+}
+async function deleteLeadRow(id) {
+  try {
+    const { error } = await withTimeout(sb.from('lead').delete().eq('id', id), 8000, 'deleteLeadRow:'+id);
+    if (error) throw error;
+  } catch(e) {
+    console.error('Falha ao apagar lead no Supabase:', e);
+    showToast('⚠ Não foi possível apagar este lead no servidor. Tente de novo.', 'err', 7000);
+  }
+}
+
 // Badge de prioridade reutilizável — adiciona "?" quando a classificação
 // ainda é sugestão de IA, nunca confirmada por quem de fato vende.
 function prioBadgeHtml(l){
@@ -4375,7 +4421,7 @@ function setLeadStage(l, stage){
   if(stage==='lost') l.lostFromStage = prevStage;
   l.stage = stage;
   l.stageChangedAt = new Date().toISOString();
-  save('cb3_leads', leads);
+  persistLead(l);
   renderFunil();
   if(stage==='won' && prevStage!=='won'){
     setTimeout(()=>offerCreateClientFromLead(l),200);
@@ -4409,7 +4455,7 @@ function quickCheckLead(ev, id){
   const next = LEAD_CHECKS.find(c=>!l.checklist[c.id]);
   if(!next) return;
   l.checklist[next.id] = true;
-  save('cb3_leads', leads);
+  persistLead(l);
   renderFunil();
 }
 
@@ -4962,7 +5008,7 @@ function addLeadNextStep(leadId) {
   commentsData[key].push({ id:'c_'+Date.now(), ts:new Date().toISOString(), text, author:getCurrentOperator() });
   save('cb3_comments', commentsData);
   const idx = leads.findIndex(l=>l.id===leadId);
-  if (idx>-1) { leads[idx].nextStep = text; save('cb3_leads', leads); renderFunil(); }
+  if (idx>-1) { leads[idx].nextStep = text; persistLead(leads[idx]); renderFunil(); }
   input.value = '';
   buildLeadNextStepLog(leadId);
   showToast('Próximo passo registrado', 'ok');
@@ -5069,9 +5115,9 @@ function saveLeadModal(){
     const lostFromStage = stage==='lost' ? 'prosp' : '';
     leads.unshift({ id:'l_'+Date.now(), name, stage, valor, origem, tipo, resp, firstContact, dor, nextStep, followUpDate, priority, prioritySource, lostReason, lostDetail, lostFromStage, checklist, reciprocidade, createdAt:now, stageChangedAt:now });
   }
-  save('cb3_leads', leads);
   // Automação: lead fechado → oferecer criar cliente (item 17)
   const savedLead = editingLeadId ? leads.find(l=>l.id===editingLeadId) : leads[0];
+  persistLead(savedLead);
   const _justWon = stage==='won' && _prevStageForAutomation!=='won';
   closeLeadModal();
   renderFunil();
@@ -5082,8 +5128,9 @@ function saveLeadModal(){
 
 function removeLeadFromModal(){
   if(!editingLeadId) return;
-  leads = leads.filter(l=>l.id!==editingLeadId);
-  save('cb3_leads', leads);
+  const id = editingLeadId;
+  leads = leads.filter(l=>l.id!==id);
+  deleteLeadRow(id);
   closeLeadModal();
   renderFunil();
 }
