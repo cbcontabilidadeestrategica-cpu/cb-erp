@@ -2003,6 +2003,7 @@ async function showApp(user) {
   if (uel) uel.textContent = user.email;
   document.getElementById('loginOverlay').style.display = 'none';
   document.getElementById('appShell').style.display = 'flex';
+  setupRealtimeSync();
   await loadFromSupabase();
   const renders = [
     ['initState',initState],['initTheme',initTheme],['initSidebar',initSidebar],
@@ -2185,7 +2186,114 @@ async function mirrorToRelational(k, v) {
   // nem espelhamento entre dois lugares. Ver renderOperacao()/paintOperacao().
 }
 
+/* ═══════════════════════════════════════════════
+   TEMPO REAL — achado real (24/11): o app só buscava os dados 1x no
+   carregamento da página; se outra pessoa mexesse em algo, a tela de quem
+   já estava aberta nunca sabia (só dando F5). Ver Realtime do Supabase:
+   assina mudanças em `tarefa`/`lead`/`filial`/`financeiro_registro` (fonte
+   direta) e `cliente` (ainda é um espelho — ver mirrorToRelational acima —
+   então só atualiza por aqui o que já existia localmente; um cliente novo
+   criado em outra aba só aparece no próximo reload, de propósito, pra não
+   montar um objeto incompleto em memória).
+   ═══════════════════════════════════════════════ */
+let _rtChannel = null;
+function setupRealtimeSync() {
+  if (_rtChannel || !sbUser) return;
+  _rtChannel = sb.channel('cb3_realtime')
+    .on('postgres_changes', { event:'*', schema:'public', table:'tarefa' }, handleRealtimeTarefa)
+    .on('postgres_changes', { event:'*', schema:'public', table:'lead' }, handleRealtimeLead)
+    .on('postgres_changes', { event:'*', schema:'public', table:'cliente' }, handleRealtimeCliente)
+    .on('postgres_changes', { event:'*', schema:'public', table:'filial' }, handleRealtimeFilial)
+    .on('postgres_changes', { event:'*', schema:'public', table:'financeiro_registro' }, handleRealtimeFinanceiroRegistro)
+    .subscribe();
+}
+function teardownRealtimeSync() {
+  if (_rtChannel) { sb.removeChannel(_rtChannel); _rtChannel = null; }
+}
+function handleRealtimeTarefa(payload) {
+  if (payload.eventType === 'DELETE') {
+    const id = payload.old.id;
+    if (!hojeTarefas.some(t=>t.id===id)) return;
+    hojeTarefas = hojeTarefas.filter(t=>t.id!==id);
+  } else {
+    const row = { ...payload.new };
+    // select() da Operação traz um join `cliente:cliente_id(nome,iniciais)`
+    // que o payload do Realtime não tem — reconstrói a partir de `clients`
+    // (já carregado) pra clienteNomeDe() continuar funcionando igual.
+    const cli = clients.find(c=>c.id===row.cliente_id);
+    if (cli) row.cliente = { nome: cli.name, iniciais: cli.initials };
+    const idx = hojeTarefas.findIndex(t=>t.id===row.id);
+    if (idx>-1) hojeTarefas[idx] = { ...hojeTarefas[idx], ...row };
+    else hojeTarefas.push(row);
+  }
+  try{ paintOperacao(); }catch(e){ console.error('Realtime tarefa — falha ao repintar Operação:', e); }
+  try{ renderRadar(); }catch(e){}
+  try{ renderRadarDemandas(); }catch(e){}
+  try{ renderClientes(); }catch(e){}
+}
+function handleRealtimeLead(payload) {
+  if (payload.eventType === 'DELETE') {
+    const id = payload.old.id;
+    if (!leads.some(l=>l.id===id)) return;
+    leads = leads.filter(l=>l.id!==id);
+  } else {
+    const l = leadRowToJs(payload.new);
+    const idx = leads.findIndex(x=>x.id===l.id);
+    if (idx>-1) leads[idx] = l; else leads.unshift(l);
+  }
+  try{ renderFunil(); }catch(e){ console.error('Realtime lead — falha ao repintar Funil:', e); }
+  try{ renderMetaBanner(); }catch(e){}
+  try{ renderComercialHoje(); }catch(e){}
+  try{ renderEsteira(); }catch(e){}
+}
+// `cliente` ainda é só um espelho (ver nota no topo de mirrorToRelational) —
+// por isso só mescla em cima de um cliente que já existe localmente
+// (UPDATE), nunca cria nem apaga por aqui: um INSERT/DELETE chegando por
+// Realtime não teria como montar o objeto completo que o resto do app
+// espera (obligationOverrides, status, csCicloInicio...) sem buscar tudo
+// de novo — isso continua esperando o próximo reload, de propósito.
+function handleRealtimeCliente(payload) {
+  if (payload.eventType !== 'UPDATE') return;
+  const r = payload.new;
+  const idx = clients.findIndex(c=>c.id===r.id);
+  if (idx<0) return;
+  const c = clients[idx];
+  clients[idx] = {
+    ...c, name: r.nome, hasEmployees: !!r.tem_funcionarios,
+    tipoNegocio: r.tipo_negocio || c.tipoNegocio || 'Serviço', acompanhaCompras: !!r.acompanha_compras,
+    mensalidade: r.mensalidade!=null ? Number(r.mensalidade) : c.mensalidade,
+    initials: r.iniciais!=null ? r.iniciais : c.initials,
+    regime: r.regime!=null ? r.regime : c.regime,
+    nivel: r.nivel!=null ? r.nivel : c.nivel,
+    services: r.servicos!=null ? r.servicos : c.services,
+    whatsapp: r.whatsapp!=null ? r.whatsapp : c.whatsapp,
+    cnpj: r.cnpj!=null ? r.cnpj : c.cnpj,
+    dataInicio: r.data_inicio!=null ? r.data_inicio : c.dataInicio,
+    driveKey: r.drive_key!=null ? r.drive_key : c.driveKey,
+  };
+  try{ renderClientes(); }catch(e){ console.error('Realtime cliente — falha ao repintar Clientes:', e); }
+  try{ renderClientDefaults(); }catch(e){}
+  try{ paintOperacao(); }catch(e){}
+}
+function handleRealtimeFilial(payload) {
+  if (payload.eventType === 'DELETE') {
+    filiais = filiais.filter(f=>f.id!==payload.old.id);
+  } else {
+    const idx = filiais.findIndex(f=>f.id===payload.new.id);
+    if (idx>-1) filiais[idx] = payload.new; else filiais.push(payload.new);
+  }
+}
+function handleRealtimeFinanceiroRegistro(payload) {
+  if (payload.eventType === 'DELETE') {
+    financeiroRegistros = financeiroRegistros.filter(r=>r.id!==payload.old.id);
+  } else {
+    const idx = financeiroRegistros.findIndex(r=>r.id===payload.new.id);
+    if (idx>-1) financeiroRegistros[idx] = payload.new; else financeiroRegistros.push(payload.new);
+  }
+}
+
 async function logout() {
+  teardownRealtimeSync();
   await sb.auth.signOut();
 }
 
@@ -3166,14 +3274,28 @@ function paintOperacao() {
   const kanbanEl = document.getElementById('operKanbanWrap');
   if (kanbanEl) {
     const corCliente = '#ec4899';
+    const corUrgente = '#dc2626';
     const itensCliente = base.filter(t => t.sop && t.sop.atraso_cliente && t.status !== 'concluido');
     const idsCliente = new Set(itensCliente.map(t=>t.id));
-    const colCliente = '<div class="dem-kan-col" style="border-top:3px solid '+corCliente+'">'+
-      '<div class="dem-kan-header"><span class="dem-kan-title" style="color:'+corCliente+'">👤 Atraso do cliente</span><span class="dem-kan-count" style="color:'+corCliente+'">'+itensCliente.length+'</span></div>'+
-      '<div class="dem-kan-cards" ondragover="event.preventDefault()" ondrop="operDropOnAtrasoCliente(event)">'+(itensCliente.map(renderOperKanbanCard).join('')||'<div class="dem-kan-empty">Vazio</div>')+'</div>'+
-    '</div>';
-    const colsStatus = OPER_STATUS_ORDER.map(key => {
-      const items = base.filter(t=>t.status===key && !(key!=='concluido' && idsCliente.has(t.id)));
+    // "Demandas Urgentes" — mesma regra da bucket 🔴 Atrasadas da lista
+    // (prazo vencido de verdade, status!=='concluido' já embutido em
+    // isAtrasado); puxa pra fora das colunas de status igual a Atraso do
+    // cliente faz, pra não duplicar o card em dois lugares. Não aceita
+    // drop manual — a entrada aqui é automática, pelo prazo, não uma
+    // flag que dá pra ligar/desligar arrastando.
+    const itensUrgentes = base.filter(t => isAtrasado(t) && !(t.sop && t.sop.atraso_cliente));
+    const idsUrgentes = new Set(itensUrgentes.map(t=>t.id));
+    const colCorById = { atraso_cliente: corCliente, urgentes: corUrgente };
+    const colBodyById = {
+      atraso_cliente:
+        '<div class="dem-kan-header"><span class="dem-kan-title" style="color:'+corCliente+'">👤 Atraso do cliente</span><span class="dem-kan-count" style="color:'+corCliente+'">'+itensCliente.length+'</span></div>'+
+        '<div class="dem-kan-cards" ondragover="event.preventDefault()" ondrop="operDropOnAtrasoCliente(event)">'+(itensCliente.map(renderOperKanbanCard).join('')||'<div class="dem-kan-empty">Vazio</div>')+'</div>',
+      urgentes:
+        '<div class="dem-kan-header"><span class="dem-kan-title" style="color:'+corUrgente+'">🔥 Demandas Urgentes</span><span class="dem-kan-count" style="color:'+corUrgente+'">'+itensUrgentes.length+'</span></div>'+
+        '<div class="dem-kan-cards">'+(itensUrgentes.map(renderOperKanbanCard).join('')||'<div class="dem-kan-empty">Vazio</div>')+'</div>',
+    };
+    OPER_STATUS_ORDER.forEach(key => {
+      const items = base.filter(t=>t.status===key && !idsCliente.has(t.id) && !idsUrgentes.has(t.id));
       const hiddenHere = key === 'concluido' && operFilterOcultarConcl;
       let cardsHtml;
       if (hiddenHere) {
@@ -3192,12 +3314,22 @@ function paintOperacao() {
         }
         if (!cardsHtml) cardsHtml = '<div class="dem-kan-empty">Vazio</div>';
       }
-      return '<div class="dem-kan-col" style="border-top:3px solid '+OPER_STATUS_COLOR[key]+'">'+
+      colCorById[key] = OPER_STATUS_COLOR[key];
+      colBodyById[key] =
         '<div class="dem-kan-header"><span class="dem-kan-title" style="color:'+OPER_STATUS_COLOR[key]+'">'+OPER_STATUS_LABEL[key]+'</span><span class="dem-kan-count" style="color:'+OPER_STATUS_COLOR[key]+'">'+items.length+'</span></div>'+
-        '<div class="dem-kan-cards" ondragover="event.preventDefault()" ondrop="operDropOnCol(event,\''+key+'\')">'+cardsHtml+'</div>'+
+        '<div class="dem-kan-cards" ondragover="event.preventDefault()" ondrop="operDropOnCol(event,\''+key+'\')">'+cardsHtml+'</div>';
+    });
+    // Ordem configurável (ver moveOperKanCol) — setas só aparecem nas
+    // pontas quando dá pra mover pra aquele lado.
+    const order = getOperKanColOrder();
+    kanbanEl.innerHTML = order.map((id,idx) => {
+      const leftBtn = idx>0 ? '<button type="button" onclick="moveOperKanCol(\''+id+'\',-1)" title="Mover coluna pra esquerda" style="background:none;border:none;cursor:pointer;color:var(--fg3);font-size:10px;padding:0 3px;line-height:1">◀</button>' : '<span style="display:inline-block;width:14px"></span>';
+      const rightBtn = idx<order.length-1 ? '<button type="button" onclick="moveOperKanCol(\''+id+'\',1)" title="Mover coluna pra direita" style="background:none;border:none;cursor:pointer;color:var(--fg3);font-size:10px;padding:0 3px;line-height:1">▶</button>' : '<span style="display:inline-block;width:14px"></span>';
+      return '<div class="dem-kan-col" style="border-top:3px solid '+(colCorById[id]||'var(--border)')+'">'+
+        '<div style="display:flex;justify-content:flex-end;gap:2px;padding:2px 4px 0">'+leftBtn+rightBtn+'</div>'+
+        (colBodyById[id]||'')+
       '</div>';
     }).join('');
-    kanbanEl.innerHTML = colCliente + colsStatus;
   }
 
   const contador = document.getElementById('operContador');
@@ -3349,7 +3481,7 @@ const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho'
 // IMPORTANTE: atualize este valor (data/hora do deploy) a cada publicação
 // — é a única forma de o navegador de quem já está com o hub aberto saber
 // que existe uma versão mais nova.
-const APP_BUILD = '2026-11-24T14:25-03:00';
+const APP_BUILD = '2026-11-24T15:40-03:00';
 let appUpdateBannerShown = false;
 async function checkForNewVersion() {
   try {
@@ -3471,6 +3603,32 @@ function setClientFilterName(v) { clientFilterName = v; renderClientes(); }
 // duas, pra não ter dois estados "futuras" diferentes pra lembrar).
 let operFuturasExpanded = false;
 function toggleOperFuturas() { operFuturasExpanded = !operFuturasExpanded; paintOperacao(); }
+// Ordem das colunas do Kanban da Operação — pedido real: poder reposicionar
+// colunas "especiais" (que puxam card pra fora do status normal, tipo
+// Atraso do cliente/Demandas Urgentes) em vez de ficarem sempre fixas no
+// início. É só preferência de exibição (não é dado de negócio), então
+// guarda em save() normal — se ficar um pouco desatualizada entre
+// navegadores não quebra nada.
+const OPER_KAN_COL_DEFAULT_ORDER = ['atraso_cliente','urgentes','pendente','em_andamento','revisao','concluido'];
+let operKanbanColOrder = OPER_KAN_COL_DEFAULT_ORDER.slice();
+function getOperKanColOrder() {
+  // Defensivo: se a lista salva não tiver todos os ids conhecidos (ex.:
+  // "urgentes" é novo), completa com o que faltar no fim, na ordem padrão.
+  const known = new Set(OPER_KAN_COL_DEFAULT_ORDER);
+  const order = (operKanbanColOrder||[]).filter(id=>known.has(id));
+  OPER_KAN_COL_DEFAULT_ORDER.forEach(id=>{ if(!order.includes(id)) order.push(id); });
+  return order;
+}
+function moveOperKanCol(id, dir) {
+  const order = getOperKanColOrder();
+  const i = order.indexOf(id);
+  const j = i + dir;
+  if (i<0 || j<0 || j>=order.length) return;
+  [order[i], order[j]] = [order[j], order[i]];
+  operKanbanColOrder = order;
+  save('cb3_oper_kan_order', operKanbanColOrder);
+  paintOperacao();
+}
 let openOperTarefaId = null;
 let editingIgEventId = null, igWeekStart = null;
 let finYear, finMonth;
@@ -3619,6 +3777,7 @@ function initState() {
     // pra todo cliente, pra obrigação já nascer com responsável definido em
     // vez de sempre exigir escolher manualmente card por card na Operação.
     try { const rp=JSON.parse(localStorage.getItem('cb3_resp_padrao')||'null'); if(rp) obligRespPadrao={...rp}; } catch(e){}
+    try { const oko=JSON.parse(localStorage.getItem('cb3_oper_kan_order')||'null'); if(Array.isArray(oko)&&oko.length) operKanbanColOrder=oko; } catch(e){}
     // Plano de contas e dados básicos do Financeiro — mesmo padrão: usa o
     // que já foi salvo, senão fica no seed acima.
     try { const pc=JSON.parse(localStorage.getItem('cb3_plano_contas')||'null'); if(pc && Array.isArray(pc) && pc.length) planoContas=pc; } catch(e){}
