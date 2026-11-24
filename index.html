@@ -1681,6 +1681,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
         <button class="oper-view-btn active" id="operBtnLista" onclick="setOperView('lista')">📋 Lista</button>
         <button class="oper-view-btn" id="operBtnKanban" onclick="setOperView('kanban')">🗂️ Kanban</button>
       </div>
+      <button type="button" class="btn-sm" onclick="toggleOperKanColsPanel()" title="Escolher quais colunas especiais aparecem no Kanban">⚙️ Colunas</button>
       <div class="oper-filtro-cliente-wrap" id="operFiltroClienteWrap">
         <span class="ofc-icon">🔎</span>
         <input type="text" id="operFiltroCliente" placeholder="Nome do cliente…" oninput="onOperFilterChange()">
@@ -1708,6 +1709,10 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
       <label class="oper-atraso-toggle"><input type="checkbox" id="operFiltroOcultarConclChk" checked onchange="onOperFilterChange()"> 🙈 Ocultar concluídas</label>
       <span id="operContador" style="margin-left:auto;font-size:12px;color:var(--fg2)"></span>
     </div>
+  </div>
+
+  <div class="card" id="operKanColsPanel" style="display:none;margin-bottom:12px">
+    <div class="card-body" id="operKanColsPanelBody"></div>
   </div>
 
   <div id="operListaWrap"><div class="card"><div style="padding:0 16px" id="operLista"></div></div></div>
@@ -3281,7 +3286,11 @@ function paintOperacao() {
   if (kanbanEl) {
     const corCliente = '#ec4899';
     const corUrgente = '#dc2626';
-    const itensCliente = base.filter(t => t.sop && t.sop.atraso_cliente && t.status !== 'concluido');
+    // Coluna especial desligada em ⚙️ Colunas (ver renderOperKanColsPanel)
+    // = o filtro vira vazio e a tarefa simplesmente não sai da coluna de
+    // status normal dela, com o destaque de atraso de sempre.
+    const itensCliente = operKanSpecialColsEnabled.atraso_cliente===false ? [] :
+      base.filter(t => t.sop && t.sop.atraso_cliente && t.status !== 'concluido');
     const idsCliente = new Set(itensCliente.map(t=>t.id));
     // "Demandas Urgentes" — mesma regra da bucket 🔴 Atrasadas da lista
     // (prazo vencido de verdade, status!=='concluido' já embutido em
@@ -3289,7 +3298,8 @@ function paintOperacao() {
     // cliente faz, pra não duplicar o card em dois lugares. Não aceita
     // drop manual — a entrada aqui é automática, pelo prazo, não uma
     // flag que dá pra ligar/desligar arrastando.
-    const itensUrgentes = base.filter(t => isAtrasado(t) && !(t.sop && t.sop.atraso_cliente));
+    const itensUrgentes = operKanSpecialColsEnabled.urgentes===false ? [] :
+      base.filter(t => isAtrasado(t) && !(t.sop && t.sop.atraso_cliente));
     const idsUrgentes = new Set(itensUrgentes.map(t=>t.id));
     // Cada coluna vira só os dados (cor/título/contagem/cards) — o
     // cabeçalho com as setas de reordenar só é montado no final, depois
@@ -3327,8 +3337,10 @@ function paintOperacao() {
     });
     // Ordem configurável (ver moveOperKanCol) — setas de mover ficam dentro
     // do próprio cabeçalho (ao lado da contagem), só aparecem nas pontas
-    // quando dá pra mover pra aquele lado.
-    const order = getOperKanColOrder();
+    // quando dá pra mover pra aquele lado. Especial desligada em ⚙️
+    // Colunas nem entra na lista — some do quadro (mas continua guardando
+    // a posição, pra reaparecer onde estava se ligar de novo).
+    const order = getOperKanColOrder().filter(id => operKanSpecialColsEnabled[id] !== false);
     kanbanEl.innerHTML = order.map((id,idx) => {
       const d = colDataById[id]; if (!d) return '';
       const leftBtn = idx>0 ? '<button type="button" onclick="moveOperKanCol(\''+id+'\',-1)" title="Mover coluna pra esquerda" class="dem-kan-col-move">◀</button>' : '';
@@ -3492,7 +3504,7 @@ const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho'
 // IMPORTANTE: atualize este valor (data/hora do deploy) a cada publicação
 // — é a única forma de o navegador de quem já está com o hub aberto saber
 // que existe uma versão mais nova.
-const APP_BUILD = '2026-11-24T16:20-03:00';
+const APP_BUILD = '2026-11-24T17:05-03:00';
 let appUpdateBannerShown = false;
 async function checkForNewVersion() {
   try {
@@ -3639,6 +3651,44 @@ function moveOperKanCol(id, dir) {
   operKanbanColOrder = order;
   save('cb3_oper_kan_order', operKanbanColOrder);
   paintOperacao();
+}
+// Colunas "especiais" (puxam card pra fora do status normal, por uma regra
+// própria em vez de status de verdade) — pedido real: dar um jeito de
+// ligar/desligar sem precisar pedir pra mexer no código toda vez. Os 4
+// status (Aguardando/Andamento/Revisão/Concluído) continuam fixos de
+// propósito (ver decisão de 24/11 — eles alimentam metas/painéis em vários
+// lugares do app); só as especiais entram nessa lista. Criar uma regra
+// nova (tipo "parado há +30 dias") ainda exige mexer no código — isso aqui
+// só controla exibição das que já existem.
+const OPER_KAN_SPECIAL_COL_DEFS = [
+  { id:'atraso_cliente', label:'👤 Atraso do cliente', desc:'Tarefa marcada manualmente como esperando algo do cliente.' },
+  { id:'urgentes', label:'🔥 Demandas Urgentes', desc:'Qualquer tarefa com prazo vencido (que não seja por conta do cliente) — entra sozinha, pelo prazo.' },
+];
+let operKanSpecialColsEnabled = Object.fromEntries(OPER_KAN_SPECIAL_COL_DEFS.map(d=>[d.id,true]));
+function toggleOperKanSpecialCol(id, enabled) {
+  operKanSpecialColsEnabled = { ...operKanSpecialColsEnabled, [id]: enabled };
+  save('cb3_oper_kan_cols', operKanSpecialColsEnabled);
+  renderOperKanColsPanel();
+  paintOperacao();
+}
+function toggleOperKanColsPanel() {
+  const el = document.getElementById('operKanColsPanel');
+  if (!el) return;
+  const show = el.style.display === 'none';
+  el.style.display = show ? '' : 'none';
+  if (show) renderOperKanColsPanel();
+}
+function renderOperKanColsPanel() {
+  const el = document.getElementById('operKanColsPanelBody');
+  if (!el) return;
+  el.innerHTML =
+    '<p style="font-size:11px;color:var(--fg3);margin:0 0 8px">Colunas especiais do Kanban — desligar aqui não apaga nem muda nada da tarefa, só tira ela de ter uma coluna própria (volta a aparecer na coluna de status normal, com o destaque de atraso de sempre).</p>'+
+    OPER_KAN_SPECIAL_COL_DEFS.map(d=>
+      '<label class="modal-check-item" style="margin-bottom:6px">'+
+        '<input type="checkbox"'+(operKanSpecialColsEnabled[d.id]!==false?' checked':'')+' onchange="toggleOperKanSpecialCol(\''+d.id+'\',this.checked)">'+
+        '<span><strong>'+d.label+'</strong> — <span style="color:var(--fg3)">'+d.desc+'</span></span>'+
+      '</label>'
+    ).join('');
 }
 let openOperTarefaId = null;
 let editingIgEventId = null, igWeekStart = null;
@@ -3789,6 +3839,7 @@ function initState() {
     // vez de sempre exigir escolher manualmente card por card na Operação.
     try { const rp=JSON.parse(localStorage.getItem('cb3_resp_padrao')||'null'); if(rp) obligRespPadrao={...rp}; } catch(e){}
     try { const oko=JSON.parse(localStorage.getItem('cb3_oper_kan_order')||'null'); if(Array.isArray(oko)&&oko.length) operKanbanColOrder=oko; } catch(e){}
+    try { const okc=JSON.parse(localStorage.getItem('cb3_oper_kan_cols')||'null'); if(okc) operKanSpecialColsEnabled={...operKanSpecialColsEnabled,...okc}; } catch(e){}
     // Plano de contas e dados básicos do Financeiro — mesmo padrão: usa o
     // que já foi salvo, senão fica no seed acima.
     try { const pc=JSON.parse(localStorage.getItem('cb3_plano_contas')||'null'); if(pc && Array.isArray(pc) && pc.length) planoContas=pc; } catch(e){}
