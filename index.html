@@ -3169,6 +3169,37 @@ function renderOperKanbanCard(t) {
   </div>`;
 }
 
+// Reconstrói as opções do quick-add de cliente (Operação) a cada chamada —
+// achado real (auditoria 24/11): o preenchimento antigo só rodava 1x por
+// carregamento de página (guard "options.length===1"), supondo que
+// `clients` já estava pronto nesse momento. Isso é verdade hoje (clients
+// vem do localStorage, síncrono, antes da Operação carregar), mas deixa de
+// ser garantido se `clients` algum dia passar a vir de uma busca
+// assíncrona — nesse caso, essa função rodando ANTES de `clients` estar
+// pronto deixaria o seletor travado sem nenhum cliente real pelo resto da
+// sessão (o guard nunca deixaria repopular). Reconstruir do zero a cada
+// paint resolve isso sem custo perceptível (lista pequena) e sem duplicar
+// opção nenhuma. Mantém o mesmo jeito de montar <option> já usado aqui
+// (DOM API + textContent, não innerHTML — nome de cliente nunca vira HTML).
+function rebuildOperQaClienteOptions(qaCliente) {
+  if (!qaCliente) return;
+  const selecaoAtual = qaCliente.value;
+  qaCliente.replaceChildren();
+  const placeholder = document.createElement('option');
+  placeholder.value = ''; placeholder.textContent = '— selecione —';
+  qaCliente.appendChild(placeholder);
+  clients.forEach(c => {
+    const o = document.createElement('option');
+    o.value = String(c.id); // valor de <option> é sempre string — compara sempre String(id) com String(id), nunca number com string
+    o.textContent = c.name;
+    qaCliente.appendChild(o);
+  });
+  const ext = document.createElement('option'); ext.value='__externo'; ext.textContent='Externo / Avulso'; qaCliente.appendChild(ext);
+  const intr = document.createElement('option'); intr.value='__interna'; intr.textContent='CB Interna (Administrativo)'; qaCliente.appendChild(intr);
+  // Só reaplica a seleção anterior se ela ainda existir entre as opções
+  // novas — senão volta pro placeholder (nunca manda um valor escondido/inválido).
+  if ([...qaCliente.options].some(o => o.value === selecaoAtual)) qaCliente.value = selecaoAtual;
+}
 function paintOperacao() {
   const listaEl = document.getElementById('operLista');
   if (!listaEl || !sbUser) return;
@@ -3185,11 +3216,7 @@ function paintOperacao() {
   if (qaSetor && !qaSetor.options.length) {
     OBLIG_SETORES.forEach(s => { const o=document.createElement('option'); o.value=s; o.textContent=s; qaSetor.appendChild(o); });
   }
-  if (qaCliente && qaCliente.options.length === 1) {
-    clients.forEach(c => { const o=document.createElement('option'); o.value=String(c.id); o.textContent=c.name; qaCliente.appendChild(o); });
-    const ext = document.createElement('option'); ext.value='__externo'; ext.textContent='Externo / Avulso'; qaCliente.appendChild(ext);
-    const intr = document.createElement('option'); intr.value='__interna'; intr.textContent='CB Interna (Administrativo)'; qaCliente.appendChild(intr);
-  }
+  rebuildOperQaClienteOptions(qaCliente);
   const selResp = document.getElementById('operFiltroResp');
   if (selResp && selResp.options.length === 1) {
     [...new Set(todosItens.map(t=>t.responsavel).filter(Boolean))].sort().forEach(r => {
