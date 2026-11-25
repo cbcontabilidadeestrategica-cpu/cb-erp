@@ -1940,6 +1940,25 @@ function withTimeout(promise, ms, label) {
   });
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
+// Um timeout de withTimeout() nunca prova que o servidor rejeitou a
+// gravação — só que o cliente desistiu de esperar a resposta (a chamada
+// original pode muito bem ter sido concluída depois, do lado do servidor).
+// Hipótese consistente com um caso observado em produção (lead avançou de
+// etapa, mostrou erro, mas a mudança persistiu) — não é causa comprovada.
+function isTimeoutError(e) {
+  return !!(e && typeof e.message === 'string' && e.message.indexOf('timeout:') === 0);
+}
+// Comparação de valor "estilo JSON" (ignora ordem de chaves) — evita falso
+// negativo ao comparar checklist/reciprocidade (jsonb) vindos do banco com
+// os que foram enviados, já que a ordem das chaves não é garantida.
+function jsonEqual(a, b) {
+  if (a === b) return true;
+  if (a == null || b == null) return a === b;
+  if (typeof a !== 'object' || typeof b !== 'object') return a === b;
+  const ak = Object.keys(a), bk = Object.keys(b);
+  if (ak.length !== bk.length) return false;
+  return ak.every(k => jsonEqual(a[k], b[k]));
+}
 let sbUser = null;
 // Achado real (09/11/2026, com reprodução em teste): quando a sessão expira
 // com a aba aberta por muito tempo, toda gravação direta à tabela `tarefa`
@@ -4397,33 +4416,183 @@ async function loadLeads() {
     leads = (data||[]).map((r,i)=>normalizeLead(leadRowToJs(r), i));
   } catch(e) { console.warn('Erro ao carregar leads:', e); }
 }
-// Retornam true/false (em vez de void) pra quem chama saber se precisa
-// desfazer a atualização otimista que já tinha feito em leads[] antes de
-// persistir — mesmo padrão de rollback que setTarefaStatus() já usa pra
-// tarefa, agora replicado pro lead (ver chamadores: setLeadStage,
-// quickCheckLead, addLeadNextStep, saveLeadModal, removeLeadFromModal).
-async function persistLead(l, acao) {
+// Serializa persistLead()/deleteLeadRow() por lead (ids diferentes nunca se
+// bloqueiam entre si) — evita que uma gravação antiga, ainda em andamento
+// quando uma nova operação é disparada no MESMO lead, termine depois e
+// sobrescreva (ou ressuscite) o que a operação mais recente já fez.
+//
+// O prazo que a INTERFACE espera (8s + folga, ver resolveAfterTimeout) é
+// separado do tempo que a FILA espera: quem chama persistLead/deleteLeadRow
+// continua recebendo true/false/'indefinido' nesse prazo de sempre, mas a
+// PRÓXIMA operação na fila do mesmo id só começa quando a promise crua do
+// upsert/delete anterior (`originalPromise`) realmente resolver ou
+// rejeitar — sem teto artificial nenhum. Se essa promise nunca terminar,
+// aquele id fica bloqueado por tempo indeterminado (limitado só pelo que o
+// próprio navegador aguenta de requisição pendurada, não por nada que este
+// código decida) — mas isso nunca afeta outro id, cada um tem sua própria
+// fila independente.
+//
+// Pra isso, as funções enfileiradas (persistLeadQueued/deleteLeadRowQueued)
+// devolvem { result, settled }: `result` é o que quem chamou vai receber
+// (no prazo de sempre); `settled` é uma promise que resolve só quando
+// `originalPromise` termina de verdade — é ESSA que a fila espera antes de
+// liberar a próxima operação.
+const leadOpQueue = new Map(); // id -> promise "settled" (cauda atual da fila daquele lead)
+function withLeadQueue(id, fn) {
+  const prevSettled = leadOpQueue.get(id) || Promise.resolve();
+  // fn só roda depois que a promise ORIGINAL da operação anterior pra esse
+  // id realmente terminou (prevSettled) — nunca antes disso.
+  const turn = prevSettled.catch(() => {}).then(fn);
+  const settled = turn.then(r => r.settled).catch(() => {});
+  leadOpQueue.set(id, settled); // a próxima chamada pra esse id vai esperar ESTA aqui terminar de verdade
+  return turn.then(r => r.result); // quem chamou recebe o resultado assim que fn() decidir, sem esperar settled
+}
+// Retornam true (sucesso confirmado), false (falha confirmada — só nesse
+// caso quem chama deve desfazer a atualização otimista) ou a string
+// 'indefinido' (não dá pra confirmar nada, então quem chama NÃO deve
+// desfazer, só avisar). Mesmo padrão de rollback que setTarefaStatus() já
+// usa pra tarefa, agora replicado pro lead (ver chamadores: setLeadStage,
+// quickCheckLead, addLeadNextStep, saveLeadModal, removeLeadFromModal),
+// com o cuidado extra de nunca tratar timeout como prova de rejeição pelo
+// servidor — ver resolveAfterTimeout() logo abaixo pro porquê.
+async function persistLead(l, acao, campos) {
   if (!l) return false;
+  return withLeadQueue(l.id, () => persistLeadQueued(l, acao, campos));
+}
+async function persistLeadQueued(l, acao, campos) {
+  // Snapshot imutável do que está sendo enviado agora — usado depois na
+  // checagem, pra nunca comparar contra um `l` que já mudou nesse meio-tempo
+  // (ex. outra ação no mesmo lead enquanto esta gravação ainda não voltou).
+  const enviado = leadJsToRow(l);
+  // Promise.resolve(...) resolve a promise do supabase-js (que é "lazy": só
+  // dispara a requisição de verdade na primeira vez que alguém a observa)
+  // uma única vez aqui — evita que observá-la de novo mais adiante (pra
+  // conferir a resposta original) dispare uma segunda gravação por engano.
+  const originalPromise = Promise.resolve(sb.from('lead').upsert(enviado, { onConflict: 'id' }));
+  // Resolve (nunca rejeita) quando originalPromise terminar de verdade,
+  // sucesso ou erro — é só um sinal de "já terminou", pra withLeadQueue usar.
+  const settled = originalPromise.then(() => {}, () => {});
   try {
-    const { error } = await withTimeout(sb.from('lead').upsert(leadJsToRow(l), { onConflict: 'id' }), 8000, 'persistLead:'+l.id);
+    const { error } = await withTimeout(originalPromise, 8000, 'persistLead:'+l.id);
     if (error) throw error;
-    return true;
+    return { result: true, settled };
   } catch(e) {
+    if (isTimeoutError(e) && campos && campos.length) {
+      const confirmado = await resolveAfterTimeout(
+        originalPromise, () => confirmLeadPersisted(l.id, enviado, campos), 5000
+      );
+      if (confirmado === true) {
+        showToast('✓ "'+(l.name||'lead')+'" foi salvo — só demorou a confirmar.', 'ok');
+        return { result: true, settled };
+      }
+      if (confirmado === false) {
+        console.error('Falha confirmada ao salvar lead no Supabase (apos timeout):', e);
+        showToast('⚠ Falha ao salvar '+(acao||'a alteração')+' de "'+(l.name||'lead')+'" — desfazendo na tela. Tente de novo.', 'err', 7000);
+        return { result: false, settled };
+      }
+      console.warn('Nao foi possivel confirmar se o lead foi salvo (timeout na gravacao e na checagem):', e);
+      showToast('⚠ Não deu pra confirmar se "'+(l.name||'lead')+'" foi salvo — recarregue em instantes pra conferir. Não desfiz a alteração na tela.', 'err', 9000);
+      return { result: 'indefinido', settled };
+    }
     console.error('Falha ao salvar lead no Supabase:', e);
     showToast('⚠ Falha ao salvar '+(acao||'a alteração')+' de "'+(l.name||'lead')+'" — desfazendo na tela. Tente de novo.', 'err', 7000);
-    return false;
+    return { result: false, settled };
   }
 }
-async function deleteLeadRow(id, nome) {
+// Depois de um timeout de interface, a chamada original pode muito bem
+// ainda estar em andamento — withTimeout() nunca a cancela, só paramos de
+// esperar por ela. Essa função dá a ela a chance de responder, mesmo que
+// uma checagem de leitura mais rápida já tenha voltado com um resultado
+// negativo/indefinido: uma espera finita que expira aqui NUNCA é tratada
+// como prova de que a original não vai mais responder (por isso só
+// confirmamos 'false' quando a PRÓPRIA original relatar erro — nunca só
+// porque uma leitura de verificação, que pode estar correndo contra ela,
+// não bateu). Isso também cobre o caso simétrico de exclusão: "a linha
+// ainda existe" também pode ser só a exclusão original ainda não ter
+// commitado, não prova por si só que ela falhou.
+async function resolveAfterTimeout(originalPromise, verify, graceMs) {
+  const originalOutcome = originalPromise.then(res => !res.error).catch(() => false);
+  const verifyResult = await verify(); // true | false | null
+  if (verifyResult === true) return true; // prova positiva direta, sem corrida possível
+  // verifyResult é false ou null — pode ser corrida com a original ainda
+  // pendente. Dá uma folga curta só pra ela, e deixa ELA decidir se responder.
+  const semResposta = Symbol();
+  const vencedor = await Promise.race([
+    originalOutcome,
+    new Promise(resolve => setTimeout(() => resolve(semResposta), graceMs))
+  ]);
+  if (vencedor !== semResposta) return vencedor; // a original respondeu dentro da folga — ela manda
+  return 'indefinido'; // a folga expirou sem resposta da original — nunca vira falha confirmada só por isso
+}
+// Só é chamada depois de um TIMEOUT na gravação (nunca depois de um erro
+// explícito do Supabase, que já é falha confirmada por si só). Nunca
+// escreve em leads[] — só lê e compara os campos que essa operação
+// específica tentou mudar (não a linha inteira, e não relido de `l` — usa
+// o snapshot `enviado` congelado em persistLead), pra reduzir o risco de
+// falso negativo por outra edição concorrente em OUTRO campo do mesmo lead.
+async function confirmLeadPersisted(leadId, enviado, campos) {
   try {
-    const { error } = await withTimeout(sb.from('lead').delete().eq('id', id), 8000, 'deleteLeadRow:'+id);
+    const { data, error } = await withTimeout(
+      sb.from('lead').select('*').eq('id', leadId).maybeSingle(), 8000, 'confirmLeadPersisted:'+leadId
+    );
+    if (error || !data) return null; // nada confirmado
+    return campos.every(k => jsonEqual(data[k], enviado[k]));
+  } catch(e) { return null; }
+}
+async function deleteLeadRow(id, nome) {
+  return withLeadQueue(id, () => deleteLeadRowQueued(id, nome));
+}
+async function deleteLeadRowQueued(id, nome) {
+  const originalPromise = Promise.resolve(sb.from('lead').delete().eq('id', id)); // ver nota em persistLead sobre Promise.resolve
+  const settled = originalPromise.then(() => {}, () => {}); // ver nota em persistLeadQueued
+  try {
+    const { error } = await withTimeout(originalPromise, 8000, 'deleteLeadRow:'+id);
     if (error) throw error;
-    return true;
+    return { result: true, settled };
   } catch(e) {
+    if (isTimeoutError(e)) {
+      const confirmado = await resolveAfterTimeout(
+        originalPromise, () => confirmLeadDeleted(id), 5000
+      );
+      if (confirmado === true) {
+        // só chega aqui se a PRÓPRIA exclusão original respondeu com
+        // sucesso dentro da folga (confirmLeadDeleted nunca retorna true
+        // sozinho) — é a resposta direta da operação, não uma inferência.
+        showToast('✓ "'+(nome||'lead')+'" foi excluído — só demorou a confirmar.', 'ok');
+        return { result: true, settled };
+      }
+      if (confirmado === false) {
+        console.error('Falha confirmada ao apagar lead no Supabase (apos timeout):', e);
+        showToast('⚠ Falha ao excluir "'+(nome||'lead')+'" — restaurando na tela. Tente de novo.', 'err', 7000);
+        return { result: false, settled };
+      }
+      // confirmado === 'indefinido': tanto "ausência de linha" quanto "a
+      // linha ainda existe mas a original pode só estar pendente" já foram
+      // tratados dentro de resolveAfterTimeout — aqui só sobra o caso em
+      // que nada pôde ser confirmado nos dois sentidos.
+      console.warn('Nao foi possivel confirmar se o lead foi excluido (timeout na exclusao e na checagem):', e);
+      showToast('⚠ Não deu pra confirmar se "'+(nome||'lead')+'" foi excluído — recarregue em instantes pra conferir. Não restaurei na tela.', 'err', 9000);
+      return { result: 'indefinido', settled };
+    }
     console.error('Falha ao apagar lead no Supabase:', e);
     showToast('⚠ Falha ao excluir "'+(nome||'lead')+'" — restaurando na tela. Tente de novo.', 'err', 7000);
-    return false;
+    return { result: false, settled };
   }
+}
+// Só confirma a NEGATIVA (a linha ainda existe = falha real, decidido só
+// depois da folga de resolveAfterTimeout). Nunca confirma a exclusão em si
+// só pela ausência da linha — isso seria presumir que a leitura não está
+// sendo limitada por RLS ou por alguma falha de leitura, o que não dá pra
+// garantir.
+async function confirmLeadDeleted(id) {
+  try {
+    const { data, error } = await withTimeout(
+      sb.from('lead').select('id').eq('id', id).maybeSingle(), 8000, 'confirmLeadDeleted:'+id
+    );
+    if (error) return null;
+    if (data) return false;
+    return null;
+  } catch(e) { return null; }
 }
 
 // Badge de prioridade reutilizável — adiciona "?" quando a classificação
@@ -4681,8 +4850,8 @@ async function setLeadStage(l, stage){
   l.stage = stage;
   l.stageChangedAt = new Date().toISOString();
   renderFunil();
-  const ok = await persistLead(l, 'a etapa');
-  if (!ok) {
+  const ok = await persistLead(l, 'a etapa', ['estagio', 'perdido_de_estagio']);
+  if (ok === false) {
     l.stage = prevStage;
     l.stageChangedAt = prevStageChangedAt;
     l.lostFromStage = prevLostFromStage;
@@ -4723,8 +4892,8 @@ async function quickCheckLead(ev, id){
   const prevChecklist = { ...l.checklist };
   l.checklist[next.id] = true;
   renderFunil();
-  const ok = await persistLead(l, 'o checklist');
-  if (!ok) {
+  const ok = await persistLead(l, 'o checklist', ['checklist']);
+  if (ok === false) {
     l.checklist = prevChecklist;
     renderFunil();
   }
@@ -5285,9 +5454,9 @@ async function addLeadNextStep(leadId) {
     const prevNextStep = leads[idx].nextStep;
     leads[idx].nextStep = text;
     renderFunil();
-    const ok = await persistLead(leads[idx], 'o próximo passo');
-    if (!ok) { leads[idx].nextStep = prevNextStep; renderFunil(); }
-    else showToast('Próximo passo registrado', 'ok');
+    const ok = await persistLead(leads[idx], 'o próximo passo', ['proximo_passo']);
+    if (ok === false) { leads[idx].nextStep = prevNextStep; renderFunil(); }
+    else if (ok === true) showToast('Próximo passo registrado', 'ok');
   }
 }
 
@@ -5403,8 +5572,8 @@ async function saveLeadModal(){
   const _justWon = stage==='won' && _prevStageForAutomation!=='won';
   closeLeadModal();
   renderFunil();
-  const ok = await persistLead(savedLead, isNew ? 'o cadastro' : 'a edição');
-  if (!ok) {
+  const ok = await persistLead(savedLead, isNew ? 'o cadastro' : 'a edição', Object.keys(leadJsToRow(savedLead)));
+  if (ok === false) {
     const idx2 = leads.findIndex(l=>l.id===savedLeadId);
     if (isNew) {
       if (idx2>-1) leads.splice(idx2,1); // remove o registro otimista que nunca chegou a existir no servidor
@@ -5414,8 +5583,9 @@ async function saveLeadModal(){
     renderFunil();
     return;
   }
-  // Automação: lead fechado → oferecer criar cliente (item 17)
-  if(_justWon && savedLead){
+  // Automação: lead fechado → oferecer criar cliente (item 17) — só com
+  // sucesso confirmado (ok===true); em 'indefinido' não presumimos nada.
+  if(ok === true && _justWon && savedLead){
     setTimeout(()=>offerCreateClientFromLead(savedLead),200);
   }
 }
@@ -5430,7 +5600,7 @@ async function removeLeadFromModal(){
   closeLeadModal();
   renderFunil();
   const ok = await deleteLeadRow(id, removed.name);
-  if (!ok) {
+  if (ok === false) {
     const insertAt = Math.min(idx, leads.length);
     leads.splice(insertAt, 0, removed); // restaura na posição original
     renderFunil();
