@@ -4397,23 +4397,32 @@ async function loadLeads() {
     leads = (data||[]).map((r,i)=>normalizeLead(leadRowToJs(r), i));
   } catch(e) { console.warn('Erro ao carregar leads:', e); }
 }
-async function persistLead(l) {
-  if (!l) return;
+// Retornam true/false (em vez de void) pra quem chama saber se precisa
+// desfazer a atualização otimista que já tinha feito em leads[] antes de
+// persistir — mesmo padrão de rollback que setTarefaStatus() já usa pra
+// tarefa, agora replicado pro lead (ver chamadores: setLeadStage,
+// quickCheckLead, addLeadNextStep, saveLeadModal, removeLeadFromModal).
+async function persistLead(l, acao) {
+  if (!l) return false;
   try {
     const { error } = await withTimeout(sb.from('lead').upsert(leadJsToRow(l), { onConflict: 'id' }), 8000, 'persistLead:'+l.id);
     if (error) throw error;
+    return true;
   } catch(e) {
     console.error('Falha ao salvar lead no Supabase:', e);
-    showToast('⚠ Não foi possível salvar este lead no servidor. Tente de novo.', 'err', 7000);
+    showToast('⚠ Falha ao salvar '+(acao||'a alteração')+' de "'+(l.name||'lead')+'" — desfazendo na tela. Tente de novo.', 'err', 7000);
+    return false;
   }
 }
-async function deleteLeadRow(id) {
+async function deleteLeadRow(id, nome) {
   try {
     const { error } = await withTimeout(sb.from('lead').delete().eq('id', id), 8000, 'deleteLeadRow:'+id);
     if (error) throw error;
+    return true;
   } catch(e) {
     console.error('Falha ao apagar lead no Supabase:', e);
-    showToast('⚠ Não foi possível apagar este lead no servidor. Tente de novo.', 'err', 7000);
+    showToast('⚠ Falha ao excluir "'+(nome||'lead')+'" — restaurando na tela. Tente de novo.', 'err', 7000);
+    return false;
   }
 }
 
@@ -4651,7 +4660,7 @@ function dragLeadStart(ev, id){ draggingLeadId = id; try{ ev.dataTransfer.effect
 // Lógica de mudança de estágio compartilhada entre o drag-and-drop e o
 // botão rápido "▶ Avançar" do card (item 3 das ações 1-clique) — evita
 // duplicar a regra do motivo de perda e do gatilho de criar cliente ao ganhar.
-function setLeadStage(l, stage){
+async function setLeadStage(l, stage){
   if(!l || l.stage===stage) return false;
   if(stage==='lost' && !l.lostReason){
     // motivo de perda agora é categorizado (vira relatório) — em vez do
@@ -4666,11 +4675,20 @@ function setLeadStage(l, stage){
     return false;
   }
   const prevStage = l.stage;
+  const prevStageChangedAt = l.stageChangedAt;
+  const prevLostFromStage = l.lostFromStage;
   if(stage==='lost') l.lostFromStage = prevStage;
   l.stage = stage;
   l.stageChangedAt = new Date().toISOString();
-  persistLead(l);
   renderFunil();
+  const ok = await persistLead(l, 'a etapa');
+  if (!ok) {
+    l.stage = prevStage;
+    l.stageChangedAt = prevStageChangedAt;
+    l.lostFromStage = prevLostFromStage;
+    renderFunil();
+    return false;
+  }
   if(stage==='won' && prevStage!=='won'){
     setTimeout(()=>offerCreateClientFromLead(l),200);
   }
@@ -4695,16 +4713,21 @@ function advanceLeadStage(ev, id){
   setLeadStage(l, STAGE_ORDER[idx+1]);
 }
 // Marca a próxima atividade pendente do checklist sem abrir o modal.
-function quickCheckLead(ev, id){
+async function quickCheckLead(ev, id){
   ev.stopPropagation();
   const l = getLeadById(id);
   if(!l) return;
   if(!l.checklist) l.checklist = {};
   const next = LEAD_CHECKS.find(c=>!l.checklist[c.id]);
   if(!next) return;
+  const prevChecklist = { ...l.checklist };
   l.checklist[next.id] = true;
-  persistLead(l);
   renderFunil();
+  const ok = await persistLead(l, 'o checklist');
+  if (!ok) {
+    l.checklist = prevChecklist;
+    renderFunil();
+  }
 }
 
 function renderFunil(){
@@ -5247,7 +5270,7 @@ function buildLeadNextStepLog(leadId) {
       '<button class="dem-comment-send" type="button" onclick="addLeadNextStep(\''+escAttr(leadId)+'\')">➤</button>'+
     '</div>';
 }
-function addLeadNextStep(leadId) {
+async function addLeadNextStep(leadId) {
   const input = document.getElementById('ml_ns_input');
   const text = (input.value||'').trim();
   if (!text) return;
@@ -5255,11 +5278,17 @@ function addLeadNextStep(leadId) {
   if (!commentsData[key]) commentsData[key] = [];
   commentsData[key].push({ id:'c_'+Date.now(), ts:new Date().toISOString(), text, author:getCurrentOperator() });
   save('cb3_comments', commentsData);
-  const idx = leads.findIndex(l=>l.id===leadId);
-  if (idx>-1) { leads[idx].nextStep = text; persistLead(leads[idx]); renderFunil(); }
   input.value = '';
   buildLeadNextStepLog(leadId);
-  showToast('Próximo passo registrado', 'ok');
+  const idx = leads.findIndex(l=>l.id===leadId);
+  if (idx>-1) {
+    const prevNextStep = leads[idx].nextStep;
+    leads[idx].nextStep = text;
+    renderFunil();
+    const ok = await persistLead(leads[idx], 'o próximo passo');
+    if (!ok) { leads[idx].nextStep = prevNextStep; renderFunil(); }
+    else showToast('Próximo passo registrado', 'ok');
+  }
 }
 
 // Histórico de follow-ups realizados — pedido do usuário pra conseguir ver
@@ -5301,7 +5330,7 @@ function addLeadFollowUp(leadId) {
   showToast('Follow-up registrado', 'ok');
 }
 
-function saveLeadModal(){
+async function saveLeadModal(){
   const name = (document.getElementById('ml_name').value||'').trim();
   if(!name){ flagRequiredField(document.getElementById('ml_name'), 'Preencha o nome do lead antes de salvar.'); return; }
   const stage = document.getElementById('ml_stage').value;
@@ -5332,15 +5361,17 @@ function saveLeadModal(){
   // Salvar o modal com uma prioridade visível conta como confirmação humana
   // dela — some o selo "sugerida" (ver prioritySource em normalizeLead).
   const prioritySource = priority ? 'manual' : '';
+  let isNew = false;
+  let prevLead = null; // snapshot completo pra restaurar em edição se a gravação falhar
   if(editingLeadId){
     const idx = leads.findIndex(l=>l.id===editingLeadId);
     if(idx>-1){
-      const prev = leads[idx];
-      const stageChanged = prev.stage !== stage;
-      const lostFromStage = (stage==='lost' && prev.stage!=='lost') ? prev.stage : prev.lostFromStage;
-      leads[idx] = { ...prev, name, stage, valor, origem, tipo, resp, firstContact, dor, followUpDate, priority, prioritySource, lostReason, lostDetail, lostFromStage, checklist, reciprocidade,
-        nextStep: nextStep!==undefined ? nextStep : prev.nextStep,
-        stageChangedAt: stageChanged ? new Date().toISOString() : (prev.stageChangedAt||prev.createdAt||new Date().toISOString())
+      prevLead = leads[idx];
+      const stageChanged = prevLead.stage !== stage;
+      const lostFromStage = (stage==='lost' && prevLead.stage!=='lost') ? prevLead.stage : prevLead.lostFromStage;
+      leads[idx] = { ...prevLead, name, stage, valor, origem, tipo, resp, firstContact, dor, followUpDate, priority, prioritySource, lostReason, lostDetail, lostFromStage, checklist, reciprocidade,
+        nextStep: nextStep!==undefined ? nextStep : prevLead.nextStep,
+        stageChangedAt: stageChanged ? new Date().toISOString() : (prevLead.stageChangedAt||prevLead.createdAt||new Date().toISOString())
       };
       // Achado real: quem atualiza o follow-up pelo jeito mais óbvio (mexer
       // na data "Follow-up em" aqui em cima e clicar Salvar) esperava ver o
@@ -5348,7 +5379,10 @@ function saveLeadModal(){
       // histórico (recolhida, pouco óbvia) contava como follow-up feito pra
       // essa conta. Agora mudar a data por aqui TAMBÉM registra no histórico
       // e conta pra ordenação, sem precisar abrir a caixa.
-      if (followUpDate !== prev.followUpDate) {
+      // Nota: esse registro de histórico não é desfeito se a gravação do
+      // lead falhar logo abaixo — é um log à parte (cb3_comments), fora do
+      // escopo desta correção (ver auditoria de 25/11/2026).
+      if (followUpDate !== prevLead.followUpDate) {
         const fuKey = 'fu_'+String(editingLeadId);
         if (!commentsData[fuKey]) commentsData[fuKey] = [];
         commentsData[fuKey].push({
@@ -5359,28 +5393,48 @@ function saveLeadModal(){
       }
     }
   } else {
+    isNew = true;
     const now = new Date().toISOString();
     const lostFromStage = stage==='lost' ? 'prosp' : '';
     leads.unshift({ id:'l_'+Date.now(), name, stage, valor, origem, tipo, resp, firstContact, dor, nextStep, followUpDate, priority, prioritySource, lostReason, lostDetail, lostFromStage, checklist, reciprocidade, createdAt:now, stageChangedAt:now });
   }
-  // Automação: lead fechado → oferecer criar cliente (item 17)
-  const savedLead = editingLeadId ? leads.find(l=>l.id===editingLeadId) : leads[0];
-  persistLead(savedLead);
+  const savedLeadId = editingLeadId || leads[0].id;
+  const savedLead = leads.find(l=>l.id===savedLeadId);
   const _justWon = stage==='won' && _prevStageForAutomation!=='won';
   closeLeadModal();
   renderFunil();
+  const ok = await persistLead(savedLead, isNew ? 'o cadastro' : 'a edição');
+  if (!ok) {
+    const idx2 = leads.findIndex(l=>l.id===savedLeadId);
+    if (isNew) {
+      if (idx2>-1) leads.splice(idx2,1); // remove o registro otimista que nunca chegou a existir no servidor
+    } else if (prevLead && idx2>-1) {
+      leads[idx2] = prevLead; // restaura o objeto completo anterior
+    }
+    renderFunil();
+    return;
+  }
+  // Automação: lead fechado → oferecer criar cliente (item 17)
   if(_justWon && savedLead){
     setTimeout(()=>offerCreateClientFromLead(savedLead),200);
   }
 }
 
-function removeLeadFromModal(){
+async function removeLeadFromModal(){
   if(!editingLeadId) return;
   const id = editingLeadId;
+  const idx = leads.findIndex(l=>l.id===id);
+  if(idx<0) return;
+  const removed = leads[idx];
   leads = leads.filter(l=>l.id!==id);
-  deleteLeadRow(id);
   closeLeadModal();
   renderFunil();
+  const ok = await deleteLeadRow(id, removed.name);
+  if (!ok) {
+    const insertAt = Math.min(idx, leads.length);
+    leads.splice(insertAt, 0, removed); // restaura na posição original
+    renderFunil();
+  }
 }
 
 function closeLeadModal(){
