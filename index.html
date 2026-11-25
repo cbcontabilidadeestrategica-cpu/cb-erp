@@ -4858,10 +4858,10 @@ async function setLeadStage(l, stage){
     renderFunil();
     return false;
   }
-  if(stage==='won' && prevStage!=='won'){
+  if(ok === true && stage==='won' && prevStage!=='won'){
     setTimeout(()=>offerCreateClientFromLead(l),200);
   }
-  return true;
+  return ok; // true ou 'indefinido', preservado fielmente — nunca mais mascarado
 }
 function dropLeadOnStage(ev, stage){
   ev.preventDefault();
